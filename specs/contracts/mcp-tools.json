@@ -1,0 +1,147 @@
+{
+  "$comment": "Схемы MCP-инструментов. Каждый MCP-сервер — мок корпоративного сервиса Авито. user_id НЕ является аргументом: сервер берёт пользователя из заголовка X-User-Context и сам проверяет права. Все ответы с ошибкой: {\"error\": {\"code\": \"forbidden|not_found|validation|unavailable\", \"message\": \"...\"}}",
+  "servers": {
+    "absence": {
+      "description": "Мок системы отсутствий",
+      "tools": [
+        {
+          "name": "absence_get_policy",
+          "description": "Вернуть ТЕСТОВЫЕ правила оформления отгула/отпуска для команды пользователя",
+          "inputSchema": {
+            "type": "object",
+            "properties": { "kind": { "type": "string", "enum": ["day_off", "vacation", "sick_leave"] } },
+            "required": ["kind"]
+          },
+          "outputSchema": {
+            "type": "object",
+            "properties": {
+              "kind": { "type": "string" },
+              "steps": { "type": "array", "items": { "type": "string" } },
+              "approver": { "type": "string", "description": "Роль согласующего, например team_lead" },
+              "minNoticeDays": { "type": "integer" },
+              "isTestData": { "type": "boolean", "const": true }
+            }
+          }
+        },
+        {
+          "name": "absence_create_request",
+          "description": "Создать заявку на отсутствие от имени текущего пользователя. Вызывать ТОЛЬКО после явного подтверждения пользователем дат.",
+          "inputSchema": {
+            "type": "object",
+            "properties": {
+              "kind": { "type": "string", "enum": ["day_off", "vacation"] },
+              "dateFrom": { "type": "string", "format": "date" },
+              "dateTo": { "type": "string", "format": "date" },
+              "comment": { "type": "string", "maxLength": 500 }
+            },
+            "required": ["kind", "dateFrom", "dateTo"]
+          },
+          "outputSchema": {
+            "type": "object",
+            "properties": {
+              "requestId": { "type": "string", "example": "ABS-2026-0042" },
+              "status": { "type": "string", "enum": ["pending_approval", "approved", "rejected"] },
+              "approverName": { "type": "string" },
+              "createdAt": { "type": "string", "format": "date-time" }
+            }
+          }
+        },
+        {
+          "name": "absence_get_request",
+          "description": "Статус своей заявки",
+          "inputSchema": { "type": "object", "properties": { "requestId": { "type": "string" } }, "required": ["requestId"] },
+          "outputSchema": { "$ref": "#/servers/absence/tools/1/outputSchema" }
+        }
+      ]
+    },
+    "access": {
+      "description": "Мок системы запроса доступов",
+      "tools": [
+        {
+          "name": "access_list_systems",
+          "description": "Список систем, нужных стажёру его команды, и текущий статус доступа к каждой",
+          "inputSchema": { "type": "object", "properties": {} },
+          "outputSchema": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "systemId": { "type": "string", "example": "gitlab" },
+                "title": { "type": "string" },
+                "status": { "type": "string", "enum": ["granted", "requested", "not_requested"] },
+                "howTo": { "type": "string" }
+              }
+            }
+          }
+        },
+        {
+          "name": "access_request",
+          "description": "Запросить доступ к системе для текущего пользователя",
+          "inputSchema": {
+            "type": "object",
+            "properties": { "systemId": { "type": "string" }, "reason": { "type": "string", "maxLength": 300 } },
+            "required": ["systemId"]
+          },
+          "outputSchema": {
+            "type": "object",
+            "properties": {
+              "ticketId": { "type": "string", "example": "ACC-1187" },
+              "status": { "type": "string", "enum": ["requested", "granted"] },
+              "eta": { "type": "string" }
+            }
+          }
+        }
+      ]
+    },
+    "checklist": {
+      "description": "Мок чек-листа новичка",
+      "tools": [
+        {
+          "name": "checklist_get",
+          "description": "Этапы и шаги адаптации текущего пользователя со статусами",
+          "inputSchema": { "type": "object", "properties": {} },
+          "outputSchema": { "type": "object", "description": "= OnboardingProgress из openapi.yaml" }
+        },
+        {
+          "name": "checklist_update_step",
+          "description": "Изменить статус шага чек-листа",
+          "inputSchema": {
+            "type": "object",
+            "properties": {
+              "stepId": { "type": "string" },
+              "status": { "type": "string", "enum": ["todo", "in_progress", "waiting", "done", "blocked"] }
+            },
+            "required": ["stepId", "status"]
+          },
+          "outputSchema": { "type": "object", "description": "= OnboardingStep из openapi.yaml" }
+        }
+      ]
+    },
+    "kb": {
+      "description": "База знаний команды (тестовые инструкции)",
+      "tools": [
+        {
+          "name": "kb_search",
+          "description": "Поиск по документам, доступным пользователю (его команда + общие). Документы чужих команд с visibility=team не возвращаются.",
+          "inputSchema": {
+            "type": "object",
+            "properties": { "query": { "type": "string" }, "limit": { "type": "integer", "default": 5, "maximum": 10 } },
+            "required": ["query"]
+          },
+          "outputSchema": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "docId": { "type": "string" },
+                "title": { "type": "string" },
+                "snippet": { "type": "string" },
+                "score": { "type": "number" }
+              }
+            }
+          }
+        }
+      ]
+    }
+  }
+}

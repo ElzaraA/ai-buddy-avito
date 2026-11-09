@@ -1,0 +1,281 @@
+openapi: 3.0.3
+info:
+  title: AI-buddy Public API (frontend <-> backend)
+  version: 0.1.0
+  description: |
+    Контракт между frontend и backend (Go).
+    Правило: любое изменение — через PR в этот файл, затем перегенерация клиентов/моков.
+    Все ответы об ошибках — в формате Error.
+servers:
+  - url: http://localhost:8080/api/v1
+
+security:
+  - bearerAuth: []
+
+paths:
+  /auth/login:
+    post:
+      summary: Мок-авторизация по тестовому логину (в Авито авторизация уже есть)
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [login]
+              properties:
+                login: { type: string, example: intern.backend }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [token, user]
+                properties:
+                  token: { type: string }
+                  user: { $ref: '#/components/schemas/User' }
+        '401': { $ref: '#/components/responses/Error' }
+
+  /me:
+    get:
+      summary: Текущий пользователь и его команда
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/User' }
+
+  /onboarding/progress:
+    get:
+      summary: Этапы адаптации стажёра, статусы и следующий шаг
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/OnboardingProgress' }
+
+  /onboarding/steps/{stepId}:
+    patch:
+      summary: Изменить статус шага (стажёр — свои шаги; наставник — шаги своих стажёров)
+      parameters:
+        - { name: stepId, in: path, required: true, schema: { type: string } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [status]
+              properties:
+                status: { $ref: '#/components/schemas/StepStatus' }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/OnboardingStep' }
+        '403': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+
+  /chat/sessions:
+    post:
+      summary: Создать диалог с AI-buddy
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ChatSession' }
+
+  /chat/sessions/{sessionId}/messages:
+    get:
+      summary: История сообщений диалога
+      parameters:
+        - { name: sessionId, in: path, required: true, schema: { type: string } }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/ChatMessage' }
+    post:
+      summary: |
+        Отправить сообщение. Возвращается сразу (202, <1 с),
+        ответ агента приходит через SSE /events — интерфейс не блокируется.
+      parameters:
+        - { name: sessionId, in: path, required: true, schema: { type: string } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [text]
+              properties:
+                text: { type: string, maxLength: 4000 }
+      responses:
+        '202':
+          description: Accepted
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [messageId]
+                properties:
+                  messageId: { type: string }
+
+  /chat/sessions/{sessionId}/events:
+    get:
+      summary: |
+        SSE-поток. Типы событий (поле data — JSON ChatEvent):
+        status (thinking / calling_tool / done / error), token, tool_result, message_done.
+      parameters:
+        - { name: sessionId, in: path, required: true, schema: { type: string } }
+      responses:
+        '200':
+          description: text/event-stream
+          content:
+            text/event-stream:
+              schema: { $ref: '#/components/schemas/ChatEvent' }
+
+  /actions:
+    get:
+      summary: История действий, выполненных помощником через корпоративные сервисы
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/Action' }
+
+components:
+  securitySchemes:
+    bearerAuth: { type: http, scheme: bearer }
+
+  responses:
+    Error:
+      description: Ошибка
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+
+  schemas:
+    Error:
+      type: object
+      required: [code, message]
+      properties:
+        code: { type: string, example: forbidden }
+        message: { type: string }
+
+    Role:
+      type: string
+      enum: [intern, mentor, team_lead, hrbp]
+
+    User:
+      type: object
+      required: [id, name, role, teamId]
+      properties:
+        id: { type: string }
+        name: { type: string }
+        role: { $ref: '#/components/schemas/Role' }
+        teamId: { type: string }
+        mentorId: { type: string, nullable: true }
+        startDate: { type: string, format: date }
+
+    StepStatus:
+      type: string
+      enum: [todo, in_progress, waiting, done, blocked]
+
+    OnboardingStep:
+      type: object
+      required: [id, stageId, title, status]
+      properties:
+        id: { type: string }
+        stageId: { type: string }
+        title: { type: string }
+        description: { type: string }
+        status: { $ref: '#/components/schemas/StepStatus' }
+        dueDate: { type: string, format: date, nullable: true }
+        relatedActionId: { type: string, nullable: true }
+
+    OnboardingStage:
+      type: object
+      required: [id, title, order, steps]
+      properties:
+        id: { type: string }
+        title: { type: string, example: Первая неделя }
+        order: { type: integer }
+        steps:
+          type: array
+          items: { $ref: '#/components/schemas/OnboardingStep' }
+
+    OnboardingProgress:
+      type: object
+      required: [stages, percentDone]
+      properties:
+        stages:
+          type: array
+          items: { $ref: '#/components/schemas/OnboardingStage' }
+        percentDone: { type: number }
+        nextStep: { $ref: '#/components/schemas/OnboardingStep' }
+
+    ChatSession:
+      type: object
+      required: [id, createdAt]
+      properties:
+        id: { type: string }
+        createdAt: { type: string, format: date-time }
+
+    ChatMessage:
+      type: object
+      required: [id, role, text, createdAt]
+      properties:
+        id: { type: string }
+        role: { type: string, enum: [user, assistant] }
+        text: { type: string }
+        sources:
+          type: array
+          description: Ссылки на документы базы знаний, на которых основан ответ
+          items:
+            type: object
+            properties:
+              docId: { type: string }
+              title: { type: string }
+        actionIds:
+          type: array
+          items: { type: string }
+        createdAt: { type: string, format: date-time }
+
+    ChatEvent:
+      type: object
+      required: [type]
+      properties:
+        type: { type: string, enum: [status, token, tool_result, message_done, error] }
+        status: { type: string, enum: [thinking, calling_tool, done, error] }
+        token: { type: string }
+        action: { $ref: '#/components/schemas/Action' }
+        message: { $ref: '#/components/schemas/ChatMessage' }
+        error: { $ref: '#/components/schemas/Error' }
+
+    Action:
+      type: object
+      description: Действие через корпоративный сервис. Считается выполненным, когда сервис вернул результат и он сохранён.
+      required: [id, service, type, status, createdAt]
+      properties:
+        id: { type: string }
+        service: { type: string, enum: [absence, access, checklist] }
+        type: { type: string, example: create_absence_request }
+        status: { type: string, enum: [pending, succeeded, failed] }
+        externalId: { type: string, nullable: true, example: ABS-2026-0042 }
+        summary: { type: string, example: "Заявка на отгул 14.11 создана, ждёт согласования руководителя" }
+        payload: { type: object, additionalProperties: true }
+        createdAt: { type: string, format: date-time }
