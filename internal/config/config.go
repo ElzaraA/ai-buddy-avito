@@ -16,7 +16,7 @@ Addr:       getenv("ADDR", ":8080"),
 LLMBaseURL: getenv("LLM_BASE_URL", "https://api.openai.com/v1"),
 LLMAPIKey:  os.Getenv("LLM_API_KEY"),
 LLMModel:   getenv("LLM_MODEL", "gpt-4o-mini"),
-LLMMock:    getenv("LLM_MOCK", "true") == "true",
+LLMMock:    os.Getenv("LLM_MOCK") == "true",
 }
 }
 
