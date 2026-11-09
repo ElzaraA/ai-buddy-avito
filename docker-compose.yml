@@ -1,44 +1,11 @@
-# Каркас. Каждый сервис дописывает свой Dockerfile; порты зафиксированы здесь, чтобы не было конфликтов.
-services:
-  postgres:
-    image: postgres:16
+﻿services:
+  api:
+    build: .
+    ports:
+      - "8080:8080"
     environment:
-      POSTGRES_USER: buddy
-      POSTGRES_PASSWORD: buddy
-      POSTGRES_DB: buddy
-    ports: ["5432:5432"]
+      - LLM_MOCK=${LLM_MOCK:-true}
+      - LLM_API_KEY=${LLM_API_KEY:-}
+      - LLM_MODEL=${LLM_MODEL:-gpt-4o-mini}
     volumes:
-      - ./specs/contracts/schema.sql:/docker-entrypoint-initdb.d/01_schema.sql:ro
-      - ./data/seed:/docker-entrypoint-initdb.d/seed:ro
-
-  redis:
-    image: redis:7
-    ports: ["6379:6379"]
-
-  mcp-mocks:
-    build: ./mcp-mocks
-    ports: ["8090:8090"]           # /absence /access /checklist /kb
-
-  agent:
-    build: ./agent
-    env_file: .env                 # LLM_PROVIDER, LLM_MODEL, LLM_API_KEY
-    environment:
-      MCP_BASE_URL: http://mcp-mocks:8090
-    ports: ["8070:8070"]
-    depends_on: [mcp-mocks]
-
-  backend:
-    build: ./backend
-    environment:
-      DATABASE_URL: postgres://buddy:buddy@postgres:5432/buddy?sslmode=disable
-      REDIS_URL: redis://redis:6379
-      AGENT_URL: http://agent:8070
-    ports: ["8080:8080"]
-    depends_on: [postgres, redis, agent]
-
-  frontend:
-    build: ./frontend
-    environment:
-      VITE_API_URL: http://localhost:8080/api/v1
-    ports: ["5173:80"]
-    depends_on: [backend]
+      - ./data:/app/data:ro
