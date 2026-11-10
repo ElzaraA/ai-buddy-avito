@@ -1,6 +1,4 @@
-﻿.env
-coverage/
-*.exe
-*.out
-bin/
+.env
 body.json
+*.exe
+bin/
