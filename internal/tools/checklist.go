@@ -7,12 +7,12 @@ import (
 "github.com/ElzaraA/ai-buddy-avito/internal/store"
 )
 
-type ChecklistStatus struct{ S *store.Store }
+type ChecklistGet struct{ S *store.Store }
 
-func (t *ChecklistStatus) Name() string               { return "checklist.status" }
-func (t *ChecklistStatus) RequiredPermission() string { return "checklist.read" }
+func (t *ChecklistGet) Name() string               { return "checklist_get" }
+func (t *ChecklistGet) RequiredPermission() string { return "checklist.read" }
 
-func (t *ChecklistStatus) Run(ctx context.Context, u auth.User, _ map[string]string) (Result, error) {
+func (t *ChecklistGet) Run(ctx context.Context, u auth.User, _ map[string]string) (Result, error) {
 if !auth.Can(u, t.RequiredPermission()) {
 return Result{}, ErrForbidden
 }

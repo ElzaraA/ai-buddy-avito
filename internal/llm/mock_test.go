@@ -25,8 +25,8 @@ t.Fatalf("must refuse: %s", out)
 func TestMockChecklist(t *testing.T) {
 c := MockClient{}
 out, err := c.Complete(context.Background(), []Message{{Role: "user", Content: "чек-лист"}})
-if err != nil || !strings.Contains(out, "checklist.status") {
-t.Fatalf("must call checklist: %s", out)
+if err != nil || !strings.Contains(out, "checklist_get") {
+t.Fatalf("must call checklist_get: %s", out)
 }
 }
 

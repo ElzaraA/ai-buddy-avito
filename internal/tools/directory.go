@@ -7,10 +7,10 @@ import (
 "github.com/ElzaraA/ai-buddy-avito/internal/auth"
 )
 
-type DirectoryFind struct{}
+type DirectoryFindOwner struct{}
 
-func (t *DirectoryFind) Name() string               { return "directory.find_owner" }
-func (t *DirectoryFind) RequiredPermission() string { return "directory.read" }
+func (t *DirectoryFindOwner) Name() string               { return "directory_find_owner" }
+func (t *DirectoryFindOwner) RequiredPermission() string { return "directory.read" }
 
 var owners = map[string]string{
 "доступ":     "Иван Петров (IT Support)",
@@ -19,7 +19,7 @@ var owners = map[string]string{
 "отгул":      "Руководитель команды",
 }
 
-func (t *DirectoryFind) Run(ctx context.Context, u auth.User, args map[string]string) (Result, error) {
+func (t *DirectoryFindOwner) Run(ctx context.Context, u auth.User, args map[string]string) (Result, error) {
 if !auth.Can(u, t.RequiredPermission()) {
 return Result{}, ErrForbidden
 }

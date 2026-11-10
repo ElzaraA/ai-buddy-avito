@@ -9,11 +9,12 @@ import (
 "github.com/ElzaraA/ai-buddy-avito/internal/llm"
 "github.com/ElzaraA/ai-buddy-avito/internal/rag"
 "github.com/ElzaraA/ai-buddy-avito/internal/store"
+"github.com/ElzaraA/ai-buddy-avito/internal/tools"
 )
 
 func TestBuildApp(t *testing.T) {
-chunks := rag.ChunkMarkdown("k.md", "# T\n<!-- stage: week1 team: backend -->\nтекст")
-ag := &agent.Agent{LLM: llm.MockClient{}, Index: rag.NewIndex(chunks)}
+chunks := rag.ChunkMarkdown("k.md", "# T\n<!-- stage: week1 team: backend -->\ntext")
+ag := &agent.Agent{LLM: llm.MockClient{}, Index: rag.NewIndex(chunks), Tools: tools.NewRegistry()}
 st := store.New()
 h := BuildApp(ag, st)
 rr := httptest.NewRecorder()

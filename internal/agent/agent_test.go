@@ -18,10 +18,13 @@ chunks := rag.ChunkMarkdown("k.md", md)
 st := store.New()
 st.SeedChecklist("u1", []store.ChecklistItem{{ID: "1", Title: "a"}})
 reg := tools.NewRegistry()
-reg.Register(&tools.ChecklistStatus{S: st})
-reg.Register(&tools.AbsenceCreate{S: st})
-reg.Register(&tools.DirectoryFind{})
-return &Agent{LLM: llm.MockClient{}, Index: rag.NewIndex(chunks), Tools: reg, Now: func() time.Time { return time.Date(2026, 11, 10, 0, 0, 0, 0, time.UTC) }}
+reg.Register(&tools.ChecklistGet{S: st})
+reg.Register(&tools.AbsenceCreateRequest{S: st})
+reg.Register(&tools.DirectoryFindOwner{})
+return &Agent{
+LLM: llm.MockClient{}, Index: rag.NewIndex(chunks), Tools: reg,
+Now: func() time.Time { return time.Date(2026, 11, 10, 0, 0, 0, 0, time.UTC) },
+}
 }
 
 func TestAskRefusalNoSources(t *testing.T) {

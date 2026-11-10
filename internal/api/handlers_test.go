@@ -2,7 +2,6 @@ package api
 
 import (
 "bytes"
-"context"
 "net/http"
 "net/http/httptest"
 "testing"
@@ -16,12 +15,12 @@ import (
 )
 
 func newHandlers() *Handlers {
-chunks := rag.ChunkMarkdown("k.md", "# Отгул\n<!-- stage: week1 team: backend -->\nПорядок оформления отгула")
+chunks := rag.ChunkMarkdown("k.md", "# Absence\n<!-- stage: week1 team: backend -->\nAbsence rules")
 st := store.New()
 reg := tools.NewRegistry()
-reg.Register(&tools.AbsenceCreate{S: st})
+reg.Register(&tools.AbsenceCreateRequest{S: st})
 ag := &agent.Agent{LLM: llm.MockClient{}, Index: rag.NewIndex(chunks), Tools: reg}
-return &Handlers{Agent: ag}
+return &Handlers{Agent: ag, Store: st}
 }
 
 func TestHealth(t *testing.T) {
@@ -49,7 +48,6 @@ func TestAskUnauthorized(t *testing.T) {
 h := newHandlers()
 rr := httptest.NewRecorder()
 req := httptest.NewRequest(http.MethodPost, "/api/ask", bytes.NewBufferString(`{"question":"x"}`))
-// без WithUser
 h.Ask(rr, req)
 if rr.Code != 401 {
 t.Fatalf("code %d", rr.Code)
@@ -59,7 +57,7 @@ t.Fatalf("code %d", rr.Code)
 func TestAskOK(t *testing.T) {
 h := newHandlers()
 rr := httptest.NewRecorder()
-req := httptest.NewRequest(http.MethodPost, "/api/ask", bytes.NewBufferString(`{"question":"как оформить отгул"}`))
+req := httptest.NewRequest(http.MethodPost, "/api/ask", bytes.NewBufferString(`{"question":"absence"}`))
 req = req.WithContext(auth.WithUser(req.Context(), auth.User{ID: "u1", Role: auth.RoleIntern, TeamID: "backend"}))
 h.Ask(rr, req)
 if rr.Code != 200 {
@@ -73,12 +71,10 @@ r := NewRouter(h)
 if r == nil {
 t.Fatal("router nil")
 }
-// проверяем, что middleware прокидывает пользователя
 rr := httptest.NewRecorder()
 req := httptest.NewRequest(http.MethodGet, "/health", nil)
 r.ServeHTTP(rr, req)
 if rr.Code != 200 {
 t.Fatalf("router code %d", rr.Code)
 }
-_ = context.Background()
 }
