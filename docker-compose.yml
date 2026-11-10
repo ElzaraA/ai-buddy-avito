@@ -9,3 +9,10 @@ services:
       - LLM_MODEL=${LLM_MODEL:-gpt-4o-mini}
     volumes:
       - ./data:/app/data:ro
+
+  frontend:
+    build: ./frontend
+    ports:
+      - "5173:80"
+    depends_on:
+      - api
