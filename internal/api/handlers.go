@@ -40,7 +40,7 @@ return
 }
 if resp.Type == "draft" && resp.Action == "absence" && resp.Args["date_from"] != "" {
 a := h.Store.CreateAbsence(store.Absence{
-ID: fmt.Sprintf("ABS-%d", time.Now().UnixNano()),
+ID: h.Store.NextAbsenceID(),
 UserID: u.ID, DateFrom: resp.Args["date_from"], DateTo: resp.Args["date_to"],
 Reason: resp.Args["reason"], Status: "draft", CreatedAt: time.Now(),
 })
@@ -109,7 +109,7 @@ writeError(w, http.StatusBadRequest, "bad_request", "type=absence and dates requ
 return
 }
 a := h.Store.CreateAbsence(store.Absence{
-ID: fmt.Sprintf("ABS-%d", time.Now().UnixNano()),
+ID: h.Store.NextAbsenceID(),
 UserID: u.ID, DateFrom: body.DateFrom, DateTo: body.DateTo, Reason: body.Reason,
 Status: "draft", CreatedAt: time.Now(),
 })

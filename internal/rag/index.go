@@ -16,6 +16,9 @@ lens   []int
 func tokenize(s string) []string {
 s = strings.ToLower(s)
 return strings.FieldsFunc(s, func(r rune) bool {
+if r == 'ё' {
+return false
+}
 return !(r >= 'a' && r <= 'z') && !(r >= 'а' && r <= 'я') && !(r >= '0' && r <= '9')
 })
 }
@@ -46,20 +49,36 @@ func prefixMatch(a, b string) bool {
 if a == b {
 return true
 }
+ra, rb := []rune(a), []rune(b)
 n := 5
-if len(a) < n {
-n = len(a)
+if len(ra) < n {
+n = len(ra)
 }
-if len(b) < n {
-n = len(b)
+if len(rb) < n {
+n = len(rb)
 }
-if n < 3 {
+if n < 4 {
 return false
 }
-return a[:n] == b[:n]
+return string(ra[:n]) == string(rb[:n])
 }
 
-func (idx *Index) Search(q string, teamID string, k int) []Hit {
+const minScore = 0.5
+
+// allowed — deny-by-default: если у чанка пустой audience — невидим.
+func allowed(c Chunk, role string) bool {
+if len(c.Audience) == 0 {
+return false
+}
+for _, a := range c.Audience {
+if a == role || a == "all" {
+return true
+}
+}
+return false
+}
+
+func (idx *Index) Search(q string, teamID string, role string, k int) []Hit {
 qt := tokenize(q)
 n := float64(len(idx.chunks))
 avg := 0.0
@@ -78,6 +97,9 @@ for i, c := range idx.chunks {
 if teamID != "" && c.TeamID != "" && c.TeamID != teamID {
 continue
 }
+if !allowed(c, role) {
+continue
+}
 score := 0.0
 for _, t := range qt {
 for ct, f := range idx.tf[i] {
@@ -88,7 +110,7 @@ score += idf * (float64(f) * 2.2) / (float64(f) + 1.2*(0.25+0.75*float64(idx.len
 }
 }
 }
-if score > 0 {
+if score >= minScore {
 hits = append(hits, Hit{Chunk: c, Score: score})
 }
 }

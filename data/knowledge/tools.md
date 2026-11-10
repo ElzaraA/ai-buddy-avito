@@ -1,7 +1,18 @@
-> Тестовая инструкция, не регламент Авито.
+# Инструменты команды
 
-# РРЅСЃС‚СЂСѓРјРµРЅС‚С‹ РєРѕРјР°РЅРґС‹
-<!-- stage: week1 team: backend -->
+<!-- stage: week1 team: backend audience: intern,buddy,lead -->
 
 Backend: Go, PostgreSQL, Redis. Frontend: React, TypeScript.
-Р›РѕРіРё Рё РјРµС‚СЂРёРєРё: Grafana. Р—Р°РґР°С‡Рё: Jira. РљРѕРґ: Git.
+Логи и метрики: Grafana. Задачи: Jira. Код: Git.
+
+## Frontend
+
+<!-- stage: week1 team: frontend audience: intern,buddy,lead -->
+
+Frontend-стек: React, TypeScript, TanStack Query, Zustand, Zod.
+
+## Для наставников
+
+<!-- stage: week1 team: backend audience: buddy,lead -->
+
+Наставник проводит 1:1 раз в неделю, проверяет прогресс чек-листа и отвечает на вопросы стажёра.

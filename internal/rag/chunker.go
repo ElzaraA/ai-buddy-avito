@@ -6,11 +6,13 @@ import (
 )
 
 type Chunk struct {
-ID     string
-Source string
-Stage  string
-TeamID string
-Text   string
+ID         string
+Source     string
+Stage      string
+TeamID     string
+Audience   []string
+Text       string
+Disclaimer string
 }
 
 var headerRe = regexp.MustCompile(`^#+\s+(.*)$`)
@@ -42,6 +44,7 @@ continue
 if strings.HasPrefix(ln, "<!--") && strings.Contains(ln, "stage:") {
 cur.Stage = extract(ln, "stage")
 cur.TeamID = extract(ln, "team")
+cur.Audience = splitCSV(extract(ln, "audience"))
 continue
 }
 buf = append(buf, ln)
@@ -56,6 +59,20 @@ if m := re.FindStringSubmatch(s); len(m) == 2 {
 return m[1]
 }
 return ""
+}
+
+func splitCSV(s string) []string {
+if s == "" {
+return nil
+}
+parts := strings.Split(s, ",")
+out := make([]string, 0, len(parts))
+for _, p := range parts {
+if v := strings.TrimSpace(p); v != "" {
+out = append(out, v)
+}
+}
+return out
 }
 
 func itoa(i int) string {

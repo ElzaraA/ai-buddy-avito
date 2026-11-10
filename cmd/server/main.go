@@ -39,6 +39,8 @@ reg := tools.NewRegistry()
 reg.Register(&tools.ChecklistGet{S: st})
 reg.Register(&tools.AbsenceCreateRequest{S: st})
 reg.Register(&tools.DirectoryFindOwner{})
+reg.Register(&tools.AbsenceGetPolicy{})
+reg.Register(&tools.AccessRequest{})
 
 var llmClient llm.Client
 if cfg.LLMMock {

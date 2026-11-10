@@ -7,7 +7,6 @@ import (
 
 "github.com/ElzaraA/ai-buddy-avito/internal/auth"
 "github.com/ElzaraA/ai-buddy-avito/internal/store"
-"github.com/google/uuid"
 )
 
 type AbsenceCreateRequest struct{ S *store.Store }
@@ -27,7 +26,7 @@ if from == "" || to == "" {
 return Result{}, errors.New("dateFrom and dateTo required")
 }
 a := store.Absence{
-ID: uuid.NewString(), UserID: u.ID,
+ID: t.S.NextAbsenceID(), UserID: u.ID,
 DateFrom: from, DateTo: to, Reason: args["reason"],
 Status: "pending", CreatedAt: time.Now(),
 }
@@ -35,6 +34,12 @@ t.S.CreateAbsence(a)
 return Result{
 OK:      true,
 Message: "Заявка на отгул создана и отправлена руководителю",
-Data:    map[string]any{"absence_id": a.ID, "status": a.Status, "dateFrom": from, "dateTo": to},
+Data: map[string]any{
+"absence_id": a.ID, "status": a.Status,
+"dateFrom": from, "dateTo": to,
+"manager_name":         "Мария Сидорова",
+"buddy_name":           "Иван Петров",
+"suggest_notify_buddy": true,
+},
 }, nil
 }

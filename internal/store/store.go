@@ -1,6 +1,7 @@
 package store
 
 import (
+"fmt"
 "sync"
 "time"
 )
@@ -27,6 +28,7 @@ type Store struct {
 mu        sync.RWMutex
 absences  map[string]Absence
 checklist map[string][]ChecklistItem
+seq       int64
 }
 
 func New() *Store {
@@ -34,6 +36,13 @@ return &Store{
 absences:  map[string]Absence{},
 checklist: map[string][]ChecklistItem{},
 }
+}
+
+func (s *Store) NextAbsenceID() string {
+s.mu.Lock()
+defer s.mu.Unlock()
+s.seq++
+return fmt.Sprintf("ABS-%06d", s.seq)
 }
 
 func (s *Store) CreateAbsence(a Absence) Absence {
@@ -65,8 +74,6 @@ defer s.mu.RUnlock()
 return s.checklist[userID]
 }
 
-// MarkDoneOwned возвращает (found, owned). found=true — шаг существует у кого-то,
-// owned=true — он принадлежит userID и отмечен.
 func (s *Store) MarkDoneOwned(userID, itemID string) (found, owned bool) {
 s.mu.Lock()
 defer s.mu.Unlock()
