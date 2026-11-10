@@ -11,12 +11,14 @@ LLMMock    bool
 }
 
 func Load() Config {
+apiKey := os.Getenv("LLM_API_KEY")
+mock := os.Getenv("LLM_MOCK") == "true" || apiKey == ""
 return Config{
 Addr:       getenv("ADDR", ":8080"),
 LLMBaseURL: getenv("LLM_BASE_URL", "https://api.openai.com/v1"),
-LLMAPIKey:  os.Getenv("LLM_API_KEY"),
+LLMAPIKey:  apiKey,
 LLMModel:   getenv("LLM_MODEL", "gpt-4o-mini"),
-LLMMock:    os.Getenv("LLM_MOCK") == "true",
+LLMMock:    mock,
 }
 }
 

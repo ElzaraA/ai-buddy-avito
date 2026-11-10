@@ -15,6 +15,7 @@ import (
 )
 
 func main() {
+config.LoadDotEnv(".env")
 cfg := config.Load()
 
 chunks, err := rag.LoadDir("data/knowledge")
@@ -38,11 +39,13 @@ reg.Register(&tools.DirectoryFind{})
 
 var llmClient llm.Client
 if cfg.LLMMock {
+log.Println("LLM mode: mock")
 llmClient = llm.MockClient{}
 } else {
+log.Println("LLM mode: real, model=", cfg.LLMModel)
 llmClient = &llm.OpenAIClient{
 BaseURL: cfg.LLMBaseURL, APIKey: cfg.LLMAPIKey, Model: cfg.LLMModel,
-HTTP: &http.Client{Timeout: 30 * time.Second},
+HTTP: &http.Client{Timeout: 60 * time.Second},
 }
 }
 
