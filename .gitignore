@@ -3,3 +3,4 @@ coverage/
 *.exe
 *.out
 bin/
+body.json

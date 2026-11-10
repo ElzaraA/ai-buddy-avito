@@ -1,4 +1,4 @@
-﻿# Инструменты команды
+# Инструменты команды
 <!-- stage: week1 team: backend -->
 
 Backend: Go, PostgreSQL, Redis. Frontend: React, TypeScript.

@@ -1,4 +1,4 @@
-﻿package rag
+package rag
 
 import (
 "math"
@@ -42,6 +42,23 @@ Chunk Chunk
 Score float64
 }
 
+func prefixMatch(a, b string) bool {
+if a == b {
+return true
+}
+n := 5
+if len(a) < n {
+n = len(a)
+}
+if len(b) < n {
+n = len(b)
+}
+if n < 3 {
+return false
+}
+return a[:n] == b[:n]
+}
+
 func (idx *Index) Search(q string, teamID string, k int) []Hit {
 qt := tokenize(q)
 n := float64(len(idx.chunks))
@@ -63,13 +80,13 @@ continue
 }
 score := 0.0
 for _, t := range qt {
-f := float64(idx.tf[i][t])
-if f == 0 {
-continue
-}
-df := float64(idx.df[t])
+for ct, f := range idx.tf[i] {
+if prefixMatch(t, ct) {
+df := float64(idx.df[ct])
 idf := math.Log(1 + (n-df+0.5)/(df+0.5))
-score += idf * (f * 2.2) / (f + 1.2*(0.25+0.75*float64(idx.lens[i])/avg))
+score += idf * (float64(f) * 2.2) / (float64(f) + 1.2*(0.25+0.75*float64(idx.lens[i])/avg))
+}
+}
 }
 if score > 0 {
 hits = append(hits, Hit{Chunk: c, Score: score})

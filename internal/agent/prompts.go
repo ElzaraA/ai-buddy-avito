@@ -1,4 +1,4 @@
-﻿package agent
+package agent
 
 const SystemPrompt = `Ты — AI-buddy, помощник стажёра Авито (Backend-команда).
 Правила:
