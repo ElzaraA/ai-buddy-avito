@@ -53,8 +53,7 @@ HTTP: &http.Client{Timeout: 60 * time.Second},
 }
 
 ag := &agent.Agent{LLM: llmClient, Index: idx, Tools: reg, Now: time.Now}
-h := &api.Handlers{Agent: ag, Store: st}
 
 log.Println("listening on", cfg.Addr)
-log.Fatal(http.ListenAndServe(cfg.Addr, api.NewRouter(h)))
+log.Fatal(http.ListenAndServe(cfg.Addr, api.BuildApp(ag, st)))
 }

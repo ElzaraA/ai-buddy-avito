@@ -1,5 +1,7 @@
-# Инструменты команды
+> Тестовая инструкция, не регламент Авито.
+
+# РРЅСЃС‚СЂСѓРјРµРЅС‚С‹ РєРѕРјР°РЅРґС‹
 <!-- stage: week1 team: backend -->
 
 Backend: Go, PostgreSQL, Redis. Frontend: React, TypeScript.
-Логи и метрики: Grafana. Задачи: Jira. Код: Git.
+Р›РѕРіРё Рё РјРµС‚СЂРёРєРё: Grafana. Р—Р°РґР°С‡Рё: Jira. РљРѕРґ: Git.

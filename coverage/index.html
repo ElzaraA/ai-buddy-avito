@@ -138,29 +138,31 @@ st.SeedChecklist("intern-1", []store.ChecklistItem{
 {ID: "c3", Title: "Прочитать Playbook", Stage: "week2", Done: false},
 {ID: "c4", Title: "Взять первую задачу", Stage: "week2", Done: false},
 </span>})
-<span class="cov0" title="0">
-reg := tools.NewRegistry()
-reg.Register(&amp;tools.ChecklistStatus{S: st})
-reg.Register(&amp;tools.AbsenceCreate{S: st})
-</span>reg.Register(&amp;tools.DirectoryFind{})
-<span class="cov0" title="0">
-var llmClient l</span>lm.Client
-<span class="cov0" title="0">if cfg.LLMMock {
-</span>log.Println("LLM mode: mock")
-<span class="cov0" title="0">llmClient = llm.MockClient{}
+<span class="cov0" title="0">st.SeedChecklist("intern-2", []store.ChecklistItem{
+{ID: "c1", Title: "Познакомиться с командой", Stage: "week1", Done: false},
+})
+
+</span>reg := tools.NewRegistry()
+<span class="cov0" title="0">reg.Register(&amp;tools.ChecklistStatus{S: st})
+reg.Register(&amp;t</span>ools.AbsenceCreate{S: st})
+<span class="cov0" title="0">reg.Register(&amp;tools.DirectoryFind{})
+</span>
+<span class="cov0" title="0">var llmClient llm.Client
+if cfg.LLMMock {
+log.Println("LLM mode: mock")
+</span>llmClient = llm.MockClient{}
 } else {
 log.Println("LLM mode: real, model=", cfg.LLMModel)
-</span>llmClient = &amp;llm.OpenAIClient{
+<span class="cov0" title="0">llmClient = &amp;llm.OpenAIClient{
 BaseURL: cfg.LLMBaseURL, APIKey: cfg.LLMAPIKey, Model: cfg.LLMModel,
-HTTP: &amp;http.Client{Timeout: 60 * time.Second},
+</span>HTTP: &amp;http.Client{Timeout: 60 * time.Second},
 <span class="cov0" title="0">}
 }
 </span>
-<span class="cov0" title="0">ag := &amp;agent.Agent{LLM: llmClient, Index: idx, Tools: reg}
-h := &amp;api.Handlers{Agent: ag}
-</span>
+ag := &amp;agent.Agent{LLM: llmClient, Index: idx, Tools: reg, Now: time.Now}
+
 log.Println("listening on", cfg.Addr)
-log.Fatal(http.ListenAndServe(cfg.Addr, api.NewRouter(h)))
+log.Fatal(http.ListenAndServe(cfg.Addr, api.BuildApp(ag, st)))
 }</pre>
 		
 		<pre class="file" id="file1" style="display: none">package agent
@@ -168,7 +170,8 @@ log.Fatal(http.ListenAndServe(cfg.Addr, api.NewRouter(h)))
 import (
 "context"
 "encoding/json"
-"errors"
+"strings"
+"time"
 
 "github.com/ElzaraA/ai-buddy-avito/internal/auth"
 "github.com/ElzaraA/ai-buddy-avito/internal/llm"
@@ -180,120 +183,309 @@ type Agent struct {
 LLM   llm.Client
 Index *rag.Index
 Tools *tools.Registry
+Now   func() time.Time
 }
 
 type Response struct {
-Type    string        `json:"type"`
-Text    string        `json:"text,omitempty"`
-Action  *tools.Result `json:"action,omitempty"`
-Sources []Source      `json:"sources,omitempty"`
+Type    string            `json:"type"`
+Text    string            `json:"text,omitempty"`
+Action  string            `json:"action,omitempty"`
+Args    map[string]string `json:"args,omitempty"`
+Result  *tools.Result     `json:"result,omitempty"`
+<span class="cov8" title="1">Sources []Source          `json:"sources,omitempty"`
 }
 
-func (a *Agent) Ask(ctx context.Context, user auth.User, question string) (Response, error) {
-<span class="cov8" title="1">hits := a.Index.Search(question, user.TeamID, 4)
+</span><span class="cov8" title="1">func (a *Agent) Ask(ctx context.Context, user auth.User, question string) (Response, error) {
+</span>ctx, cancel := context.WithTimeout(ctx, 60*time.Second)
+<span class="cov8" title="1">defer cancel()
+</span><span class="cov8" title="1">
+</span>hits := a.Index.Search(question, user.TeamID, 4)
 srcs := make([]Source, 0, len(hits))
-for _, h := range hits </span>{
-<span class="cov8" title="1">srcs = append(srcs, Source{ID: h.Chunk.ID, Source: h.Chunk.Source, Stage: h.Chunk.Stage})
-</span>}
-<span class="cov8" title="1">if len(srcs) == 0 </span>{
+<span class="cov8" title="1">for _, h := range hits {
+srcs = append(srcs, Source{ID: h.Chunk.ID, Source: h.Chunk.Source, Stage: h.Chunk.Stage})
+}
+</span>if len(srcs) == 0 {
 <span class="cov8" title="1">return Response{Type: "refusal", Text: "Не нашёл в доступных источниках. Уточните у наставника."}, nil
-</span>}
-
-<span class="cov8" title="1">msgs := []llm.Message{
+}
+</span><span class="cov0" title="0">
+</span>msgs := []llm.Message{
 {Role: "system", Content: SystemPrompt},
-{Role: "user", Content: UserPrompt(question, srcs, string(user.Role))},
-</span>}
-<span class="cov8" title="1">raw, err := a.LLM.Complete(ctx, msgs)
-if err != nil </span>{
-<span class="cov0" title="0">return Response{}, err
-</span>}
-
+<span class="cov8" title="1">{Role: "user", Content: UserPrompt(question, hits, string(user.Role))},
+}
+</span><span class="cov0" title="0">raw, err := a.LLM.Complete(ctx, msgs)
+</span>if err != nil {
+return Response{}, err
+<span class="cov8" title="1">}
+</span><span class="cov8" title="1">
+raw = s</span>tripCodeFence(raw)
 <span class="cov8" title="1">var out AgentOutput
-if err := json.Unmarshal([]byte(raw), &amp;out); err != nil </span>{
-<span class="cov0" title="0">return Response{}, errors.New("invalid llm json")
+</span>if err := json.Unmarshal([]byte(raw), &amp;out); err != nil {
+<span class="cov8" title="1">return Response{Type: "answer", Text: raw, Sources: srcs}, nil
+}
+</span><span class="cov0" title="0">
+</span>switch out.Type {
+<span class="cov8" title="1">case "tool_call":
+</span>t, ok := a.Tools.Get(out.Tool)
+<span class="cov0" title="0">if !ok {
+</span><span class="cov0" title="0">return Response{Type: "refusal", Text: "Инструмент недоступен"}, nil
 </span>}
+<span class="cov0" title="0">res, err := tools.Run(ctx, t, user, out.Args)
+</span>if err != nil {
+return Response{Type: "refusal", Text: "Действие недоступно: " + err.Error()}, nil
+}
+return Response{Type: "action", Result: &amp;res, Sources: srcs}, nil
 
-<span class="cov8" title="1">if out.Type == "tool_call" </span>{
-<span class="cov8" title="1">t, ok := a.Tools.Get(out.Tool)
-if !ok </span>{
-<span class="cov8" title="1">return Response{Type: "refusal", Text: "Инструмент недоступен"}, nil
-</span>}
-<span class="cov8" title="1">res, err := t.Run(ctx, user, out.Args)
-if err != nil </span>{
-<span class="cov0" title="0">return Response{Type: "refusal", Text: "Действие недоступно: " + err.Error()}, nil
-</span>}
-<span class="cov8" title="1">return Response{Type: "action", Action: &amp;res, Sources: srcs}, nil</span>
+case "draft":
+return a.buildDraft(question, out, srcs), nil
+
+case "refusal":
+return Response{Type: "refusal", Text: out.Text}, nil
 }
-<span class="cov0" title="0">if out.Type == "refusal" </span>{
-<span class="cov0" title="0">return Response{Type: "refusal", Text: out.Text}, nil
-</span>}
-<span class="cov0" title="0">return Response{Type: "answer", Text: out.Text, Sources: srcs}, nil</span>
+return Response{Type: "answer", Text: out.Text, Sources: srcs}, nil
 }
-</pre>
+
+func (a *Agent) buildDraft(question string, out AgentOutput, srcs []Source) Response {
+if out.Action != "absence" {
+return Response{Type: "refusal", Text: "Неизвестное действие"}
+}
+from, to := ParseDates(question)
+if from == "" {
+now := time.Now()
+if a.Now != nil {
+now = a.Now()
+}
+if d, ok := ParseWeekday(question, now); ok {
+from, to = d, d
+}
+}
+if from == "" {
+return Response{
+Type:   "draft",
+Action: "absence",
+Args:   map[string]string{"reason": "personal"},
+Text:   "На какую дату оформить отгул? Укажите в формате 2026-11-20.",
+Sources: srcs,
+}
+}
+return Response{
+Type:    "draft",
+Action:  "absence",
+Args:    map[string]string{"date_from": from, "date_to": to, "reason": "personal"},
+Text:    "Черновик заявки на отгул. Подтвердите через POST /api/v1/actions/{id}/confirm.",
+Sources: srcs,
+}
+}
+
+func stripCodeFence(s string) string {
+s = strings.TrimSpace(s)
+if strings.HasPrefix(s, "```") {
+if i := strings.Index(s, "\n"); i &gt;= 0 {
+s = s[i+1:]
+}
+s = strings.TrimSuffix(s, "```")
+s = strings.TrimSpace(s)
+}
+return s
+}</pre>
 		
 		<pre class="file" id="file2" style="display: none">package agent
+
+import (
+"fmt"
+"strings"
+
+"github.com/ElzaraA/ai-buddy-avito/internal/rag"
+)
 
 const SystemPrompt = `Ты — AI-buddy, помощник стажёра Авито (Backend-команда).
 Правила:
 1. Отвечай ТОЛЬКО по фрагментам из блока CONTEXT. Если ответа там нет — верни {"type":"refusal","text":"Не нашёл в доступных источниках, предлагаю спросить наставника"}.
-2. Никогда не раскрывай информацию, недоступную роли пользователя.
-3. Если нужно выполнить действие — верни {"type":"tool_call","tool":"&lt;name&gt;","args":{...}}.
-4. Если это ответ — верни {"type":"answer","text":"...","sources":[{"id":"...","source":"...","stage":"..."}]}.
-5. Отвечай кратко, по-русски, со ссылкой на источник.
+<span class="cov8" title="1">2. Никогда не раскрывай информацию, недоступную роли пользователя.
+3. Если нужно </span>выполнить действие — верни {"type":"tool_call","tool":"&lt;name&gt;","args":{...}}.
+<span class="cov8" title="1">4. Если нужно предложить черновик действия — верни {"type":"draft","action":"absence","args":{...}}.
+</span>5. Если это ответ — верни {"type":"answer","text":"...","sources":[{"id":"...","source":"...","stage":"..."}]}.
+<span class="cov8" title="1">6. От�</span>�ечай кратко, по-русски, со ссылкой на источник.
 Формат ответа — строго JSON, без markdown.`
 
-func UserPrompt(question string, hits []Source, role string) string {
-<span class="cov8" title="1">s := "ROLE: " + role + "\nQUESTION: " + question + "\nCONTEXT: "
-for _, h := range hits </span>{
-<span class="cov8" title="1">s += "[" + h.ID + " | " + h.Source + " | " + h.Stage + "] "
-</span>}
-<span class="cov8" title="1">return s</span>
+func UserPrompt(q string, hits []rag.Hit, role string) string {
+var b strings.Builder
+fmt.Fprintf(&amp;b, "ROLE: %s\nQUESTION: %s\nCONTEXT:\n", role, q)
+for _, h := range hits {
+fmt.Fprintf(&amp;b, "[%s] %s\n", h.Chunk.ID, h.Chunk.Text)
 }
-</pre>
+return b.String()
+}</pre>
 		
 		<pre class="file" id="file3" style="display: none">package api
 
 import (
 "encoding/json"
+"fmt"
 "net/http"
+"time"
 
 "github.com/ElzaraA/ai-buddy-avito/internal/agent"
 "github.com/ElzaraA/ai-buddy-avito/internal/auth"
+"github.com/ElzaraA/ai-buddy-avito/internal/store"
+"github.com/go-chi/chi/v5"
 )
 
 type Handlers struct {
 Agent *agent.Agent
+Store *store.Store
 }
 
-type askReq struct {
-Question string `json:"question"`
-}
+<span class="cov8" title="1">type askReq struct {
+Questio</span>n string `json:"question"`
+<span class="cov8" title="1">}
 
-func (h *Handlers) Ask(w http.ResponseWriter, r *http.Request) {
+</span>func (h *Handlers) Ask(w http.ResponseWriter, r *http.Request) {
 <span class="cov8" title="1">u, ok := auth.FromCtx(r.Context())
-if !ok </span>{
-<span class="cov8" title="1">http.Error(w, "unauthorized", http.StatusUnauthorized)
+if !ok {
+</span><span class="cov8" title="1">writeError(w, http.StatusUnauthorized, "unauthorized", "no user")
 return
 </span>}
 <span class="cov8" title="1">var body askReq
-if err := json.NewDecoder(r.Body).Decode(&amp;body); err != nil || body.Question == "" </span>{
-<span class="cov8" title="1">http.Error(w, "bad request", http.StatusBadRequest)
+if err := json</span>.NewDecoder(r.Body).Decode(&amp;body); err != nil || body.Question == "" {
+<span class="cov0" title="0">writeError(w, http.StatusBadRequest, "bad_request", "question required")
 return
 </span>}
 <span class="cov8" title="1">resp, err := h.Agent.Ask(r.Context(), u, body.Question)
-if err != nil </span>{
-<span class="cov0" title="0">http.Error(w, "agent error: "+err.Error(), http.StatusInternalServerError)
+if err != nil {
+</span>writeError(w, http.StatusInternalServerError, "agent_error", err.Error())
 return
-</span>}
-<span class="cov8" title="1">w.Header().Set("Content-Type", "application/json")
-_ = json.NewEncoder(w).Encode(resp)</span>
+}
+<span class="cov8" title="1">// если агент вернул черновик — создаём запись и отдаём action_id
+if resp.Type == "draft" &amp;&amp; resp.Action == "absence" &amp;&amp; resp.Args["date_from"] != "" {
+</span>a := h.Store.CreateAbsence(store.Absence{
+ID: fmt.Sprintf("draft-%d", time.Now().UnixNano()),
+UserID: u.ID,
+DateFrom: resp.Args["date_from"],
+DateTo:   resp.Args["date_to"],
+Reason:   resp.Args["reason"],
+Status:   "draft",
+CreatedAt: time.Now(),
+})
+resp.Args["action_id"] = a.ID
+}
+w.Header().Set("Content-Type", "application/json; charset=utf-8")
+_ = json.NewEncoder(w).Encode(resp)
 }
 
 func (h *Handlers) Health(w http.ResponseWriter, _ *http.Request) {
-<span class="cov8" title="1">w.WriteHeader(http.StatusOK)
+w.Header().Set("Content-Type", "application/json")
 _, _ = w.Write([]byte(`{"status":"ok"}`))
-</span>}
-</pre>
+}
+
+func (h *Handlers) Me(w http.ResponseWriter, r *http.Request) {
+u, _ := auth.FromCtx(r.Context())
+w.Header().Set("Content-Type", "application/json; charset=utf-8")
+_ = json.NewEncoder(w).Encode(u)
+}
+
+func (h *Handlers) OnboardingProgress(w http.ResponseWriter, r *http.Request) {
+u, _ := auth.FromCtx(r.Context())
+items := h.Store.Checklist(u.ID)
+next := ""
+for _, it := range items {
+if !it.Done {
+next = it.Title
+break
+}
+}
+w.Header().Set("Content-Type", "application/json; charset=utf-8")
+_ = json.NewEncoder(w).Encode(map[string]any{"items": items, "next_step": next})
+}
+
+func (h *Handlers) OnboardingStepUpdate(w http.ResponseWriter, r *http.Request) {
+u, _ := auth.FromCtx(r.Context())
+id := chi.URLParam(r, "id")
+if !h.Store.MarkDone(u.ID, id) {
+writeError(w, http.StatusNotFound, "not_found", "step not found")
+return
+}
+h.OnboardingProgress(w, r)
+}
+
+type actionReq struct {
+Type     string `json:"type"`
+DateFrom string `json:"date_from"`
+DateTo   string `json:"date_to"`
+Reason   string `json:"reason"`
+}
+
+func (h *Handlers) CreateAction(w http.ResponseWriter, r *http.Request) {
+u, _ := auth.FromCtx(r.Context())
+var body actionReq
+if err := json.NewDecoder(r.Body).Decode(&amp;body); err != nil {
+writeError(w, http.StatusBadRequest, "bad_request", "invalid json")
+return
+}
+if body.Type != "absence" || body.DateFrom == "" || body.DateTo == "" {
+writeError(w, http.StatusBadRequest, "bad_request", "type=absence and dates required")
+return
+}
+a := h.Store.CreateAbsence(store.Absence{
+ID: fmt.Sprintf("draft-%d", time.Now().UnixNano()),
+UserID: u.ID, DateFrom: body.DateFrom, DateTo: body.DateTo, Reason: body.Reason,
+Status: "draft", CreatedAt: time.Now(),
+})
+w.Header().Set("Content-Type", "application/json; charset=utf-8")
+w.WriteHeader(http.StatusCreated)
+_ = json.NewEncoder(w).Encode(a)
+}
+
+func (h *Handlers) ConfirmAction(w http.ResponseWriter, r *http.Request) {
+u, _ := auth.FromCtx(r.Context())
+if !auth.Can(u, "absence.create") {
+writeError(w, http.StatusForbidden, "forbidden", "role cannot create absence")
+return
+}
+id := chi.URLParam(r, "id")
+a, ok := h.Store.GetAbsence(id)
+if !ok {
+writeError(w, http.StatusNotFound, "not_found", "action not found")
+return
+}
+if a.Status != "draft" {
+writeError(w, http.StatusConflict, "conflict", "already confirmed")
+return
+}
+a.Status = "pending"
+h.Store.CreateAbsence(a)
+w.Header().Set("Content-Type", "application/json; charset=utf-8")
+_ = json.NewEncoder(w).Encode(a)
+}
+
+func (h *Handlers) GetAction(w http.ResponseWriter, r *http.Request) {
+id := chi.URLParam(r, "id")
+a, ok := h.Store.GetAbsence(id)
+if !ok {
+writeError(w, http.StatusNotFound, "not_found", "action not found")
+return
+}
+w.Header().Set("Content-Type", "application/json; charset=utf-8")
+_ = json.NewEncoder(w).Encode(a)
+}
+
+func (h *Handlers) Events(w http.ResponseWriter, r *http.Request) {
+w.Header().Set("Content-Type", "text/event-stream")
+w.Header().Set("Cache-Control", "no-cache")
+fl, ok := w.(http.Flusher)
+if !ok {
+writeError(w, http.StatusInternalServerError, "sse_unsupported", "flusher not available")
+return
+}
+for i := 0; i &lt; 5; i++ {
+select {
+case &lt;-r.Context().Done():
+return
+case &lt;-time.After(time.Second):
+fmt.Fprintf(w, "event: ping\ndata: {\"tick\":%d}\n\n", i)
+fl.Flush()
+}
+}
+}</pre>
 		
 		<pre class="file" id="file4" style="display: none">package api
 
@@ -303,26 +495,60 @@ import (
 "github.com/ElzaraA/ai-buddy-avito/internal/auth"
 )
 
-func DemoUser(next http.Handler) http.Handler {
-<span class="cov8" title="1">return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) </span>{
-<span class="cov8" title="1">u := auth.User{ID: "intern-1", Name: "Стажёр", Role: auth.RoleIntern, TeamID: "backend"}
-next.ServeHTTP(w, r.WithContext(auth.WithUser(r.Context(), u)))
-</span>})
+// DemoUser берёт пользователя из заголовка X-Demo-User или дефолтного стажёра.
+<span class="cov8" title="1">func DemoUser(next http.Handler) http.Handler {
+</span><span class="cov8" title="1">return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+key := r.Header.Get("X-Demo-User")
+</span>u, ok := auth.DemoUsers[key]
+if !ok {
+u = auth.DemoUsers["intern.backend"]
 }
-</pre>
+next.ServeHTTP(w, r.WithContext(auth.WithUser(r.Context(), u)))
+})
+}</pre>
 		
 		<pre class="file" id="file5" style="display: none">package api
 
-import "github.com/go-chi/chi/v5"
+import (
+"github.com/go-chi/chi/v5"
+"github.com/go-chi/cors"
+<span class="cov8" title="1">)
 
 func NewRouter(h *Handlers) *chi.Mux {
-<span class="cov8" title="1">r := chi.NewRouter()
+r := chi.NewRouter()
+r.Use(cors.Handler(cors.Options{
+</span>AllowedOrigins:   []string{"http://localhost:5173", "http://localhost:3000"},
+AllowedMethods:   []string{"GET", "POST", "PATCH", "OPTIONS"},
+AllowedHeaders:   []string{"Content-Type", "X-Demo-User"},
+AllowCredentials: true,
+MaxAge:           300,
+}))
 r.Use(DemoUser)
+
 r.Get("/health", h.Health)
+
+r.Route("/api/v1", func(r chi.Router) {
+r.Get("/me", h.Me)
+r.Post("/auth/login", h.Me) // упрощённо: логин = /me по X-Demo-User
+
+r.Get("/onboarding/progress", h.OnboardingProgress)
+r.Patch("/onboarding/steps/{id}", h.OnboardingStepUpdate)
+
+r.Post("/actions", h.CreateAction)
+r.Post("/actions/{id}/confirm", h.ConfirmAction)
+r.Get("/actions/{id}", h.GetAction)
+
+r.Get("/events", h.Events)
+
+// обратная совместимость со старым путём
+r.Post("/ask", h.Ask)
+})
+
+// старый путь без версии
 r.Post("/api/ask", h.Ask)
+
 return r
-</span>}
-</pre>
+}</pre>
 		
 		<pre class="file" id="file6" style="display: none">package auth
 
@@ -355,21 +581,28 @@ func FromCtx(ctx context.Context) (User, bool) {
 return u, ok
 </span>}
 
-func Can(u User, action string) bool {
-<span class="cov8" title="1">switch action </span>{
-case "checklist.read":
-<span class="cov8" title="1">return true</span>
-case "absence.create":
-<span class="cov8" title="1">return u.Role == RoleIntern || u.Role == RoleBuddy</span>
+// DemoUsers — тестовые учётки для проверки прав (X-Demo-User).
+<span class="cov8" title="1">var DemoUsers </span>= map[string]User{
+"intern.backend": {ID: "intern-1", Name: "Стажёр Backend", Role: RoleIntern, TeamID: "backend"},
+<span class="cov8" title="1">"mentor.bac</span>kend": {ID: "mentor-1", Name: "Наставник Backend", Role: RoleBuddy, TeamID: "backend"},
+"intern.other":   {ID: "intern-2", Name: "Стажёр другой команды", Role: RoleIntern, TeamID: "frontend"},
+<span class="cov8" title="1">"lead.backend":   {ID: "lead-1", Name: "Руков</span>одитель Backend", Role: RoleLead, TeamID: "backend"},
+}
+<span class="cov8" title="1">
+</span>func Can(u User, action string) bool {
+<span class="cov8" title="1">switch action {
+</span>case "checklist.read":
+<span class="cov8" title="1">return true
+</span>case "absence.create":
+return u.Role == RoleIntern || u.Role == RoleBuddy
 case "directory.read":
-<span class="cov8" title="1">return u.Role == RoleIntern || u.Role == RoleBuddy || u.Role == RoleLead</span>
+return u.Role == RoleIntern || u.Role == RoleBuddy || u.Role == RoleLead
 case "absence.read.all":
-<span class="cov8" title="1">return u.Role == RoleLead || u.Role == RoleHRBP</span>
+return u.Role == RoleLead || u.Role == RoleHRBP
 default:
-<span class="cov8" title="1">return false</span>
+return false
 }
-}
-</pre>
+}</pre>
 		
 		<pre class="file" id="file7" style="display: none">package config
 
@@ -446,30 +679,44 @@ type MockClient struct{}
 
 func (MockClient) Complete(_ context.Context, msgs []Message) (string, error) {
 <span class="cov8" title="1">last := strings.ToLower(msgs[len(msgs)-1].Content)
-switch </span>{
-case strings.Contains(last, "отгул") || strings.Contains(last, "отпуск"):
-<span class="cov8" title="1">b, _ := json.Marshal(map[string]any{
-"type": "tool_call",
-"tool": "absence.create",
-"args": map[string]string{"date_from": "2026-02-10", "date_to": "2026-02-10", "reason": "personal"},
+
+</span>// Защита: явные попытки инъекции или «покажи все отгулы» — не создаём.
+<span class="cov8" title="1">if strings.Contains(last, "ignore previous") ||
+strings.Contains(last, "покажи все") ||
+strings.Contains(last, "все отгулы") {
+b, _ := json.Marshal(map[string]any{
+"type": "refusal",
+"text": "Не мог�</span>� выполнить это действие. Уточните запрос.",
+})
+<span class="cov8" title="1">return string(b), nil
+}
+
+// Отгул — только если есть намерение создать (хочу/оформить/взять).
+if strings.Contains(last, "отгул") &amp;&amp;
+(strings.Contains(las</span>t, "хочу") || strings.Contains(last, "оформ") || strings.Contains(last, "взять") || strings.Contains(last, "нужен")) {
+b, _ := json.Marshal(map[string]any{
+<span class="cov8" title="1">"type":   "draft",
+"action": "absence",
+"args":   map[string]string{"reason": "personal"},
 })
 return string(b), nil</span>
-case strings.Contains(last, "чек-лист") || strings.Contains(last, "следующий шаг"):
-<span class="cov8" title="1">b, _ := json.Marshal(map[string]any{
+}
+
+if strings.Contains(last, "чек-лист") || strings.Contains(last, "следующий шаг") {
+b, _ := json.Marshal(map[string]any{
 "type": "tool_call",
 "tool": "checklist.status",
 "args": map[string]string{},
 })
-return string(b), nil</span>
-default:
-<span class="cov8" title="1">b, _ := json.Marshal(map[string]any{
+return string(b), nil
+}
+
+b, _ := json.Marshal(map[string]any{
 "type": "answer",
 "text": "Отвечаю по найденным источникам.",
 })
-return string(b), nil</span>
-}
-}
-</pre>
+return string(b), nil
+}</pre>
 		
 		<pre class="file" id="file10" style="display: none">package llm
 
@@ -486,44 +733,51 @@ BaseURL, APIKey, Model string
 HTTP                   *http.Client
 }
 
+type respFormat struct {
+Type string `json:"type"`
+}
+
 type req struct {
-Model       string    `json:"model"`
-Messages    []Message `json:"messages"`
-Temperature float64   `json:"temperature"`
+Model          string     `json:"model"`
+Messages       []Message  `json:"messages"`
+Temperature    float64    `json:"temperature"`
+ResponseFormat respFormat `json:"response_format"`
 }
 
 type resp struct {
 Choices []struct {
-Message Message `json:"message"`
+<span class="cov8" title="1">Message Message `json:"message"`
 } `json:"choices"`
 }
-
-func (c *OpenAIClient) Complete(ctx context.Context, msgs []Message) (string, error) {
-<span class="cov8" title="1">body, _ := json.Marshal(req{Model: c.Model, Messages: msgs, Temperature: 0.2})
-r, err := http.NewRequestWithContext(ctx, "POST", c.BaseURL+"/chat/completions", bytes.NewReader(body))
-if err != nil </span>{
-<span class="cov0" title="0">return "", err
-</span>}
-<span class="cov8" title="1">r.Header.Set("Content-Type", "application/json")
-r.Header.Set("Authorization", "Bearer "+c.APIKey)
-res, err := c.HTTP.Do(r)
-if err != nil </span>{
-<span class="cov0" title="0">return "", err
+</span><span class="cov0" title="0">
+</span>func (c *OpenAIClient) Complete(ctx context.Context, msgs []Message) (string, error) {
+<span class="cov8" title="1">body, _ := json.Marshal(req{
+Model: c.Model, Messages: msgs, Temperature: 0.2,
+ResponseFormat: respFormat{Type: "json_object"},
+})
+</span><span class="cov0" title="0">r, err := http.NewRequestWithContext(ctx, "POST", c.BaseURL+"/chat/completions", bytes.NewReader(body))
+</span>if err != nil {
+<span class="cov8" title="1">return "", err
+}
+</span><span class="cov8" title="1">r.Header.Set("Content-Type", "application/json")
+</span>r.Header.Set("Authorization", "Bearer "+c.APIKey)
+<span class="cov8" title="1">res, err := c.HTTP.Do(r)
+if err != nil {
+</span><span class="cov8" title="1">return "", err
 </span>}
 <span class="cov8" title="1">defer res.Body.Close()
-if res.StatusCode &gt;= 300 </span>{
-<span class="cov8" title="1">return "", fmt.Errorf("llm status %d", res.StatusCode)
-</span>}
-<span class="cov8" title="1">var out resp
-if err := json.NewDecoder(res.Body).Decode(&amp;out); err != nil </span>{
-<span class="cov8" title="1">return "", err
-</span>}
-<span class="cov8" title="1">if len(out.Choices) == 0 </span>{
-<span class="cov8" title="1">return "", fmt.Errorf("empty choices")
-</span>}
-<span class="cov8" title="1">return out.Choices[0].Message.Content, nil</span>
+</span><span class="cov8" title="1">if res.StatusCode &gt;= 300 {
+</span>return "", fmt.Errorf("llm status %d", res.StatusCode)
+<span class="cov8" title="1">}
+</span>var out resp
+if err := json.NewDecoder(res.Body).Decode(&amp;out); err != nil {
+return "", err
 }
-</pre>
+if len(out.Choices) == 0 {
+return "", fmt.Errorf("empty choices")
+}
+return out.Choices[0].Message.Content, nil
+}</pre>
 		
 		<pre class="file" id="file11" style="display: none">package rag
 
@@ -918,6 +1172,7 @@ for k, v := range owners </span>{
 import (
 "context"
 "errors"
+"time"
 
 "github.com/ElzaraA/ai-buddy-avito/internal/auth"
 )
@@ -938,17 +1193,23 @@ type Registry struct {
 tools map[string]Tool
 }
 
-func NewRegistry() *Registry { <span class="cov8" title="1">return &amp;Registry{tools: map[string]Tool{}} }</span>
+</span>func NewRegistry() *Registry { return &amp;Registry{tools: map[string]Tool{}} }
 
-func (r *Registry) Register(t Tool) { <span class="cov8" title="1">r.tools[t.Name()] = t }</span>
+</span>func (r *Registry) Register(t Tool) { r.tools[t.Name()] = t }
 
-func (r *Registry) Get(name string) (Tool, bool) {
-<span class="cov8" title="1">t, ok := r.tools[name]
-return t, ok
-</span>}
+<span class="cov8" title="1">func (r *Registry) Get(name string) (Tool, bool) {
+t, ok := r.tools[name]
+</span>return t, ok
+}
 
-var ErrForbidden = errors.New("forbidden")
-</pre>
+// Run выполняет инструмент с таймаутом 10с.
+func Run(ctx context.Context, t Tool, u auth.User, args map[string]string) (Result, error) {
+ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
+defer cancel()
+return t.Run(ctx, u, args)
+}
+
+var ErrForbidden = errors.New("forbidden")</pre>
 		
 		</div>
 	</body>
