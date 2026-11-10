@@ -26,13 +26,13 @@ idx := rag.NewIndex(chunks)
 
 st := store.New()
 st.SeedChecklist("intern-1", []store.ChecklistItem{
-{ID: "c1", Title: "РџРѕР·РЅР°РєРѕРјРёС‚СЊСЃСЏ СЃ РєРѕРјР°РЅРґРѕР№", Stage: "week1", Done: true},
-{ID: "c2", Title: "РџРѕР»СѓС‡РёС‚СЊ РґРѕСЃС‚СѓРїС‹", Stage: "week1", Done: false},
-{ID: "c3", Title: "РџСЂРѕС‡РёС‚Р°С‚СЊ Playbook", Stage: "week2", Done: false},
-{ID: "c4", Title: "Р’Р·СЏС‚СЊ РїРµСЂРІСѓСЋ Р·Р°РґР°С‡Сѓ", Stage: "week2", Done: false},
+{ID: "c1-intern-1", Title: "Познакомиться с командой", Stage: "week1", Done: true},
+{ID: "c2-intern-1", Title: "Получить доступы", Stage: "week1", Done: false},
+{ID: "c3-intern-1", Title: "Прочитать Playbook", Stage: "week2", Done: false},
+{ID: "c4-intern-1", Title: "Взять первую задачу", Stage: "week2", Done: false},
 })
 st.SeedChecklist("intern-2", []store.ChecklistItem{
-{ID: "c1", Title: "РџРѕР·РЅР°РєРѕРјРёС‚СЊСЃСЏ СЃ РєРѕРјР°РЅРґРѕР№", Stage: "week1", Done: false},
+{ID: "c1-intern-2", Title: "Познакомиться с командой", Stage: "week1", Done: false},
 })
 
 reg := tools.NewRegistry()
@@ -54,6 +54,11 @@ HTTP: &http.Client{Timeout: 60 * time.Second},
 
 ag := &agent.Agent{LLM: llmClient, Index: idx, Tools: reg, Now: time.Now}
 
+msgs := store.NewMessageStore()
+broker := api.NewBroker()
+chat := &api.ChatHandlers{Agent: ag, Store: st, Msgs: msgs, Broker: broker}
+handlers := &api.Handlers{Agent: ag, Store: st, Chat: chat}
+
 log.Println("listening on", cfg.Addr)
-log.Fatal(http.ListenAndServe(cfg.Addr, api.BuildApp(ag, st)))
+log.Fatal(http.ListenAndServe(cfg.Addr, api.NewRouter(handlers)))
 }

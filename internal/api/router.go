@@ -20,7 +20,7 @@ r.Get("/health", h.Health)
 
 r.Route("/api/v1", func(r chi.Router) {
 r.Get("/me", h.Me)
-r.Post("/auth/login", h.Me) // упрощённо: логин = /me по X-Demo-User
+r.Post("/auth/login", h.Me)
 
 r.Get("/onboarding/progress", h.OnboardingProgress)
 r.Patch("/onboarding/steps/{id}", h.OnboardingStepUpdate)
@@ -29,14 +29,17 @@ r.Post("/actions", h.CreateAction)
 r.Post("/actions/{id}/confirm", h.ConfirmAction)
 r.Get("/actions/{id}", h.GetAction)
 
-r.Get("/events", h.Events)
+if h.Chat != nil {
+r.Post("/chat/sessions", h.Chat.CreateSession)
+r.Get("/chat/sessions/{id}/messages", h.Chat.ListMessages)
+r.Post("/chat/sessions/{id}/messages", h.Chat.SendMessage)
+r.Get("/chat/sessions/{id}/events", h.Chat.Events)
+}
 
-// обратная совместимость со старым путём
+r.Get("/events", h.Events)
 r.Post("/ask", h.Ask)
 })
 
-// старый путь без версии
 r.Post("/api/ask", h.Ask)
-
 return r
 }

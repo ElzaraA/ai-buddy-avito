@@ -15,6 +15,7 @@ import (
 type Handlers struct {
 Agent *agent.Agent
 Store *store.Store
+Chat  *ChatHandlers
 }
 
 type askReq struct {
@@ -37,16 +38,11 @@ if err != nil {
 writeError(w, http.StatusInternalServerError, "agent_error", err.Error())
 return
 }
-// если агент вернул черновик — создаём запись и отдаём action_id
 if resp.Type == "draft" && resp.Action == "absence" && resp.Args["date_from"] != "" {
 a := h.Store.CreateAbsence(store.Absence{
-ID: fmt.Sprintf("draft-%d", time.Now().UnixNano()),
-UserID: u.ID,
-DateFrom: resp.Args["date_from"],
-DateTo:   resp.Args["date_to"],
-Reason:   resp.Args["reason"],
-Status:   "draft",
-CreatedAt: time.Now(),
+ID: fmt.Sprintf("ABS-%d", time.Now().UnixNano()),
+UserID: u.ID, DateFrom: resp.Args["date_from"], DateTo: resp.Args["date_to"],
+Reason: resp.Args["reason"], Status: "draft", CreatedAt: time.Now(),
 })
 resp.Args["action_id"] = a.ID
 }
@@ -83,7 +79,7 @@ func (h *Handlers) OnboardingStepUpdate(w http.ResponseWriter, r *http.Request) 
 u, _ := auth.FromCtx(r.Context())
 id := chi.URLParam(r, "id")
 if !h.Store.MarkDone(u.ID, id) {
-writeError(w, http.StatusNotFound, "not_found", "step not found")
+writeError(w, http.StatusForbidden, "forbidden", "step not found or not yours")
 return
 }
 h.OnboardingProgress(w, r)
@@ -108,7 +104,7 @@ writeError(w, http.StatusBadRequest, "bad_request", "type=absence and dates requ
 return
 }
 a := h.Store.CreateAbsence(store.Absence{
-ID: fmt.Sprintf("draft-%d", time.Now().UnixNano()),
+ID: fmt.Sprintf("ABS-%d", time.Now().UnixNano()),
 UserID: u.ID, DateFrom: body.DateFrom, DateTo: body.DateTo, Reason: body.Reason,
 Status: "draft", CreatedAt: time.Now(),
 })
