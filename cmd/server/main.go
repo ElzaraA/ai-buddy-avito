@@ -31,6 +31,9 @@ st.SeedChecklist("intern-1", []store.ChecklistItem{
 {ID: "c3", Title: "Прочитать Playbook", Stage: "week2", Done: false},
 {ID: "c4", Title: "Взять первую задачу", Stage: "week2", Done: false},
 })
+st.SeedChecklist("intern-2", []store.ChecklistItem{
+{ID: "c1", Title: "Познакомиться с командой", Stage: "week1", Done: false},
+})
 
 reg := tools.NewRegistry()
 reg.Register(&tools.ChecklistStatus{S: st})
@@ -50,7 +53,7 @@ HTTP: &http.Client{Timeout: 60 * time.Second},
 }
 
 ag := &agent.Agent{LLM: llmClient, Index: idx, Tools: reg}
-h := &api.Handlers{Agent: ag}
+h := &api.Handlers{Agent: ag, Store: st}
 
 log.Println("listening on", cfg.Addr)
 log.Fatal(http.ListenAndServe(cfg.Addr, api.NewRouter(h)))

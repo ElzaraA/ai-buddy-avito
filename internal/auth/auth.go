@@ -29,6 +29,14 @@ u, ok := ctx.Value(ctxKey{}).(User)
 return u, ok
 }
 
+// DemoUsers — тестовые учётки для проверки прав (X-Demo-User).
+var DemoUsers = map[string]User{
+"intern.backend": {ID: "intern-1", Name: "Стажёр Backend", Role: RoleIntern, TeamID: "backend"},
+"mentor.backend": {ID: "mentor-1", Name: "Наставник Backend", Role: RoleBuddy, TeamID: "backend"},
+"intern.other":   {ID: "intern-2", Name: "Стажёр другой команды", Role: RoleIntern, TeamID: "frontend"},
+"lead.backend":   {ID: "lead-1", Name: "Руководитель Backend", Role: RoleLead, TeamID: "backend"},
+}
+
 func Can(u User, action string) bool {
 switch action {
 case "checklist.read":
