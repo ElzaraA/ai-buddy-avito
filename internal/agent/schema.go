@@ -1,9 +1,10 @@
 package agent
 
 type AgentOutput struct {
-Type    string            `json:"type"`
+Type    string            `json:"type"` // answer | tool_call | refusal | draft
 Text    string            `json:"text,omitempty"`
 Tool    string            `json:"tool,omitempty"`
+Action  string            `json:"action,omitempty"`
 Args    map[string]string `json:"args,omitempty"`
 Sources []Source          `json:"sources,omitempty"`
 }

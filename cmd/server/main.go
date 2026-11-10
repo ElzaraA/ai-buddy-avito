@@ -52,7 +52,7 @@ HTTP: &http.Client{Timeout: 60 * time.Second},
 }
 }
 
-ag := &agent.Agent{LLM: llmClient, Index: idx, Tools: reg}
+ag := &agent.Agent{LLM: llmClient, Index: idx, Tools: reg, Now: time.Now}
 h := &api.Handlers{Agent: ag, Store: st}
 
 log.Println("listening on", cfg.Addr)

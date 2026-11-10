@@ -37,6 +37,19 @@ if err != nil {
 writeError(w, http.StatusInternalServerError, "agent_error", err.Error())
 return
 }
+// если агент вернул черновик — создаём запись и отдаём action_id
+if resp.Type == "draft" && resp.Action == "absence" && resp.Args["date_from"] != "" {
+a := h.Store.CreateAbsence(store.Absence{
+ID: fmt.Sprintf("draft-%d", time.Now().UnixNano()),
+UserID: u.ID,
+DateFrom: resp.Args["date_from"],
+DateTo:   resp.Args["date_to"],
+Reason:   resp.Args["reason"],
+Status:   "draft",
+CreatedAt: time.Now(),
+})
+resp.Args["action_id"] = a.ID
+}
 w.Header().Set("Content-Type", "application/json; charset=utf-8")
 _ = json.NewEncoder(w).Encode(resp)
 }
@@ -83,7 +96,6 @@ DateTo   string `json:"date_to"`
 Reason   string `json:"reason"`
 }
 
-// CreateAction — черновик действия (пока только absence).
 func (h *Handlers) CreateAction(w http.ResponseWriter, r *http.Request) {
 u, _ := auth.FromCtx(r.Context())
 var body actionReq
@@ -105,7 +117,6 @@ w.WriteHeader(http.StatusCreated)
 _ = json.NewEncoder(w).Encode(a)
 }
 
-// ConfirmAction — подтвердить черновик (S1).
 func (h *Handlers) ConfirmAction(w http.ResponseWriter, r *http.Request) {
 u, _ := auth.FromCtx(r.Context())
 if !auth.Can(u, "absence.create") {
@@ -139,7 +150,6 @@ w.Header().Set("Content-Type", "application/json; charset=utf-8")
 _ = json.NewEncoder(w).Encode(a)
 }
 
-// Events — простой SSE: пингуем статус раз в секунду 5 раз.
 func (h *Handlers) Events(w http.ResponseWriter, r *http.Request) {
 w.Header().Set("Content-Type", "text/event-stream")
 w.Header().Set("Cache-Control", "no-cache")

@@ -13,10 +13,15 @@ BaseURL, APIKey, Model string
 HTTP                   *http.Client
 }
 
+type respFormat struct {
+Type string `json:"type"`
+}
+
 type req struct {
-Model       string    `json:"model"`
-Messages    []Message `json:"messages"`
-Temperature float64   `json:"temperature"`
+Model          string     `json:"model"`
+Messages       []Message  `json:"messages"`
+Temperature    float64    `json:"temperature"`
+ResponseFormat respFormat `json:"response_format"`
 }
 
 type resp struct {
@@ -26,7 +31,10 @@ Message Message `json:"message"`
 }
 
 func (c *OpenAIClient) Complete(ctx context.Context, msgs []Message) (string, error) {
-body, _ := json.Marshal(req{Model: c.Model, Messages: msgs, Temperature: 0.2})
+body, _ := json.Marshal(req{
+Model: c.Model, Messages: msgs, Temperature: 0.2,
+ResponseFormat: respFormat{Type: "json_object"},
+})
 r, err := http.NewRequestWithContext(ctx, "POST", c.BaseURL+"/chat/completions", bytes.NewReader(body))
 if err != nil {
 return "", err
