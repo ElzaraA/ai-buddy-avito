@@ -53,6 +53,9 @@ return a, ok
 func (s *Store) SeedChecklist(userID string, items []ChecklistItem) {
 s.mu.Lock()
 defer s.mu.Unlock()
+for i := range items {
+items[i].Owner = userID
+}
 s.checklist[userID] = items
 }
 
@@ -62,16 +65,28 @@ defer s.mu.RUnlock()
 return s.checklist[userID]
 }
 
-func (s *Store) MarkDone(userID, itemID string) bool {
+// MarkDoneOwned возвращает (found, owned). found=true — шаг существует у кого-то,
+// owned=true — он принадлежит userID и отмечен.
+func (s *Store) MarkDoneOwned(userID, itemID string) (found, owned bool) {
 s.mu.Lock()
 defer s.mu.Unlock()
-items := s.checklist[userID]
+for uid, items := range s.checklist {
 for i := range items {
 if items[i].ID == itemID {
+found = true
+if uid != userID {
+return true, false
+}
 items[i].Done = true
-s.checklist[userID] = items
-return true
+s.checklist[uid] = items
+return true, true
 }
 }
-return false
+}
+return false, false
+}
+
+func (s *Store) MarkDone(userID, itemID string) bool {
+_, owned := s.MarkDoneOwned(userID, itemID)
+return owned
 }

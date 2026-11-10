@@ -76,13 +76,18 @@ _ = json.NewEncoder(w).Encode(map[string]any{"items": items, "next_step": next})
 }
 
 func (h *Handlers) OnboardingStepUpdate(w http.ResponseWriter, r *http.Request) {
-u, _ := auth.FromCtx(r.Context())
-id := chi.URLParam(r, "id")
-if !h.Store.MarkDone(u.ID, id) {
-writeError(w, http.StatusForbidden, "forbidden", "step not found or not yours")
-return
-}
-h.OnboardingProgress(w, r)
+	u, _ := auth.FromCtx(r.Context())
+	id := chi.URLParam(r, "id")
+	found, owned := h.Store.MarkDoneOwned(u.ID, id)
+	if !found {
+		writeError(w, http.StatusNotFound, "not_found", "step not found")
+		return
+	}
+	if !owned {
+		writeError(w, http.StatusForbidden, "forbidden", "step belongs to another user")
+		return
+	}
+	h.OnboardingProgress(w, r)
 }
 
 type actionReq struct {
