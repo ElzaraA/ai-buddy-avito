@@ -20,6 +20,14 @@ type Handlers struct {
 
 type askReq struct {
 	Question string `json:"question"`
+	Text     string `json:"text"`
+}
+
+func (r askReq) Q() string {
+	if r.Text != "" {
+		return r.Text
+	}
+	return r.Question
 }
 
 func (h *Handlers) Ask(w http.ResponseWriter, r *http.Request) {
@@ -29,25 +37,43 @@ func (h *Handlers) Ask(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var body askReq
-	if err := json.NewDecoder(r.Body).Decode(&body); err != nil || body.Question == "" {
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil || body.Q() == "" {
 		writeError(w, http.StatusBadRequest, "bad_request", "question required")
 		return
 	}
-	resp, err := h.Agent.Ask(r.Context(), u, body.Question)
+	resp, err := h.Agent.Ask(r.Context(), u, body.Q())
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, "agent_error", err.Error())
+		writeError(w, http.StatusInternalServerError, "agent_error", "agent failed")
 		return
 	}
-	if resp.Type == "draft" && resp.Action == "absence" && resp.Args["date_from"] != "" {
-		a := h.Store.CreateAbsence(store.Absence{
-			ID:     h.Store.NextAbsenceID(),
-			UserID: u.ID, DateFrom: resp.Args["date_from"], DateTo: resp.Args["date_to"],
-			Reason: resp.Args["reason"], Status: "draft", CreatedAt: time.Now(),
-		})
-		resp.Args["action_id"] = a.ID
-	}
+	h.maybeCreateDraft(u, body.Q(), &resp)
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	_ = json.NewEncoder(w).Encode(resp)
+}
+
+func (h *Handlers) maybeCreateDraft(u auth.User, question string, resp *agent.Response) {
+	if resp.Type != "draft" || resp.Action != "absence" {
+		return
+	}
+	if resp.Args == nil {
+		resp.Args = map[string]string{}
+	}
+	from := resp.Args["date_from"]
+	to := resp.Args["date_to"]
+	if from == "" {
+		from, to = agent.ParseDates(question)
+	}
+	if from == "" {
+		return
+	}
+	a := h.Store.CreateAbsence(store.Absence{
+		ID: h.Store.NextAbsenceID(), UserID: u.ID,
+		DateFrom: from, DateTo: to, Reason: resp.Args["reason"],
+		Status: "draft", CreatedAt: time.Now(),
+	})
+	resp.Args["action_id"] = a.ID
+	resp.Args["date_from"] = from
+	resp.Args["date_to"] = to
 }
 
 func (h *Handlers) Health(w http.ResponseWriter, _ *http.Request) {
@@ -109,8 +135,8 @@ func (h *Handlers) CreateAction(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	a := h.Store.CreateAbsence(store.Absence{
-		ID:     h.Store.NextAbsenceID(),
-		UserID: u.ID, DateFrom: body.DateFrom, DateTo: body.DateTo, Reason: body.Reason,
+		ID: h.Store.NextAbsenceID(), UserID: u.ID,
+		DateFrom: body.DateFrom, DateTo: body.DateTo, Reason: body.Reason,
 		Status: "draft", CreatedAt: time.Now(),
 	})
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
@@ -120,31 +146,39 @@ func (h *Handlers) CreateAction(w http.ResponseWriter, r *http.Request) {
 
 func (h *Handlers) ConfirmAction(w http.ResponseWriter, r *http.Request) {
 	u, _ := auth.FromCtx(r.Context())
+	id := chi.URLParam(r, "id")
+	a, ok := h.Store.GetAbsence(id)
+	if !ok {
+		writeError(w, http.StatusNotFound, "not_found", "action not found")
+		return
+	}
+	if a.UserID != u.ID {
+		writeError(w, http.StatusForbidden, "forbidden", "not your action")
+		return
+	}
 	if !auth.Can(u, "absence.create") {
 		writeError(w, http.StatusForbidden, "forbidden", "role cannot create absence")
 		return
 	}
-	id := chi.URLParam(r, "id")
-	a, ok := h.Store.GetAbsence(id)
+	upd, ok := h.Store.Transition(id, "draft", "pending")
 	if !ok {
-		writeError(w, http.StatusNotFound, "not_found", "action not found")
-		return
-	}
-	if a.Status != "draft" {
 		writeError(w, http.StatusConflict, "conflict", "already confirmed")
 		return
 	}
-	a.Status = "pending"
-	h.Store.CreateAbsence(a)
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
-	_ = json.NewEncoder(w).Encode(a)
+	_ = json.NewEncoder(w).Encode(upd)
 }
 
 func (h *Handlers) GetAction(w http.ResponseWriter, r *http.Request) {
+	u, _ := auth.FromCtx(r.Context())
 	id := chi.URLParam(r, "id")
 	a, ok := h.Store.GetAbsence(id)
 	if !ok {
 		writeError(w, http.StatusNotFound, "not_found", "action not found")
+		return
+	}
+	if a.UserID != u.ID {
+		writeError(w, http.StatusForbidden, "forbidden", "not your action")
 		return
 	}
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
