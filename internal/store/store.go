@@ -59,6 +59,18 @@ func (s *Store) GetAbsence(id string) (Absence, bool) {
 	return a, ok
 }
 
+func (s *Store) Transition(id, from, to string) (Absence, bool) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	a, ok := s.absences[id]
+	if !ok || a.Status != from {
+		return Absence{}, false
+	}
+	a.Status = to
+	s.absences[id] = a
+	return a, true
+}
+
 func (s *Store) SeedChecklist(userID string, items []ChecklistItem) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
