@@ -6,6 +6,7 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 )
 
 func TestOpenAIComplete(t *testing.T) {
@@ -27,7 +28,7 @@ func TestOpenAIStatusError(t *testing.T) {
 		w.WriteHeader(500)
 	}))
 	defer srv.Close()
-	c := &OpenAIClient{BaseURL: srv.URL, HTTP: srv.Client()}
+	c := &OpenAIClient{BaseURL: srv.URL, HTTP: srv.Client(), Backoff: time.Millisecond}
 	_, err := c.Complete(context.Background(), []Message{{Role: "user", Content: "x"}})
 	if err == nil || !strings.Contains(err.Error(), "500") {
 		t.Fatal("must error")
@@ -40,7 +41,7 @@ func TestOpenAIEmptyChoices(t *testing.T) {
 		w.Write([]byte(`{"choices":[]}`))
 	}))
 	defer srv.Close()
-	c := &OpenAIClient{BaseURL: srv.URL, HTTP: srv.Client()}
+	c := &OpenAIClient{BaseURL: srv.URL, HTTP: srv.Client(), Backoff: time.Millisecond}
 	_, err := c.Complete(context.Background(), []Message{{Role: "user", Content: "x"}})
 	if err == nil {
 		t.Fatal("must error on empty choices")
@@ -52,7 +53,7 @@ func TestOpenAIBadJSON(t *testing.T) {
 		w.Write([]byte(`not json`))
 	}))
 	defer srv.Close()
-	c := &OpenAIClient{BaseURL: srv.URL, HTTP: srv.Client()}
+	c := &OpenAIClient{BaseURL: srv.URL, HTTP: srv.Client(), Backoff: time.Millisecond}
 	_, err := c.Complete(context.Background(), []Message{{Role: "user", Content: "x"}})
 	if err == nil {
 		t.Fatal("must error on bad json")

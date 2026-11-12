@@ -2,20 +2,27 @@ package api
 
 import (
 	"encoding/json"
-	"fmt"
+	"errors"
+	"io"
 	"net/http"
-	"time"
+	"unicode/utf8"
 
 	"github.com/ElzaraA/ai-buddy-avito/internal/agent"
 	"github.com/ElzaraA/ai-buddy-avito/internal/auth"
+	"github.com/ElzaraA/ai-buddy-avito/internal/metrics"
 	"github.com/ElzaraA/ai-buddy-avito/internal/store"
 	"github.com/go-chi/chi/v5"
 )
 
+// maxQuestionRunes — ограничение длины вопроса (защита от огромных промптов).
+const maxQuestionRunes = 2000
+
 type Handlers struct {
-	Agent *agent.Agent
-	Store *store.Store
-	Chat  *ChatHandlers
+	Agent   *agent.Agent
+	Store   *store.Store
+	Chat    *ChatHandlers
+	Metrics *metrics.Registry // может быть nil (в unit-тестах)
+	Limiter *RateLimiter      // может быть nil — без ограничения
 }
 
 type askReq struct {
@@ -30,6 +37,46 @@ func (r askReq) Q() string {
 	return r.Question
 }
 
+// validQuestion проверяет вопрос и пишет 400, если он пустой или слишком длинный.
+func validQuestion(w http.ResponseWriter, q string) bool {
+	if q == "" {
+		writeError(w, http.StatusBadRequest, "bad_request", "text required")
+		return false
+	}
+	if utf8.RuneCountInString(q) > maxQuestionRunes {
+		writeError(w, http.StatusBadRequest, "bad_request", "text too long (max 2000 chars)")
+		return false
+	}
+	return true
+}
+
+func writeJSON(w http.ResponseWriter, status int, v any) {
+	w.Header().Set("Content-Type", "application/json; charset=utf-8")
+	w.WriteHeader(status)
+	_ = json.NewEncoder(w).Encode(v)
+}
+
+// decodeOptional читает необязательное JSON-тело: пустое тело — не ошибка.
+func decodeOptional(r *http.Request, v any) error {
+	if err := json.NewDecoder(r.Body).Decode(v); err != nil && !errors.Is(err, io.EOF) {
+		return err
+	}
+	return nil
+}
+
+// observe учитывает ответ агента в метриках пользы и запоминает вопросы без ответа.
+func observe(m *metrics.Registry, st *store.Store, u auth.User, question string, resp agent.Response) {
+	m.Inc("buddy_agent_responses_total", "Ответы помощника по типу", "type", resp.Type)
+	if resp.Degraded {
+		m.Inc("buddy_agent_degraded_total", "Ответы, данные резервной моделью")
+	}
+	if resp.NoSource {
+		st.RecordGap(u.TeamID, question)
+		m.Inc("buddy_knowledge_gaps_total", "Вопросы, на которые в базе знаний нет ответа")
+	}
+}
+
+// Ask — синхронный вариант чата (удобен для проверки curl'ом).
 func (h *Handlers) Ask(w http.ResponseWriter, r *http.Request) {
 	u, ok := auth.FromCtx(r.Context())
 	if !ok {
@@ -37,73 +84,83 @@ func (h *Handlers) Ask(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var body askReq
-	if err := json.NewDecoder(r.Body).Decode(&body); err != nil || body.Q() == "" {
-		writeError(w, http.StatusBadRequest, "bad_request", "question required")
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		writeError(w, http.StatusBadRequest, "bad_request", "invalid json")
+		return
+	}
+	if !validQuestion(w, body.Q()) {
 		return
 	}
 	resp, err := h.Agent.Ask(r.Context(), u, body.Q())
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, "agent_error", "agent failed")
+		h.Metrics.Inc("buddy_agent_errors_total", "Сбои агента (LLM недоступна)")
+		writeError(w, http.StatusBadGateway, "agent_error", "Помощник временно недоступен, попробуйте ещё раз")
 		return
 	}
-	h.maybeCreateDraft(u, body.Q(), &resp)
-	w.Header().Set("Content-Type", "application/json; charset=utf-8")
-	_ = json.NewEncoder(w).Encode(resp)
-}
-
-func (h *Handlers) maybeCreateDraft(u auth.User, question string, resp *agent.Response) {
-	if resp.Type != "draft" || resp.Action != "absence" {
-		return
-	}
-	if resp.Args == nil {
-		resp.Args = map[string]string{}
-	}
-	from := resp.Args["date_from"]
-	to := resp.Args["date_to"]
-	if from == "" {
-		from, to = agent.ParseDates(question)
-	}
-	if from == "" {
-		return
-	}
-	a := h.Store.CreateAbsence(store.Absence{
-		ID: h.Store.NextAbsenceID(), UserID: u.ID,
-		DateFrom: from, DateTo: to, Reason: resp.Args["reason"],
-		Status: "draft", CreatedAt: time.Now(),
-	})
-	resp.Args["action_id"] = a.ID
-	resp.Args["date_from"] = from
-	resp.Args["date_to"] = to
+	saveDraft(h.Store, u, &resp)
+	observe(h.Metrics, h.Store, u, body.Q(), resp)
+	writeJSON(w, http.StatusOK, resp)
 }
 
 func (h *Handlers) Health(w http.ResponseWriter, _ *http.Request) {
-	w.Header().Set("Content-Type", "application/json")
-	_, _ = w.Write([]byte(`{"status":"ok"}`))
+	writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
+}
+
+// MetricsHandler отдаёт метрики в формате Prometheus.
+func (h *Handlers) MetricsHandler(w http.ResponseWriter, _ *http.Request) {
+	w.Header().Set("Content-Type", "text/plain; version=0.0.4; charset=utf-8")
+	h.Metrics.Write(w)
 }
 
 func (h *Handlers) Me(w http.ResponseWriter, r *http.Request) {
 	u, _ := auth.FromCtx(r.Context())
-	w.Header().Set("Content-Type", "application/json; charset=utf-8")
-	_ = json.NewEncoder(w).Encode(u)
+	writeJSON(w, http.StatusOK, u)
+}
+
+type progress struct {
+	Items       []store.ChecklistItem `json:"items"`
+	NextStep    string                `json:"next_step"`
+	PercentDone int                   `json:"percent_done"`
+}
+
+func progressOf(items []store.ChecklistItem) progress {
+	p := progress{Items: items}
+	done := 0
+	for _, it := range items {
+		if it.Done {
+			done++
+		} else if p.NextStep == "" && it.Status != store.StepWaiting {
+			p.NextStep = it.Title
+		}
+	}
+	if len(items) > 0 {
+		p.PercentDone = done * 100 / len(items)
+	}
+	return p
 }
 
 func (h *Handlers) OnboardingProgress(w http.ResponseWriter, r *http.Request) {
 	u, _ := auth.FromCtx(r.Context())
-	items := h.Store.Checklist(u.ID)
-	next := ""
-	for _, it := range items {
-		if !it.Done {
-			next = it.Title
-			break
-		}
-	}
-	w.Header().Set("Content-Type", "application/json; charset=utf-8")
-	_ = json.NewEncoder(w).Encode(map[string]any{"items": items, "next_step": next})
+	writeJSON(w, http.StatusOK, progressOf(h.Store.Checklist(u.ID)))
+}
+
+type stepReq struct {
+	Status string `json:"status"`
 }
 
 func (h *Handlers) OnboardingStepUpdate(w http.ResponseWriter, r *http.Request) {
 	u, _ := auth.FromCtx(r.Context())
 	id := chi.URLParam(r, "id")
+	// Тело необязательно; если передан status — поддерживаем только done.
+	var body stepReq
+	if err := decodeOptional(r, &body); err != nil {
+		writeError(w, http.StatusBadRequest, "bad_request", "invalid json")
+		return
+	}
+	if body.Status != "" && body.Status != store.StepDone {
+		writeError(w, http.StatusBadRequest, "bad_request", "only status=done is supported")
+		return
+	}
 	found, owned := h.Store.MarkDoneOwned(u.ID, id)
 	if !found {
 		writeError(w, http.StatusNotFound, "not_found", "step not found")
@@ -113,93 +170,6 @@ func (h *Handlers) OnboardingStepUpdate(w http.ResponseWriter, r *http.Request) 
 		writeError(w, http.StatusForbidden, "forbidden", "step belongs to another user")
 		return
 	}
+	h.Metrics.Inc("buddy_steps_done_total", "Шаги чек-листа, отмеченные выполненными")
 	h.OnboardingProgress(w, r)
-}
-
-type actionReq struct {
-	Type     string `json:"type"`
-	DateFrom string `json:"date_from"`
-	DateTo   string `json:"date_to"`
-	Reason   string `json:"reason"`
-}
-
-func (h *Handlers) CreateAction(w http.ResponseWriter, r *http.Request) {
-	u, _ := auth.FromCtx(r.Context())
-	var body actionReq
-	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
-		writeError(w, http.StatusBadRequest, "bad_request", "invalid json")
-		return
-	}
-	if body.Type != "absence" || body.DateFrom == "" || body.DateTo == "" {
-		writeError(w, http.StatusBadRequest, "bad_request", "type=absence and dates required")
-		return
-	}
-	a := h.Store.CreateAbsence(store.Absence{
-		ID: h.Store.NextAbsenceID(), UserID: u.ID,
-		DateFrom: body.DateFrom, DateTo: body.DateTo, Reason: body.Reason,
-		Status: "draft", CreatedAt: time.Now(),
-	})
-	w.Header().Set("Content-Type", "application/json; charset=utf-8")
-	w.WriteHeader(http.StatusCreated)
-	_ = json.NewEncoder(w).Encode(a)
-}
-
-func (h *Handlers) ConfirmAction(w http.ResponseWriter, r *http.Request) {
-	u, _ := auth.FromCtx(r.Context())
-	id := chi.URLParam(r, "id")
-	a, ok := h.Store.GetAbsence(id)
-	if !ok {
-		writeError(w, http.StatusNotFound, "not_found", "action not found")
-		return
-	}
-	if a.UserID != u.ID {
-		writeError(w, http.StatusForbidden, "forbidden", "not your action")
-		return
-	}
-	if !auth.Can(u, "absence.create") {
-		writeError(w, http.StatusForbidden, "forbidden", "role cannot create absence")
-		return
-	}
-	upd, ok := h.Store.Transition(id, "draft", "pending")
-	if !ok {
-		writeError(w, http.StatusConflict, "conflict", "already confirmed")
-		return
-	}
-	w.Header().Set("Content-Type", "application/json; charset=utf-8")
-	_ = json.NewEncoder(w).Encode(upd)
-}
-
-func (h *Handlers) GetAction(w http.ResponseWriter, r *http.Request) {
-	u, _ := auth.FromCtx(r.Context())
-	id := chi.URLParam(r, "id")
-	a, ok := h.Store.GetAbsence(id)
-	if !ok {
-		writeError(w, http.StatusNotFound, "not_found", "action not found")
-		return
-	}
-	if a.UserID != u.ID {
-		writeError(w, http.StatusForbidden, "forbidden", "not your action")
-		return
-	}
-	w.Header().Set("Content-Type", "application/json; charset=utf-8")
-	_ = json.NewEncoder(w).Encode(a)
-}
-
-func (h *Handlers) Events(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "text/event-stream")
-	w.Header().Set("Cache-Control", "no-cache")
-	fl, ok := w.(http.Flusher)
-	if !ok {
-		writeError(w, http.StatusInternalServerError, "sse_unsupported", "flusher not available")
-		return
-	}
-	for i := 0; i < 5; i++ {
-		select {
-		case <-r.Context().Done():
-			return
-		case <-time.After(time.Second):
-			fmt.Fprintf(w, "event: ping\ndata: {\"tick\":%d}\n\n", i)
-			fl.Flush()
-		}
-	}
 }

@@ -29,8 +29,37 @@ func TestCan(t *testing.T) {
 	if Can(User{Role: RoleHRBP}, "directory.read") {
 		t.Fatal("hrbp not in directory")
 	}
+	if !Can(intern, "access.request") || Can(User{Role: RoleLead}, "access.request") {
+		t.Fatal("access.request: intern yes, lead no")
+	}
 	if Can(intern, "unknown.action") {
 		t.Fatal("unknown must be forbidden")
+	}
+}
+
+func TestTeamPermissions(t *testing.T) {
+	lead, buddy, intern := User{Role: RoleLead}, User{Role: RoleBuddy}, User{Role: RoleIntern}
+	if !Can(lead, "action.approve") || Can(buddy, "action.approve") || Can(intern, "action.approve") {
+		t.Fatal("only lead approves")
+	}
+	if !Can(lead, "team.read") || !Can(buddy, "team.read") || Can(intern, "team.read") {
+		t.Fatal("team.read: mentor and lead only")
+	}
+}
+
+func TestTeamInternsAndByID(t *testing.T) {
+	got := TeamInterns("backend")
+	if len(got) != 2 || got[0].ID != "intern-1" || got[1].ID != "intern-3" {
+		t.Fatalf("backend interns: %+v", got)
+	}
+	if len(TeamInterns("nobody")) != 0 {
+		t.Fatal("unknown team")
+	}
+	if u, ok := ByID("lead-1"); !ok || u.Role != RoleLead {
+		t.Fatal("ByID")
+	}
+	if _, ok := ByID("ghost"); ok {
+		t.Fatal("ByID unknown")
 	}
 }
 

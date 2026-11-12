@@ -2,6 +2,7 @@ package store
 
 import (
 	"sync"
+	"sync/atomic"
 	"time"
 )
 
@@ -26,6 +27,7 @@ type MessageStore struct {
 	sessions map[string]Session
 	messages map[string]Message
 	bySess   map[string][]string
+	version  atomic.Int64
 }
 
 func NewMessageStore() *MessageStore {
@@ -36,11 +38,15 @@ func NewMessageStore() *MessageStore {
 	}
 }
 
+// Version — счётчик изменений (для сохранения на диск).
+func (s *MessageStore) Version() int64 { return s.version.Load() }
+
 func (s *MessageStore) CreateSession(userID, id string) Session {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	sess := Session{ID: id, UserID: userID, CreatedAt: time.Now()}
 	s.sessions[id] = sess
+	s.version.Add(1)
 	return sess
 }
 
@@ -56,6 +62,7 @@ func (s *MessageStore) CreateMessage(m Message) Message {
 	defer s.mu.Unlock()
 	s.messages[m.ID] = m
 	s.bySess[m.SessionID] = append(s.bySess[m.SessionID], m.ID)
+	s.version.Add(1)
 	return m
 }
 
@@ -68,6 +75,7 @@ func (s *MessageStore) UpdateMessage(id string, fn func(*Message)) (Message, boo
 	}
 	fn(&m)
 	s.messages[id] = m
+	s.version.Add(1)
 	return m, true
 }
 
@@ -89,4 +97,17 @@ func (s *MessageStore) MessagesBySession(sessionID string) []Message {
 		}
 	}
 	return out
+}
+
+// PendingCount — сколько ответов помощника пользователь сейчас ждёт в сессии (ограничение параллельных запусков).
+func (s *MessageStore) PendingCount(sessionID string) int {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	n := 0
+	for _, id := range s.bySess[sessionID] {
+		if m := s.messages[id]; m.Role == "assistant" && (m.Status == "pending" || m.Status == "in_progress") {
+			n++
+		}
+	}
+	return n
 }

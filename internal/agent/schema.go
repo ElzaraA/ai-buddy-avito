@@ -13,4 +13,5 @@ type Source struct {
 	ID     string `json:"id"`
 	Source string `json:"source"`
 	Stage  string `json:"stage"`
+	Title  string `json:"title,omitempty"` // заголовок раздела базы знаний
 }

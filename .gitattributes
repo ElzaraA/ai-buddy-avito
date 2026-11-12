@@ -1,0 +1,7 @@
+# Единые окончания строк и UTF-8 без сюрпризов на Windows (кириллица уже ломалась при пересохранении через PowerShell)
+* text=auto eol=lf
+Makefile text eol=lf
+*.go text eol=lf
+*.md text eol=lf
+*.png binary
+*.jpg binary

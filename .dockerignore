@@ -1,0 +1,6 @@
+.git
+.env
+coverage
+frontend
+*.exe
+bin
