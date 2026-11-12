@@ -14,7 +14,7 @@ var accessSeq int64
 type AccessRequest struct{}
 
 func (t *AccessRequest) Name() string               { return "access_request" }
-func (t *AccessRequest) RequiredPermission() string { return "checklist.read" }
+func (t *AccessRequest) RequiredPermission() string { return "access.request" }
 func (t *AccessRequest) RequiresConfirmation() bool { return true }
 
 func (t *AccessRequest) Run(ctx context.Context, u auth.User, args map[string]string) (Result, error) {
@@ -33,7 +33,7 @@ func (t *AccessRequest) Run(ctx context.Context, u auth.User, args map[string]st
 			"request_id": id,
 			"resource":   resource,
 			"status":     "pending",
-			"owner":      "Иван Петров (IT Support)",
+			"owner":      "Олег Смирнов (IT Support)",
 			"created_at": time.Now().Format(time.RFC3339),
 		},
 	}, nil

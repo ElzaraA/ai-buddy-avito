@@ -1,42 +1,84 @@
 # Agent Spec — AI-buddy
 
 ## Роль
-AI-buddy — помощник стажёра Авито (Backend). Отвечает по базе знаний, выполняет действия через MCP-инструменты, ведёт по чек-листу.
+AI-buddy — помощник стажёра Авито (Backend). Отвечает по базе знаний со ссылкой на источник, готовит действия через инструменты корпоративных сервисов (имитации) и ведёт по чек-листу.
 
-## Инварианты
-1. Нет источника — нет ответа. RAG не нашёл чанк → refusal + buddy_name.
-2. Нет права — нет действия. auth.Can перед каждым инструментом.
-3. Deny-by-default по audience. Чанк без audience невидим.
-4. Draft → Confirm. Агент не создаёт заявку сам, только draft.
-5. LLM не блокирует UI. POST /messages → 202 + SSE.
-6. Таймауты: run 60с, инструмент 10с.
-7. Формат ответа — JSON (response_format: json_object).
+## Инварианты (каждый закреплён тестом — см. `specs/traceability.md`)
+1. **Нет источника — нет ответа.** Текстовый ответ без найденного фрагмента базы превращается в отказ с именем наставника — даже если LLM «знает» ответ.
+2. **Нет права — нет действия.** Каждый инструмент проверяет `auth.Can` до выполнения; подтверждение действия проверяет право роли и владельца.
+3. **Deny-by-default по аудитории.** Фрагмент без `audience` не виден никому; фрагмент чужой команды не виден.
+4. **Draft → Confirm.** Агент не выполняет мутирующие инструменты (`absence_create_request`, `access_request`) — даже если LLM вернула `tool_call`, получается только черновик. Действие создаётся после `POST /actions/{id}/confirm`, атомарно (двойное подтверждение — 409).
+5. **LLM не блокирует UI.** `POST /messages` → 202 за миллисекунды, ответ — по SSE.
+6. **Таймауты:** run 60 с, инструмент 10 с, HTTP-клиент LLM 30 с. Сбой LLM → событие `error` с понятным текстом, внутренние детали наружу не уходят.
+7. **Инструкции в вопросе не меняют правил.** Prompt injection максимум создаёт черновик, который пользователь сам подтверждает или отменяет.
 
-## Формат ответа
-{"type":"answer","text":"...","sources":[...]}
-{"type":"tool_call","tool":"...","args":{...}}
-{"type":"draft","action":"absence","args":{...}}
-{"type":"refusal","text":"...","buddy_name":"Иван Петров"}
+8. **Сбой LLM не останавливает сервис.** Временные ошибки (сеть, 429, 5xx) повторяются с паузой; если модель недоступна, отвечает резервная детерминированная модель, ответ помечается `degraded: true`.
+9. **MCP = те же гарантии.** Внешний агент через `POST /mcp` получает те же инструменты: пользователь из контекста, право до вызова, мутации — только черновик.
+10. **Заявку согласует руководитель своей команды.** Не сам автор, не наставник, не другая команда; решение окончательное и записывается в историю заявки.
+
+## Жизненный цикл действия
+```
+draft ──confirm (владелец, право роли)──► pending ──approve (руководитель команды)──► approved
+  │                                          ├──────reject  (руководитель команды)──► rejected
+  └──────────cancel (владелец)───────────────┴──────cancel  (владелец)─────────────► cancelled
+```
+Для заявки на доступ статус двигает шаг чек-листа вида `access`: pending → шаг `waiting` (с `related_action_id`), approved → `done`, rejected/cancelled → снова `todo`.
+
+## Поток обработки сообщения
+```
+вопрос ─► RAG (BM25 + префикс 5 рун, стоп-слова, фильтр team/audience, порог score и покрытия запроса)
+       ─► LLM (mock | OpenAI-совместимая, JSON-ответ)
+       ─► answer   → есть источники? ответ + sources : отказ
+          tool_call→ мутирующий? черновик : проверка права → выполнение → action
+          draft    → черновик (absence | access), сохраняется со статусом draft и action_id
+          refusal  → отказ + buddy_name
+```
+
+## Формат ответа LLM
+```json
+{"type":"answer","text":"..."}
+{"type":"tool_call","tool":"checklist_get","args":{}}
+{"type":"refusal","text":"..."}
+```
+Ответ агента клиенту — `AgentResponse` из `specs/contracts/openapi.yaml`.
 
 ## Инструменты
-| Имя | Право | Результат |
-|---|---|---|
-| checklist_get | checklist.read | items, next_step |
-| absence_get_policy | checklist.read | policy, manager_name, buddy_name |
-| absence_create_request | absence.create | absence_id ABS-…, status |
-| access_request | checklist.read | request_id REQ-…, owner |
-| directory_find_owner | directory.read | owner |
+| Имя | Право | Подтверждение | Результат |
+|---|---|---|---|
+| checklist_get | checklist.read | нет | items, next_step |
+| absence_get_policy | checklist.read | нет | policy, manager_name, buddy_name |
+| absence_create_request | absence.create | **да** | черновик ABS-…, после confirm — pending |
+| access_request | access.request | **да** | черновик REQ-…, после confirm — pending |
+| directory_find_owner | directory.read | нет | owner |
+
+Схемы — `specs/contracts/mcp-tools.json`, промпт со списком инструментов — `internal/agent/prompts.go`.
+
+## Диалог
+Модели передаются последние 6 реплик диалога (`AskWithHistory`). Одновременно в одном диалоге ждут ответа не более 3 вопросов (дальше 429).
+Уточнение даты отгула: если помощник спросил дату, а пользователь ответил только датой («2026-11-20», «в пятницу», «завтра»), сообщение продолжает сценарий отгула (`withDialogContext` в `internal/api/chat.go`).
 
 ## RAG
-- Источник: data/knowledge/*.md
-- Чанкинг по #, метаданные stage/team/audience
-- BM25 + префиксный (5 рун), minScore 0.5
-- Фильтр: teamID + audience (deny-by-default)
+- Источник: `data/knowledge/*.md`, чанкинг по заголовкам, метаданные `stage`, `team`, `audience` в HTML-комментарии.
+- Заголовок раздела индексируется вместе с текстом.
+- Стоп-слова и числа не участвуют в поиске; фрагмент релевантен, если score ≥ 0.5 и найдено ≥ 50% значимых слов запроса.
 
 ## Асинхронность
-POST /api/v1/chat/sessions → 201
-POST /api/v1/chat/sessions/{id}/messages → 202
-GET /api/v1/chat/sessions/{id}/events (SSE): status → tool_result → message_done
+`POST /chat/sessions` → 201; `POST /chat/sessions/{id}/messages` → 202; `GET /chat/sessions/{id}/events` (SSE): `status` → `tool_result` → `message_done`. Подписка регистрируется до отправки заголовков; готовые ответы повторяются при подключении; heartbeat каждые 15 с.
+
+## Кабинет наставника и руководителя
+`/team/progress`, `/team/actions`, `/team/knowledge-gaps`, `/team/summary` — только своя команда и только роли buddy/lead.
+«Пробелы базы знаний»: каждый отказ из-за отсутствия источника запоминается обезличенно (без автора), наставник видит, какие инструкции дописать.
+
+## Наблюдаемость и защита
+- `/metrics` (Prometheus): HTTP по шаблону маршрута, ответы агента по типам, пробелы базы, действия по статусам, переходы на резервную модель, открытые SSE-потоки.
+- Лимит: 60 вопросов в минуту на пользователя (`RATE_LIMIT_PER_MIN`), тело ≤ 64 КБ, вопрос ≤ 2000 символов.
+- `X-Request-Id` в ответе и логах; тела запросов в логи не пишутся.
+
+## Состояние
+In-memory хранилище со снимком на диск (`STATE_FILE`): атомарная запись раз в 2 с при изменениях и при остановке. После перезапуска заявки, история, чек-листы и диалоги на месте; недосчитанные ответы помечаются failed.
 
 ## Ошибки
-JSON {"error":{"code","message"}}. Коды: bad_request, unauthorized, forbidden, not_found, conflict, agent_error.
+`{"error":{"code","message"}}`. Коды: bad_request, unauthorized, forbidden, not_found, conflict, rate_limited, agent_error.
+
+## Roadmap (вне прототипа)
+Отдельный agent-сервис (`specs/contracts/agent-api.md`), PostgreSQL вместо снимка (`specs/contracts/schema.sql`), MCP-серверы как отдельные процессы, SSO вместо `X-Demo-User`, эмбеддинги поверх BM25.

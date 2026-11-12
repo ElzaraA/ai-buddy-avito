@@ -1,66 +1,82 @@
 package main
 
 import (
-	"log"
+	"context"
+	"errors"
+	"log/slog"
 	"net/http"
+	"os"
+	"os/signal"
+	"sync"
+	"syscall"
 	"time"
 
-	"github.com/ElzaraA/ai-buddy-avito/internal/agent"
 	"github.com/ElzaraA/ai-buddy-avito/internal/api"
 	"github.com/ElzaraA/ai-buddy-avito/internal/config"
-	"github.com/ElzaraA/ai-buddy-avito/internal/llm"
-	"github.com/ElzaraA/ai-buddy-avito/internal/rag"
-	"github.com/ElzaraA/ai-buddy-avito/internal/store"
-	"github.com/ElzaraA/ai-buddy-avito/internal/tools"
 )
 
 func main() {
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
+	if err := run(ctx); err != nil {
+		slog.Error("server stopped", "err", err)
+		os.Exit(1)
+	}
+}
+
+// run поднимает сервер и останавливает его корректно (graceful shutdown) при отмене ctx.
+func run(parent context.Context) error {
 	config.LoadDotEnv(".env")
 	cfg := config.Load()
 
-	chunks, err := rag.LoadDir("data/knowledge")
+	app, err := api.Build(cfg, cfg.KnowledgeDir)
 	if err != nil {
-		log.Fatal("load knowledge: ", err)
+		return err
 	}
-	idx := rag.NewIndex(chunks)
 
-	st := store.New()
-	st.SeedChecklist("intern-1", []store.ChecklistItem{
-		{ID: "c1-intern-1", Title: "Познакомиться с командой", Stage: "week1", Done: true},
-		{ID: "c2-intern-1", Title: "Получить доступы", Stage: "week1", Done: false},
-		{ID: "c3-intern-1", Title: "Прочитать Playbook", Stage: "week2", Done: false},
-		{ID: "c4-intern-1", Title: "Взять первую задачу", Stage: "week2", Done: false},
-	})
-	st.SeedChecklist("intern-2", []store.ChecklistItem{
-		{ID: "c1-intern-2", Title: "Познакомиться с командой", Stage: "week1", Done: false},
-	})
+	// Состояние сохраняется на диск раз в 2 с (если менялось) и ещё раз при любой остановке.
+	ctx, cancel := context.WithCancel(parent)
+	var bg sync.WaitGroup
+	defer bg.Wait() // выполняется после cancel(): ждём финального сохранения
+	defer cancel()
+	if app.Persister != nil {
+		bg.Add(1)
+		go func() {
+			defer bg.Done()
+			app.Persister.Run(ctx, 2*time.Second)
+		}()
+	}
 
-	reg := tools.NewRegistry()
-	reg.Register(&tools.ChecklistGet{S: st})
-	reg.Register(&tools.AbsenceCreateRequest{S: st})
-	reg.Register(&tools.DirectoryFindOwner{})
-	reg.Register(&tools.AbsenceGetPolicy{})
-	reg.Register(&tools.AccessRequest{})
+	mode := "mock"
+	if !cfg.LLMMock {
+		mode = "real:" + cfg.LLMModel
+	}
+	slog.Info("starting", "addr", cfg.Addr, "llm", mode, "state_file", cfg.StateFile, "rate_limit_per_min", cfg.RateLimitPerMin)
 
-	var llmClient llm.Client
-	if cfg.LLMMock {
-		log.Println("LLM mode: mock")
-		llmClient = llm.MockClient{}
-	} else {
-		log.Println("LLM mode: real, model=", cfg.LLMModel)
-		llmClient = &llm.OpenAIClient{
-			BaseURL: cfg.LLMBaseURL, APIKey: cfg.LLMAPIKey, Model: cfg.LLMModel,
-			HTTP: &http.Client{Timeout: 60 * time.Second},
+	srv := &http.Server{
+		Addr:              cfg.Addr,
+		Handler:           app.Handler,
+		ReadHeaderTimeout: 5 * time.Second,
+		IdleTimeout:       120 * time.Second,
+		// WriteTimeout не задаём: он оборвёт SSE-поток.
+	}
+	errCh := make(chan error, 1)
+	go func() { errCh <- srv.ListenAndServe() }()
+
+	select {
+	case err := <-errCh:
+		if errors.Is(err, http.ErrServerClosed) {
+			return nil
 		}
+		return err
+	case <-ctx.Done():
+		shutdownCtx, cancelShutdown := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancelShutdown()
+		slog.Info("shutting down")
+		// SSE-потоки живут долго: Shutdown ждёт их до таймаута, затем закрываем принудительно.
+		if err := srv.Shutdown(shutdownCtx); err != nil {
+			return srv.Close()
+		}
+		return nil
 	}
-
-	ag := &agent.Agent{LLM: llmClient, Index: idx, Tools: reg, Now: time.Now}
-
-	msgs := store.NewMessageStore()
-	broker := api.NewBroker()
-	chat := &api.ChatHandlers{Agent: ag, Store: st, Msgs: msgs, Broker: broker}
-	handlers := &api.Handlers{Agent: ag, Store: st, Chat: chat}
-
-	log.Println("listening on", cfg.Addr)
-	log.Fatal(http.ListenAndServe(cfg.Addr, api.NewRouter(handlers)))
 }

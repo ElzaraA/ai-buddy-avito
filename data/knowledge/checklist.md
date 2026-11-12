@@ -1,3 +1,5 @@
+<!-- Тестовая инструкция для прототипа AI-buddy. Не является регламентом Авито. -->
+
 # Чек-лист стажёра
 
 <!-- stage: week1 team: backend audience: intern,buddy,lead -->
@@ -15,4 +17,4 @@
 
 <!-- stage: week1 team: backend audience: intern,buddy,lead -->
 
-Запрос доступа к Jira, Git, Grafana — через IT Support (Иван Петров).
+Запрос доступа к Jira, Git, GitLab, Grafana — через IT Support (Олег Смирнов). Доступ выдают в течение рабочего дня после подтверждения заявки.

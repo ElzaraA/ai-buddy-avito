@@ -9,6 +9,7 @@ type Chunk struct {
 	ID         string
 	Source     string
 	Stage      string
+	Title      string // заголовок раздела: индексируется вместе с текстом
 	TeamID     string
 	Audience   []string
 	Text       string
@@ -38,13 +39,16 @@ func ChunkMarkdown(source, content string) []Chunk {
 	for _, ln := range lines {
 		if m := headerRe.FindStringSubmatch(ln); m != nil {
 			flush()
-			cur = Chunk{Stage: m[1]}
+			cur = Chunk{Stage: m[1], Title: m[1]}
 			continue
 		}
-		if strings.HasPrefix(ln, "<!--") && strings.Contains(ln, "stage:") {
-			cur.Stage = extract(ln, "stage")
-			cur.TeamID = extract(ln, "team")
-			cur.Audience = splitCSV(extract(ln, "audience"))
+		if strings.HasPrefix(strings.TrimSpace(ln), "<!--") {
+			// Метаданные раздела; прочие комментарии (например, дисклеймер файла) не индексируются.
+			if strings.Contains(ln, "stage:") {
+				cur.Stage = extract(ln, "stage")
+				cur.TeamID = extract(ln, "team")
+				cur.Audience = splitCSV(extract(ln, "audience"))
+			}
 			continue
 		}
 		buf = append(buf, ln)

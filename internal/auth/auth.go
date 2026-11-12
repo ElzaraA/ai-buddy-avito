@@ -1,6 +1,9 @@
 package auth
 
-import "context"
+import (
+	"context"
+	"sort"
+)
 
 type Role string
 
@@ -35,6 +38,29 @@ var DemoUsers = map[string]User{
 	"mentor.backend": {ID: "mentor-1", Name: "Наставник Backend", Role: RoleBuddy, TeamID: "backend"},
 	"intern.other":   {ID: "intern-2", Name: "Стажёр другой команды", Role: RoleIntern, TeamID: "frontend"},
 	"lead.backend":   {ID: "lead-1", Name: "Руководитель Backend", Role: RoleLead, TeamID: "backend"},
+	"intern.junior":  {ID: "intern-3", Name: "Второй стажёр Backend", Role: RoleIntern, TeamID: "backend"},
+}
+
+// TeamInterns — стажёры команды (для кабинета наставника и руководителя).
+func TeamInterns(teamID string) []User {
+	var out []User
+	for _, u := range DemoUsers {
+		if u.Role == RoleIntern && u.TeamID == teamID {
+			out = append(out, u)
+		}
+	}
+	sort.Slice(out, func(i, j int) bool { return out[i].ID < out[j].ID })
+	return out
+}
+
+// ByID ищет тестового пользователя по id.
+func ByID(id string) (User, bool) {
+	for _, u := range DemoUsers {
+		if u.ID == id {
+			return u, true
+		}
+	}
+	return User{}, false
 }
 
 func Can(u User, action string) bool {
@@ -43,8 +69,16 @@ func Can(u User, action string) bool {
 		return true
 	case "absence.create":
 		return u.Role == RoleIntern || u.Role == RoleBuddy
+	case "access.request":
+		return u.Role == RoleIntern || u.Role == RoleBuddy
 	case "directory.read":
 		return u.Role == RoleIntern || u.Role == RoleBuddy || u.Role == RoleLead
+	case "action.approve":
+		// Согласует руководитель команды.
+		return u.Role == RoleLead
+	case "team.read":
+		// Прогресс стажёров, заявки команды и пробелы базы знаний видят наставник и руководитель.
+		return u.Role == RoleBuddy || u.Role == RoleLead
 	case "absence.read.all":
 		return u.Role == RoleLead || u.Role == RoleHRBP
 	default:

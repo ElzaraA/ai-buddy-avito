@@ -14,7 +14,7 @@ func (t *DirectoryFindOwner) RequiredPermission() string { return "directory.rea
 func (t *DirectoryFindOwner) RequiresConfirmation() bool { return false }
 
 var owners = map[string]string{
-	"доступ":     "Иван Петров (IT Support)",
+	"доступ":     "Олег Смирнов (IT Support)",
 	"инструмент": "Мария Сидорова (Backend Lead)",
 	"чек-лист":   "Наставник команды",
 	"отгул":      "Руководитель команды",

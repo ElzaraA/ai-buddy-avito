@@ -1,3 +1,5 @@
+<!-- Тестовая инструкция для прототипа AI-buddy. Не является регламентом Авито. -->
+
 # Инструменты команды
 
 <!-- stage: week1 team: backend audience: intern,buddy,lead -->

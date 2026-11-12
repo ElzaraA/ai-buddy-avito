@@ -1,125 +1,85 @@
 openapi: 3.0.3
 info:
-  title: AI-buddy Public API (frontend <-> backend)
-  version: 0.1.0
+  title: AI-buddy API (frontend <-> backend)
+  version: 0.3.0
   description: |
-    Контракт между frontend и backend (Go).
-    Правило: любое изменение — через PR в этот файл, затем перегенерация клиентов/моков.
-    Все ответы об ошибках — в формате Error.
+    Контракт, который реально реализует Go-бэкенд (internal/api) и проверяется тестами
+    internal/api/chat_test.go и internal/api/actions_api_test.go. Фронт валидирует ответы Zod-схемами
+    (frontend/src/api/schemas.ts) по этому же контракту.
+
+    Авторизация в прототипе имитирует SSO Авито: пользователь задаётся заголовком `X-Demo-User`
+    (или `?user=` — для EventSource, который не умеет слать заголовки). Без заголовка — `intern.backend`,
+    неизвестный логин — 401. Тестовые логины: intern.backend, intern.other, mentor.backend, lead.backend.
+
+    Ошибки всегда в формате `{"error":{"code","message"}}`.
 servers:
   - url: http://localhost:8080/api/v1
 
 security:
-  - bearerAuth: []
+  - demoUser: []
 
 paths:
-  /auth/login:
-    post:
-      summary: Мок-авторизация по тестовому логину (в Авито авторизация уже есть)
-      security: []
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required: [login]
-              properties:
-                login: { type: string, example: intern.backend }
-      responses:
-        '200':
-          description: OK
-          content:
-            application/json:
-              schema:
-                type: object
-                required: [token, user]
-                properties:
-                  token: { type: string }
-                  user: { $ref: '#/components/schemas/User' }
-        '401': { $ref: '#/components/responses/Error' }
-
   /me:
     get:
-      summary: Текущий пользователь и его команда
+      summary: Текущий пользователь
       responses:
-        '200':
-          description: OK
-          content:
-            application/json:
-              schema: { $ref: '#/components/schemas/User' }
+        '200': { description: OK, content: { application/json: { schema: { $ref: '#/components/schemas/User' } } } }
+        '401': { $ref: '#/components/responses/Error' }
 
   /onboarding/progress:
     get:
-      summary: Этапы адаптации стажёра, статусы и следующий шаг
+      summary: Чек-лист стажёра, следующий шаг и процент выполнения
       responses:
-        '200':
-          description: OK
-          content:
-            application/json:
-              schema: { $ref: '#/components/schemas/OnboardingProgress' }
+        '200': { description: OK, content: { application/json: { schema: { $ref: '#/components/schemas/Progress' } } } }
 
   /onboarding/steps/{stepId}:
     patch:
-      summary: Изменить статус шага (стажёр — свои шаги; наставник — шаги своих стажёров)
+      summary: Отметить свой шаг выполненным (чужой шаг — 403)
       parameters:
         - { name: stepId, in: path, required: true, schema: { type: string } }
       requestBody:
-        required: true
+        required: false
         content:
           application/json:
             schema:
               type: object
-              required: [status]
               properties:
-                status: { $ref: '#/components/schemas/StepStatus' }
+                status: { type: string, enum: [done] }
       responses:
-        '200':
-          description: OK
-          content:
-            application/json:
-              schema: { $ref: '#/components/schemas/OnboardingStep' }
+        '200': { description: Обновлённый прогресс, content: { application/json: { schema: { $ref: '#/components/schemas/Progress' } } } }
+        '400': { $ref: '#/components/responses/Error' }
         '403': { $ref: '#/components/responses/Error' }
         '404': { $ref: '#/components/responses/Error' }
 
   /chat/sessions:
     post:
-      summary: Создать диалог с AI-buddy
+      summary: Создать диалог
       responses:
-        '201':
-          description: Created
-          content:
-            application/json:
-              schema: { $ref: '#/components/schemas/ChatSession' }
+        '201': { description: Created, content: { application/json: { schema: { $ref: '#/components/schemas/ChatSession' } } } }
 
   /chat/sessions/{sessionId}/messages:
+    parameters:
+      - { name: sessionId, in: path, required: true, schema: { type: string } }
     get:
-      summary: История сообщений диалога
-      parameters:
-        - { name: sessionId, in: path, required: true, schema: { type: string } }
+      summary: История диалога (только своего; чужой — 403)
       responses:
         '200':
           description: OK
-          content:
-            application/json:
-              schema:
-                type: array
-                items: { $ref: '#/components/schemas/ChatMessage' }
+          content: { application/json: { schema: { type: array, items: { $ref: '#/components/schemas/ChatMessage' } } } }
+        '403': { $ref: '#/components/responses/Error' }
     post:
       summary: |
-        Отправить сообщение. Возвращается сразу (202, <1 с),
-        ответ агента приходит через SSE /events — интерфейс не блокируется.
-      parameters:
-        - { name: sessionId, in: path, required: true, schema: { type: string } }
+        Отправить сообщение. Ответ 202 приходит сразу (<10 мс), ответ агента — событием message_done в SSE.
+        Принимается поле `text` (openapi) или `question` (совместимость).
       requestBody:
         required: true
         content:
           application/json:
             schema:
               type: object
-              required: [text]
               properties:
-                text: { type: string, maxLength: 4000 }
+                text: { type: string, maxLength: 2000 }
+                question: { type: string, maxLength: 2000 }
       responses:
         '202':
           description: Accepted
@@ -127,27 +87,121 @@ paths:
             application/json:
               schema:
                 type: object
-                required: [messageId]
+                required: [user_message_id, assistant_message_id, messageId, status]
                 properties:
-                  messageId: { type: string }
+                  user_message_id: { type: string }
+                  assistant_message_id: { type: string }
+                  messageId: { type: string, description: то же, что assistant_message_id }
+                  status: { type: string, enum: [pending] }
+        '400': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
 
   /chat/sessions/{sessionId}/events:
     get:
       summary: |
-        SSE-поток. Типы событий (поле data — JSON ChatEvent):
-        status (thinking / calling_tool / done / error), token, tool_result, message_done.
+        SSE-поток диалога. События: status → tool_result (если был вызван инструмент) → message_done; error при сбое.
+        При подключении повторно отдаются уже готовые ответы (клиент дедуплицирует по message_id).
+        Каждые 15 с — комментарий `: ping`.
       parameters:
         - { name: sessionId, in: path, required: true, schema: { type: string } }
+        - { name: user, in: query, required: false, schema: { type: string }, description: логин вместо X-Demo-User }
       responses:
         '200':
-          description: text/event-stream
-          content:
-            text/event-stream:
-              schema: { $ref: '#/components/schemas/ChatEvent' }
+          description: text/event-stream; поле data — JSON ChatEvent
+          content: { text/event-stream: { schema: { $ref: '#/components/schemas/ChatEvent' } } }
+        '403': { $ref: '#/components/responses/Error' }
 
   /actions:
     get:
-      summary: История действий, выполненных помощником через корпоративные сервисы
+      summary: Мои действия (черновики и подтверждённые), новые сверху
+      responses:
+        '200': { description: OK, content: { application/json: { schema: { type: array, items: { $ref: '#/components/schemas/Action' } } } } }
+    post:
+      summary: Создать черновик действия вручную (из UI)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [type]
+              properties:
+                type: { type: string, enum: [absence, access] }
+                date_from: { type: string, format: date, description: обязательно для absence }
+                date_to: { type: string, format: date, description: обязательно для absence, >= date_from }
+                resource: { type: string, description: обязательно для access }
+                reason: { type: string }
+      responses:
+        '201': { description: Created, content: { application/json: { schema: { $ref: '#/components/schemas/Action' } } } }
+        '400': { $ref: '#/components/responses/Error' }
+
+  /actions/{actionId}:
+    get:
+      summary: Моё действие (чужое — 403)
+      parameters:
+        - { name: actionId, in: path, required: true, schema: { type: string } }
+      responses:
+        '200': { description: OK, content: { application/json: { schema: { $ref: '#/components/schemas/Action' } } } }
+        '403': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+
+  /actions/{actionId}/confirm:
+    post:
+      summary: |
+        Подтвердить черновик (draft → pending). Атомарно: при параллельных запросах успешен ровно один,
+        остальные — 409. Проверяются владелец (403) и право роли (absence.create / access.request).
+      parameters:
+        - { name: actionId, in: path, required: true, schema: { type: string } }
+      responses:
+        '200': { description: OK, content: { application/json: { schema: { $ref: '#/components/schemas/Action' } } } }
+        '403': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+        '409': { $ref: '#/components/responses/Error' }
+
+  /actions/{actionId}/cancel:
+    post:
+      summary: Владелец отменяет черновик или отправленную заявку (draft | pending → cancelled)
+      parameters:
+        - { name: actionId, in: path, required: true, schema: { type: string } }
+      responses:
+        '200': { description: OK, content: { application/json: { schema: { $ref: '#/components/schemas/Action' } } } }
+        '403': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+        '409': { $ref: '#/components/responses/Error' }
+
+  /actions/{actionId}/approve:
+    post:
+      summary: |
+        Руководитель согласует заявку своей команды (pending → approved). Нельзя согласовать свою заявку,
+        чужой команды или не отправленную. Для заявки на доступ шаг чек-листа стажёра становится done.
+      parameters:
+        - { name: actionId, in: path, required: true, schema: { type: string } }
+      requestBody:
+        required: false
+        content: { application/json: { schema: { $ref: '#/components/schemas/Decision' } } }
+      responses:
+        '200': { description: OK, content: { application/json: { schema: { $ref: '#/components/schemas/Action' } } } }
+        '400': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+        '409': { $ref: '#/components/responses/Error' }
+
+  /actions/{actionId}/reject:
+    post:
+      summary: Руководитель отклоняет заявку своей команды (pending → rejected); шаг чек-листа возвращается в todo
+      parameters:
+        - { name: actionId, in: path, required: true, schema: { type: string } }
+      requestBody:
+        required: false
+        content: { application/json: { schema: { $ref: '#/components/schemas/Decision' } } }
+      responses:
+        '200': { description: OK, content: { application/json: { schema: { $ref: '#/components/schemas/Action' } } } }
+        '403': { $ref: '#/components/responses/Error' }
+        '409': { $ref: '#/components/responses/Error' }
+
+  /team/progress:
+    get:
+      summary: Прогресс стажёров своей команды (наставник, руководитель; стажёру — 403)
       responses:
         '200':
           description: OK
@@ -155,127 +209,216 @@ paths:
             application/json:
               schema:
                 type: array
-                items: { $ref: '#/components/schemas/Action' }
+                items:
+                  allOf:
+                    - { $ref: '#/components/schemas/Progress' }
+                    - { type: object, properties: { user: { $ref: '#/components/schemas/User' } } }
+        '403': { $ref: '#/components/responses/Error' }
+
+  /team/actions:
+    get:
+      summary: Заявки своей команды, кроме черновиков; ?status=pending — входящие на согласование
+      parameters:
+        - { name: status, in: query, required: false, schema: { type: string, enum: [pending, approved, rejected, cancelled] } }
+      responses:
+        '200': { description: OK, content: { application/json: { schema: { type: array, items: { $ref: '#/components/schemas/Action' } } } } }
+        '403': { $ref: '#/components/responses/Error' }
+
+  /team/knowledge-gaps:
+    get:
+      summary: Вопросы стажёров команды, на которые в базе знаний нет ответа (обезличенно, частые сверху)
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    question: { type: string }
+                    count: { type: integer }
+                    last_at: { type: string, format: date-time }
+        '403': { $ref: '#/components/responses/Error' }
+
+  /team/summary:
+    get:
+      summary: Сводка метрик пользы по команде
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  interns: { type: integer }
+                  avg_percent_done: { type: integer }
+                  steps_waiting: { type: integer }
+                  actions: { type: object, additionalProperties: { type: integer }, description: число заявок по статусам }
+                  unanswered_topics: { type: integer }
+                  unanswered_requests: { type: integer }
+        '403': { $ref: '#/components/responses/Error' }
+
+  /ask:
+    post:
+      summary: Синхронный вариант чата (для проверки curl'ом). Также доступен как POST /api/ask.
+      requestBody:
+        required: true
+        content: { application/json: { schema: { type: object, properties: { text: { type: string }, question: { type: string } } } } }
+      responses:
+        '200': { description: OK, content: { application/json: { schema: { $ref: '#/components/schemas/AgentResponse' } } } }
+        '400': { $ref: '#/components/responses/Error' }
+        '429': { $ref: '#/components/responses/Error' }
+        '502': { $ref: '#/components/responses/Error' }
+
+# Вне /api/v1 (см. README): GET /health, GET /metrics (Prometheus), POST /mcp (MCP, JSON-RPC 2.0), POST /api/ask.
 
 components:
   securitySchemes:
-    bearerAuth: { type: http, scheme: bearer }
+    demoUser: { type: apiKey, in: header, name: X-Demo-User }
 
   responses:
     Error:
       description: Ошибка
-      content:
-        application/json:
-          schema: { $ref: '#/components/schemas/Error' }
+      content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } }
 
   schemas:
     Error:
       type: object
-      required: [code, message]
+      required: [error]
       properties:
-        code: { type: string, example: forbidden }
-        message: { type: string }
+        error:
+          type: object
+          required: [code, message]
+          properties:
+            code: { type: string, enum: [bad_request, unauthorized, forbidden, not_found, conflict, rate_limited, agent_error, sse_unsupported] }
+            message: { type: string }
 
-    Role:
-      type: string
-      enum: [intern, mentor, team_lead, hrbp]
+    Decision:
+      type: object
+      properties:
+        comment: { type: string, maxLength: 500 }
 
     User:
       type: object
-      required: [id, name, role, teamId]
+      required: [id, name, role, team_id]
       properties:
-        id: { type: string }
+        id: { type: string, example: intern-1 }
         name: { type: string }
-        role: { $ref: '#/components/schemas/Role' }
-        teamId: { type: string }
-        mentorId: { type: string, nullable: true }
-        startDate: { type: string, format: date }
+        role: { type: string, enum: [intern, buddy, lead, hr_bp] }
+        team_id: { type: string, example: backend }
 
-    StepStatus:
-      type: string
-      enum: [todo, in_progress, waiting, done, blocked]
-
-    OnboardingStep:
+    ChecklistItem:
       type: object
-      required: [id, stageId, title, status]
+      required: [id, title, stage, done]
       properties:
-        id: { type: string }
-        stageId: { type: string }
+        id: { type: string, example: c2-intern-1 }
         title: { type: string }
-        description: { type: string }
-        status: { $ref: '#/components/schemas/StepStatus' }
-        dueDate: { type: string, format: date, nullable: true }
-        relatedActionId: { type: string, nullable: true }
+        stage: { type: string, example: week1 }
+        done: { type: boolean }
+        status: { type: string, enum: [todo, waiting, done], description: waiting — шаг ждёт решения по заявке }
+        kind: { type: string, description: access — шаг связан с заявками на доступ }
+        related_action_id: { type: string, description: заявка, которой ждёт шаг }
+        owner: { type: string }
 
-    OnboardingStage:
+    Progress:
       type: object
-      required: [id, title, order, steps]
+      required: [items, next_step, percent_done]
       properties:
-        id: { type: string }
-        title: { type: string, example: Первая неделя }
-        order: { type: integer }
-        steps:
-          type: array
-          items: { $ref: '#/components/schemas/OnboardingStep' }
-
-    OnboardingProgress:
-      type: object
-      required: [stages, percentDone]
-      properties:
-        stages:
-          type: array
-          items: { $ref: '#/components/schemas/OnboardingStage' }
-        percentDone: { type: number }
-        nextStep: { $ref: '#/components/schemas/OnboardingStep' }
+        items: { type: array, items: { $ref: '#/components/schemas/ChecklistItem' } }
+        next_step: { type: string }
+        percent_done: { type: integer, minimum: 0, maximum: 100 }
 
     ChatSession:
       type: object
-      required: [id, createdAt]
+      required: [id, user_id, created_at]
       properties:
         id: { type: string }
-        createdAt: { type: string, format: date-time }
+        user_id: { type: string }
+        created_at: { type: string, format: date-time }
 
     ChatMessage:
       type: object
-      required: [id, role, text, createdAt]
+      required: [id, session_id, role, status, created_at]
       properties:
         id: { type: string }
+        session_id: { type: string }
         role: { type: string, enum: [user, assistant] }
-        text: { type: string }
-        sources:
-          type: array
-          description: Ссылки на документы базы знаний, на которых основан ответ
-          items:
-            type: object
-            properties:
-              docId: { type: string }
-              title: { type: string }
-        actionIds:
-          type: array
-          items: { type: string }
-        createdAt: { type: string, format: date-time }
+        content: { type: string }
+        status: { type: string, enum: [pending, in_progress, done, failed] }
+        result: { type: string, description: JSON AgentResponse (для ответов помощника) }
+        created_at: { type: string, format: date-time }
 
-    ChatEvent:
+    Source:
+      type: object
+      properties:
+        id: { type: string, example: 'checklist.md#week1#1' }
+        source: { type: string, example: checklist.md }
+        stage: { type: string }
+
+    ToolResult:
+      type: object
+      properties:
+        ok: { type: boolean }
+        message: { type: string }
+        data: { type: object, additionalProperties: true }
+
+    AgentResponse:
       type: object
       required: [type]
       properties:
-        type: { type: string, enum: [status, token, tool_result, message_done, error] }
-        status: { type: string, enum: [thinking, calling_tool, done, error] }
-        token: { type: string }
-        action: { $ref: '#/components/schemas/Action' }
-        message: { $ref: '#/components/schemas/ChatMessage' }
-        error: { $ref: '#/components/schemas/Error' }
+        type: { type: string, enum: [answer, action, draft, refusal] }
+        text: { type: string }
+        action: { type: string, enum: [absence, access], description: для draft }
+        args:
+          type: object
+          additionalProperties: { type: string }
+          description: |
+            Для draft absence: date_from, date_to, reason, suggest_notify_buddy, action_id (если даты известны).
+            Для draft access: resource, reason, action_id.
+        result: { $ref: '#/components/schemas/ToolResult' }
+        sources: { type: array, items: { $ref: '#/components/schemas/Source' } }
+        buddy_name: { type: string }
+        manager_name: { type: string }
+        degraded: { type: boolean, description: ответ дан резервной моделью (основная LLM недоступна) }
+
+    ChatEvent:
+      type: object
+      required: [type, message_id]
+      properties:
+        type: { type: string, enum: [status, tool_result, message_done, error] }
+        message_id: { type: string }
+        messageId: { type: string }
+        status: { type: string, enum: [thinking, done, failed] }
+        ok: { type: boolean }
+        data: { $ref: '#/components/schemas/ToolResult' }
+        result: { $ref: '#/components/schemas/AgentResponse' }
+        error: { type: string }
 
     Action:
       type: object
-      description: Действие через корпоративный сервис. Считается выполненным, когда сервис вернул результат и он сохранён.
-      required: [id, service, type, status, createdAt]
+      required: [id, type, user_id, status, created_at]
       properties:
-        id: { type: string }
-        service: { type: string, enum: [absence, access, checklist] }
-        type: { type: string, example: create_absence_request }
-        status: { type: string, enum: [pending, succeeded, failed] }
-        externalId: { type: string, nullable: true, example: ABS-2026-0042 }
-        summary: { type: string, example: "Заявка на отгул 14.11 создана, ждёт согласования руководителя" }
-        payload: { type: object, additionalProperties: true }
-        createdAt: { type: string, format: date-time }
+        id: { type: string, example: ABS-000001 }
+        type: { type: string, enum: [absence, access] }
+        resource: { type: string, example: gitlab }
+        user_id: { type: string }
+        date_from: { type: string }
+        date_to: { type: string }
+        reason: { type: string }
+        team_id: { type: string }
+        status: { type: string, enum: [draft, pending, approved, rejected, cancelled] }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+        history:
+          type: array
+          description: Кто и когда перевёл заявку в статус
+          items:
+            type: object
+            properties:
+              at: { type: string, format: date-time }
+              by: { type: string, description: id пользователя }
+              status: { type: string }
+              comment: { type: string }
