@@ -62,4 +62,15 @@ describe('AssistantMessage', () => {
     renderWithQuery(<AssistantMessage response={{ type: 'draft', action: 'absence' }} />);
     expect(screen.getByText(/Напишите дату отгула/)).toBeInTheDocument();
   });
+
+  it('degraded: резервная модель — честная пометка под ответом', () => {
+    renderWithQuery(<AssistantMessage response={{ type: 'answer', text: 'Через GitLab', degraded: true }} />);
+    expect(screen.getByText('Через GitLab')).toBeInTheDocument();
+    expect(screen.getByRole('note')).toHaveTextContent(/упрощённом режиме/);
+  });
+
+  it('обычный ответ — без пометки', () => {
+    renderWithQuery(<AssistantMessage response={{ type: 'answer', text: 'Через GitLab' }} />);
+    expect(screen.queryByRole('note')).not.toBeInTheDocument();
+  });
 });

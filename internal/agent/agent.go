@@ -19,6 +19,8 @@ const (
 	ManagerName = "Мария Сидорова"
 	// buddyDative — «обратитесь к наставнику Ивану Петрову».
 	buddyDative = "Ивану Петрову"
+	// buddyAccusative — «предупредите наставника Ивана Петрова».
+	buddyAccusative = "Ивана Петрова"
 	// maxHistory — сколько последних реплик диалога передаём модели.
 	maxHistory = 6
 )
@@ -269,7 +271,7 @@ func (a *Agent) absenceDraft(question string, args map[string]string, srcs []Sou
 		"suggest_notify_buddy": "true",
 	}
 	base.Text = "Подготовил черновик заявки на отгул. Её согласует руководитель — " + ManagerName +
-		". Предупредите наставника " + BuddyName + " — сам писать ему я не буду. Проверьте даты и подтвердите."
+		". Предупредите наставника " + buddyAccusative + " — сам писать ему я не буду. Проверьте даты и подтвердите."
 	return base
 }
 

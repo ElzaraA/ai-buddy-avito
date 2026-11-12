@@ -11,6 +11,7 @@ type Outcome = { kind: 'done'; response: AgentResponse } | { kind: 'failed'; err
 
 export const DEMO_USERS = [
   { login: 'intern.backend', label: 'Стажёр Backend' },
+  { login: 'intern.junior', label: 'Второй стажёр Backend' },
   { login: 'intern.other', label: 'Стажёр другой команды' },
   { login: 'mentor.backend', label: 'Наставник Backend' },
   { login: 'lead.backend', label: 'Руководитель Backend' },

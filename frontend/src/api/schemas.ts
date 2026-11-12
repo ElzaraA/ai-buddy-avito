@@ -84,19 +84,46 @@ export const AgentResponseSchema = z.object({
   sources: z.array(SourceSchema).optional(),
   buddy_name: z.string().optional(),
   manager_name: z.string().optional(),
+  /** ответ дан резервной моделью: основная LLM недоступна */
+  degraded: z.boolean().optional(),
 });
 export type AgentResponse = z.infer<typeof AgentResponseSchema>;
+
+/** Запись истории заявки: кто и когда перевёл её в статус. */
+export const ActionEventSchema = z.object({
+  at: z.string().optional(),
+  by: z.string().default(''),
+  status: z.string(),
+  comment: z.string().optional(),
+});
 
 export const AbsenceSchema = z.object({
   id: z.string(),
   type: z.enum(['absence', 'access']).default('absence'),
   resource: z.string().optional(),
+  user_id: z.string().optional(),
   date_from: z.string().default(''),
   date_to: z.string().default(''),
   reason: z.string().optional(),
+  /** draft | pending | approved | rejected | cancelled */
   status: z.string(),
+  history: z.array(ActionEventSchema).optional(),
 });
 export type Absence = z.infer<typeof AbsenceSchema>;
+export const ActionListSchema = z.array(AbsenceSchema).nullable().transform((v) => v ?? []);
+
+/** Кабинет наставника и руководителя (GET /api/v1/team/*). */
+export const InternProgressSchema = z.object({
+  user: UserSchema,
+  items: z.array(ChecklistItemSchema).nullable().transform((v) => v ?? []),
+  next_step: z.string().default(''),
+  percent_done: z.number().default(0),
+});
+export type InternProgress = z.infer<typeof InternProgressSchema>;
+export const TeamProgressSchema = z.array(InternProgressSchema).nullable().transform((v) => v ?? []);
+
+export const KnowledgeGapSchema = z.object({ question: z.string(), count: z.number() });
+export const KnowledgeGapsSchema = z.array(KnowledgeGapSchema).nullable().transform((v) => v ?? []);
 
 export const ApiErrorSchema = z.object({
   error: z.object({ code: z.string(), message: z.string() }),

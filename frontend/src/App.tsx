@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { api, setDemoUser } from './api/client';
 import { ChatPanel } from './features/chat/ChatPanel';
 import { ProgressPanel } from './features/progress/ProgressPanel';
+import { TeamPanel } from './features/team/TeamPanel';
 import { DEMO_USERS, useChatStore } from './store/chat';
 
 export function App() {
@@ -40,7 +41,12 @@ export function App() {
 
       <main className="layout">
         <ChatPanel key={`chat-${user}`} />
-        <ProgressPanel />
+        {/* наставник и руководитель видят кабинет команды, стажёр — свой план адаптации */}
+        {me.data && (me.data.role === 'buddy' || me.data.role === 'lead') ? (
+          <TeamPanel key={`team-${user}`} role={me.data.role} />
+        ) : (
+          <ProgressPanel />
+        )}
       </main>
 
       <footer className="footer muted">

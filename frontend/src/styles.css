@@ -107,3 +107,16 @@ button.link { background: none; color: var(--accent-dark); padding: 0 4px; font-
 .step--done .step__title { color: var(--muted); text-decoration: line-through; }
 .step .link { margin-left: auto; font-size: 13px; }
 .badge { background: var(--draft-bg); color: #b54708; border-radius: 999px; padding: 1px 8px; font-size: 12px; white-space: nowrap; }
+.badge--approved { background: var(--success-bg); color: #067647; }
+.badge--rejected { background: var(--error-bg); color: var(--error); }
+.badge--cancelled { background: #eef0f3; color: var(--muted); }
+
+/* Кабинет наставника и руководителя */
+.request { display: flex; flex-direction: column; gap: 6px; padding: 10px 0; border-bottom: 1px solid var(--border); font-size: 14px; }
+.request .card__actions { margin-top: 0; }
+.request button { padding: 6px 12px; font-size: 13px; }
+.comment { width: 100%; margin-top: 10px; font: inherit; font-size: 13px; padding: 8px 10px; border-radius: 8px; border: 1px solid var(--border); }
+.intern { padding: 8px 0; font-size: 14px; }
+.intern__head { display: flex; justify-content: space-between; margin-bottom: 4px; }
+.degraded { display: flex; flex-direction: column; gap: 4px; max-width: 85%; }
+.degraded .card, .degraded .bubble { max-width: 100%; }

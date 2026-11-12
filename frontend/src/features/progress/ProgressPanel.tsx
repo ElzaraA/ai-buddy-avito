@@ -3,6 +3,7 @@ import { api } from '../../api/client';
 import type { ChecklistItem } from '../../api/schemas';
 import { stageLabel } from '../../components/format';
 import { useChatStore } from '../../store/chat';
+import { ACTIONS_REFRESH_MS, MyActions } from './MyActions';
 
 export function groupByStage(items: ChecklistItem[]) {
   const groups = new Map<string, ChecklistItem[]>();
@@ -23,6 +24,8 @@ export function ProgressPanel() {
   const { data, isLoading, isError, refetch } = useQuery({
     queryKey: ['progress', user],
     queryFn: api.progress,
+    // шаг сам станет «выполнен», когда руководитель согласует заявку на доступ
+    refetchInterval: ACTIONS_REFRESH_MS,
   });
 
   const complete = useMutation({
@@ -99,6 +102,8 @@ export function ProgressPanel() {
           {(complete.error as Error).message}
         </div>
       )}
+
+      <MyActions />
     </section>
   );
 }

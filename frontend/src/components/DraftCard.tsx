@@ -99,7 +99,7 @@ export function DraftCard({ action = 'absence', args, text }: Props) {
       ) : isAccess ? (
         <div className="muted">Сервер не вернул номер черновика — попробуйте повторить запрос.</div>
       ) : (
-        <div className="muted">Напишите дату отгула, например «2026-11-20» или «в пятницу».</div>
+        <div className="muted">Напишите дату отгула, например «в пятницу» или «завтра».</div>
       )}
     </div>
   );

@@ -4,6 +4,19 @@ import { fieldLabel, fieldValue } from './format';
 
 /** Отрисовка ответа агента по типу: answer / action / draft / refusal. */
 export function AssistantMessage({ response }: { response: AgentResponse }) {
+  if (!response.degraded) return <Body response={response} />;
+  // основная модель недоступна — ответила резервная; честно говорим об этом пользователю
+  return (
+    <div className="degraded">
+      <Body response={response} />
+      <div className="muted" role="note">
+        ⚠️ Помощник работает в упрощённом режиме: основная модель временно недоступна.
+      </div>
+    </div>
+  );
+}
+
+function Body({ response }: { response: AgentResponse }) {
   switch (response.type) {
     case 'draft':
       return <DraftCard action={response.action ?? 'absence'} args={response.args ?? {}} text={response.text} />;

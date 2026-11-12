@@ -27,4 +27,19 @@ describe('App', () => {
     await waitFor(() => expect(getDemoUser()).toBe('intern.other'));
     expect(useChatStore.getState().user).toBe('intern.other');
   });
+
+  it('руководителю вместо плана адаптации показывается кабинет команды', async () => {
+    useChatStore.getState().setUser('lead.backend');
+    mockFetch([
+      { match: '/api/v1/me', body: { id: 'lead-1', name: 'Руководитель Backend', role: 'lead', team_id: 'backend' } },
+      { match: '/api/v1/team/progress', body: [] },
+      { match: '/api/v1/team/actions?status=pending', body: [] },
+      { match: '/api/v1/team/knowledge-gaps', body: [] },
+    ]);
+    renderWithQuery(<App />);
+    expect(await screen.findByText('Моя команда')).toBeInTheDocument();
+    expect(screen.getByText(/руководитель: согласование заявок/)).toBeInTheDocument();
+    expect(screen.queryByText('Моя адаптация')).not.toBeInTheDocument();
+    expect(screen.getByLabelText('Чат с AI-buddy')).toBeInTheDocument();
+  });
 });

@@ -1,8 +1,11 @@
 import { z } from 'zod';
 import {
   AbsenceSchema,
+  ActionListSchema,
   ApiErrorSchema,
+  KnowledgeGapsSchema,
   ProgressSchema,
+  TeamProgressSchema,
   SendMessageResponseSchema,
   SessionSchema,
   UserSchema,
@@ -78,6 +81,19 @@ export const api = {
     }),
   confirmAction: (id: string) =>
     request(`/api/v1/actions/${encodeURIComponent(id)}/confirm`, AbsenceSchema, { method: 'POST' }),
+  /** Мои заявки (черновики и отправленные), новые сверху. */
+  listActions: () => request('/api/v1/actions', ActionListSchema),
+  cancelAction: (id: string) =>
+    request(`/api/v1/actions/${encodeURIComponent(id)}/cancel`, AbsenceSchema, { method: 'POST' }),
+  // Кабинет наставника и руководителя — только своя команда
+  teamProgress: () => request('/api/v1/team/progress', TeamProgressSchema),
+  teamPending: () => request('/api/v1/team/actions?status=pending', ActionListSchema),
+  knowledgeGaps: () => request('/api/v1/team/knowledge-gaps', KnowledgeGapsSchema),
+  decideAction: (id: string, decision: 'approve' | 'reject', comment = '') =>
+    request(`/api/v1/actions/${encodeURIComponent(id)}/${decision}`, AbsenceSchema, {
+      method: 'POST',
+      body: JSON.stringify({ comment }),
+    }),
   // EventSource не умеет слать заголовки, поэтому учётка передаётся в ?user=
   eventsUrl: (sessionId: string) =>
     `${API_BASE}/api/v1/chat/sessions/${sessionId}/events?user=${encodeURIComponent(demoUser)}`,
