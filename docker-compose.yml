@@ -18,5 +18,15 @@ services:
       - buddy-state:/app/state
     restart: unless-stopped
 
+  # UI: http://localhost:5173 (nginx отдаёт статику и проксирует /api на бэкенд)
+  frontend:
+    build: ./frontend
+    ports:
+      - "5173:80"
+    depends_on:
+      api:
+        condition: service_healthy
+    restart: unless-stopped
+
 volumes:
   buddy-state:
