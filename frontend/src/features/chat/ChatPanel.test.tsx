@@ -49,7 +49,7 @@ describe('ChatPanel', () => {
     expect(screen.getByLabelText('Сообщение')).toHaveValue('');
 
     const es = FakeEventSource.last();
-    expect(es.url).toBe('/api/v1/chat/sessions/s1/events');
+    expect(es.url).toBe('/api/v1/chat/sessions/s1/events?user=intern.backend');
     act(() =>
       es.emit('message_done', {
         message_id: 'a1',
@@ -125,5 +125,17 @@ describe('ChatPanel', () => {
     await ask('вопрос');
     expect(await screen.findByRole('alert')).toHaveTextContent('/api/v1/chat/sessions');
     expect(spy).toHaveBeenCalledTimes(1);
+  });
+
+  it('совместимость: бэк присылает messageId вместо message_id', async () => {
+    mockFetch(chatRoutes());
+    renderWithQuery(<ChatPanel />);
+    await ask('вопрос');
+    await ask('второй');
+    const es = FakeEventSource.last();
+    act(() => es.emit('message_done', { messageId: 'a1', status: 'done', result: { type: 'answer', text: 'Ответ v1' } }));
+    expect(await screen.findByText('Ответ v1')).toBeInTheDocument();
+    act(() => es.emit('error', { messageId: 'a2', error: 'agent failed' }));
+    expect(await screen.findByText(/agent failed/)).toBeInTheDocument();
   });
 });

@@ -66,4 +66,48 @@ describe('DraftCard', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Отменить' }));
     expect(screen.getByText('Черновик отменён.')).toBeInTheDocument();
   });
+
+  it('черновик уже сохранён бэком (action_id): только confirm, без второго POST /actions', async () => {
+    const spy = mockFetch([
+      { method: 'POST', match: '/api/v1/actions/ABS-000001/confirm', body: absence('pending', '2026-11-20') },
+    ]);
+    renderWithQuery(<DraftCard args={{ action_id: 'ABS-000001', date_from: '2026-11-20' }} />);
+    await userEvent.click(screen.getByRole('button', { name: 'Отправить заявку' }));
+    expect(await screen.findByText(/Заявка ABS-000001 отправлена/)).toBeInTheDocument();
+    expect(spy).toHaveBeenCalledTimes(1);
+    expect(String(spy.mock.calls[0][0])).toContain('/confirm');
+  });
+
+  it('заявка на доступ: свой заголовок, confirm по action_id, карточка с ресурсом', async () => {
+    const spy = mockFetch([
+      {
+        method: 'POST',
+        match: '/api/v1/actions/REQ-000001/confirm',
+        body: { id: 'REQ-000001', type: 'access', resource: 'gitlab', status: 'pending' },
+      },
+    ]);
+    renderWithQuery(<DraftCard action="access" args={{ action_id: 'REQ-000001', resource: 'gitlab' }} />);
+    expect(screen.getByText(/Черновик заявки на доступ к gitlab/)).toBeInTheDocument();
+    expect(screen.queryByText(/Даты:/)).not.toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'Отправить заявку' }));
+    expect(await screen.findByText(/Доступ к gitlab/)).toBeInTheDocument();
+    expect(screen.queryByText(/предупредить наставника/)).not.toBeInTheDocument();
+    expect(spy).toHaveBeenCalledTimes(1);
+  });
+
+  it('доступ без action_id: кнопки нет, понятное сообщение (POST /actions умеет только отгул)', () => {
+    renderWithQuery(<DraftCard action="access" args={{}} />);
+    expect(screen.getByText('📝 Черновик заявки на доступ')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Отправить заявку' })).not.toBeInTheDocument();
+    expect(screen.getByText(/не вернул номер черновика/)).toBeInTheDocument();
+  });
+
+  it('доступ: ресурс берётся из args, если бэк его не вернул', async () => {
+    mockFetch([
+      { method: 'POST', match: '/api/v1/actions/REQ-2/confirm', body: { id: 'REQ-2', type: 'access', status: 'pending' } },
+    ]);
+    renderWithQuery(<DraftCard action="access" args={{ action_id: 'REQ-2', resource: 'jira' }} />);
+    await userEvent.click(screen.getByRole('button', { name: 'Отправить заявку' }));
+    expect(await screen.findByText(/Доступ к jira/)).toBeInTheDocument();
+  });
 });

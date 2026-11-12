@@ -17,6 +17,7 @@ describe('format', () => {
   it('statusLabel и fieldValue', () => {
     expect(statusLabel('pending')).toBe('ждёт согласования');
     expect(statusLabel('weird')).toBe('weird');
+    expect(statusLabel('cancelled')).toBe('отменена');
     expect(fieldValue('status', 'pending')).toBe('ждёт согласования');
     expect(fieldValue('created_at', '2026-11-10T19:17:28+03:00')).toBe('10.11.2026 19:17');
     expect(fieldValue('created_at', 'нет даты')).toBe('нет даты');

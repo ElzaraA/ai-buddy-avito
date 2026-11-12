@@ -43,7 +43,7 @@ export function ProgressPanel() {
       </section>
     );
 
-  const pct = percentDone(data.items);
+  const pct = Math.round(data.percent_done ?? percentDone(data.items));
 
   return (
     <section className="panel progress" aria-label="Прогресс адаптации">
@@ -73,6 +73,11 @@ export function ProgressPanel() {
                   {it.done ? '✓' : '○'}
                 </span>
                 <span className="step__title">{it.title}</span>
+                {!it.done && it.status === 'waiting' && (
+                  <span className="badge" title="Шаг ждёт обработки заявки">
+                    ждёт {it.related_action_id ?? 'заявку'}
+                  </span>
+                )}
                 {!it.done && (
                   <button
                     className="link"

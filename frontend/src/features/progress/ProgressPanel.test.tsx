@@ -65,4 +65,14 @@ describe('ProgressPanel', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Повторить' }));
     await waitFor(() => expect(spy).toHaveBeenCalledTimes(2));
   });
+
+  it('бэк v2: percent_done от сервера и шаг «ждёт заявку»', async () => {
+    const v2 = items.map((i) =>
+      i.id === 'c2' ? { ...i, status: 'waiting', related_action_id: 'REQ-000001' } : { ...i, status: i.done ? 'done' : 'todo' },
+    );
+    mockFetch([{ match: '/api/v1/onboarding/progress', body: { items: v2, next_step: '', percent_done: 33.4 } }]);
+    renderWithQuery(<ProgressPanel />);
+    expect(await screen.findByText('Выполнено 33%')).toBeInTheDocument();
+    expect(screen.getByText('ждёт REQ-000001')).toBeInTheDocument();
+  });
 });

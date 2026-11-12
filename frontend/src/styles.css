@@ -106,3 +106,4 @@ button.link { background: none; color: var(--accent-dark); padding: 0 4px; font-
 .step--done .step__icon { color: var(--success); font-weight: 700; }
 .step--done .step__title { color: var(--muted); text-decoration: line-through; }
 .step .link { margin-left: auto; font-size: 13px; }
+.badge { background: var(--draft-bg); color: #b54708; border-radius: 999px; padding: 1px 8px; font-size: 12px; white-space: nowrap; }

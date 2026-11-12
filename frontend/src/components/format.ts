@@ -37,7 +37,9 @@ const STATUS_LABELS: Record<string, string> = {
   pending: 'ждёт согласования',
   approved: 'согласована',
   rejected: 'отклонена',
+  cancelled: 'отменена',
   granted: 'выдан',
+  waiting: 'ждёт заявку',
 };
 
 export function statusLabel(s: string) {

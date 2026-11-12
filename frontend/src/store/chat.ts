@@ -13,6 +13,7 @@ export const DEMO_USERS = [
   { login: 'intern.backend', label: 'Стажёр Backend' },
   { login: 'intern.other', label: 'Стажёр другой команды' },
   { login: 'mentor.backend', label: 'Наставник Backend' },
+  { login: 'lead.backend', label: 'Руководитель Backend' },
 ] as const;
 
 interface ChatState {

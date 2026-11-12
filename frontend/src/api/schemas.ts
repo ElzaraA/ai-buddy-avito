@@ -17,12 +17,17 @@ export const ChecklistItemSchema = z.object({
   stage: z.string(),
   done: z.boolean(),
   owner: z.string().optional(),
+  /** todo | waiting | done (бэк v2); у старого бэка поля нет */
+  status: z.string().optional(),
+  related_action_id: z.string().optional(),
 });
 export type ChecklistItem = z.infer<typeof ChecklistItemSchema>;
 
 export const ProgressSchema = z.object({
   items: z.array(ChecklistItemSchema).nullable().transform((v) => v ?? []),
   next_step: z.string().default(''),
+  /** бэк v2 считает сам; у старого бэка поля нет — считаем на фронте */
+  percent_done: z.number().optional(),
 });
 export type Progress = z.infer<typeof ProgressSchema>;
 
@@ -32,11 +37,28 @@ export const SessionSchema = z.object({
   created_at: z.string().optional(),
 });
 
-export const SendMessageResponseSchema = z.object({
-  user_message_id: z.string(),
-  assistant_message_id: z.string(),
-  status: z.string(),
-});
+/**
+ * Ответ на отправку сообщения. Бэк v1 возвращает только { messageId } (id ответа ассистента),
+ * бэк v2 — { user_message_id, assistant_message_id }. Приводим к одному виду.
+ */
+export const SendMessageResponseSchema = z
+  .object({
+    user_message_id: z.string().optional(),
+    assistant_message_id: z.string().optional(),
+    messageId: z.string().optional(),
+    status: z.string().default('pending'),
+  })
+  .refine((r) => Boolean(r.assistant_message_id ?? r.messageId), {
+    message: 'Сервер не вернул id сообщения',
+  })
+  .transform((r) => {
+    const assistant = (r.assistant_message_id ?? r.messageId) as string;
+    return {
+      assistant_message_id: assistant,
+      user_message_id: r.user_message_id ?? `${assistant}-user`,
+      status: r.status,
+    };
+  });
 
 export const SourceSchema = z.object({
   id: z.string(),
@@ -67,8 +89,10 @@ export type AgentResponse = z.infer<typeof AgentResponseSchema>;
 
 export const AbsenceSchema = z.object({
   id: z.string(),
-  date_from: z.string(),
-  date_to: z.string(),
+  type: z.enum(['absence', 'access']).default('absence'),
+  resource: z.string().optional(),
+  date_from: z.string().default(''),
+  date_to: z.string().default(''),
   reason: z.string().optional(),
   status: z.string(),
 });
@@ -78,14 +102,21 @@ export const ApiErrorSchema = z.object({
   error: z.object({ code: z.string(), message: z.string() }),
 });
 
+/** Бэкенд в разных версиях присылает messageId или message_id — принимаем оба. */
+const withMessageId = <T extends z.ZodRawShape>(shape: T) =>
+  z.preprocess((raw) => {
+    if (raw && typeof raw === 'object' && !('message_id' in raw) && 'messageId' in raw) {
+      return { ...(raw as Record<string, unknown>), message_id: (raw as { messageId: unknown }).messageId };
+    }
+    return raw;
+  }, z.object({ message_id: z.string(), ...shape }));
+
 /** Событие SSE message_done. */
-export const MessageDoneSchema = z.object({
-  message_id: z.string(),
+export const MessageDoneSchema = withMessageId({
   status: z.string(),
   result: AgentResponseSchema.optional(),
 });
 
-export const SseErrorSchema = z.object({
-  message_id: z.string(),
+export const SseErrorSchema = withMessageId({
   error: z.string(),
 });

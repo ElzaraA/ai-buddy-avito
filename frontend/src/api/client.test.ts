@@ -43,6 +43,22 @@ describe('api client', () => {
     expect(err.message).toContain('502');
   });
 
+  it('отправка сообщения: формат бэка v1 { messageId } приводится к общему виду', async () => {
+    mockFetch([
+      { method: 'POST', match: '/api/v1/chat/sessions/s1/messages', status: 202, body: { messageId: 'a7', status: 'pending' } },
+    ]);
+    expect(await api.sendMessage('s1', 'x')).toEqual({
+      assistant_message_id: 'a7',
+      user_message_id: 'a7-user',
+      status: 'pending',
+    });
+  });
+
+  it('отправка сообщения: ответ без id — понятная ошибка', async () => {
+    mockFetch([{ method: 'POST', match: '/api/v1/chat/sessions/s1/messages', status: 202, body: { status: 'pending' } }]);
+    await expect(api.sendMessage('s1', 'x')).rejects.toThrow('Сервер не вернул id сообщения');
+  });
+
   it('чат и действия ходят в нужные эндпоинты', async () => {
     const spy = mockFetch([
       { method: 'POST', match: '/api/v1/chat/sessions', body: { id: 's1' } },
@@ -66,9 +82,11 @@ describe('api client', () => {
     ]);
     expect((await api.createSession()).id).toBe('s1');
     expect((await api.sendMessage('s1', 'привет')).assistant_message_id).toBe('a1');
-    expect(JSON.parse(spy.mock.calls[1][1]?.body as string)).toEqual({ question: 'привет' });
+    expect(JSON.parse(spy.mock.calls[1][1]?.body as string)).toEqual({ text: 'привет', question: 'привет' });
     expect((await api.createAbsenceDraft({ date_from: '2026-11-20', date_to: '2026-11-20' })).status).toBe('draft');
     expect((await api.confirmAction('ABS-1')).status).toBe('pending');
-    expect(api.eventsUrl('s1')).toBe('/api/v1/chat/sessions/s1/events');
+    expect(api.eventsUrl('s1')).toBe('/api/v1/chat/sessions/s1/events?user=intern.backend');
+    setDemoUser('mentor.backend');
+    expect(api.eventsUrl('s1')).toContain('?user=mentor.backend');
   });
 });

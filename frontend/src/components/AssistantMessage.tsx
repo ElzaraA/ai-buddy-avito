@@ -6,7 +6,7 @@ import { fieldLabel, fieldValue } from './format';
 export function AssistantMessage({ response }: { response: AgentResponse }) {
   switch (response.type) {
     case 'draft':
-      return <DraftCard args={response.args ?? {}} text={response.text} />;
+      return <DraftCard action={response.action ?? 'absence'} args={response.args ?? {}} text={response.text} />;
 
     case 'action': {
       const r = response.result;

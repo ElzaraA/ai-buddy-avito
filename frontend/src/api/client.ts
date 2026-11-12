@@ -68,7 +68,8 @@ export const api = {
   sendMessage: (sessionId: string, question: string) =>
     request(`/api/v1/chat/sessions/${sessionId}/messages`, SendMessageResponseSchema, {
       method: 'POST',
-      body: JSON.stringify({ question }),
+      // text — по контракту openapi, question — для старых версий бэка
+      body: JSON.stringify({ text: question, question }),
     }),
   createAbsenceDraft: (args: { date_from: string; date_to: string; reason?: string }) =>
     request('/api/v1/actions', AbsenceSchema, {
@@ -77,5 +78,7 @@ export const api = {
     }),
   confirmAction: (id: string) =>
     request(`/api/v1/actions/${encodeURIComponent(id)}/confirm`, AbsenceSchema, { method: 'POST' }),
-  eventsUrl: (sessionId: string) => `${API_BASE}/api/v1/chat/sessions/${sessionId}/events`,
+  // EventSource не умеет слать заголовки, поэтому учётка передаётся в ?user=
+  eventsUrl: (sessionId: string) =>
+    `${API_BASE}/api/v1/chat/sessions/${sessionId}/events?user=${encodeURIComponent(demoUser)}`,
 };
