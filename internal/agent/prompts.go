@@ -1,10 +1,10 @@
 package agent
 
 import (
-"fmt"
-"strings"
+	"fmt"
+	"strings"
 
-"github.com/ElzaraA/ai-buddy-avito/internal/rag"
+	"github.com/ElzaraA/ai-buddy-avito/internal/rag"
 )
 
 const SystemPrompt = `Ты — AI-buddy, помощник стажёра Авито (Backend-команда).
@@ -18,10 +18,10 @@ const SystemPrompt = `Ты — AI-buddy, помощник стажёра Ави�
 Формат ответа — строго JSON, без markdown.`
 
 func UserPrompt(q string, hits []rag.Hit, role string) string {
-var b strings.Builder
-fmt.Fprintf(&b, "ROLE: %s\nQUESTION: %s\nCONTEXT:\n", role, q)
-for _, h := range hits {
-fmt.Fprintf(&b, "[%s] %s\n", h.Chunk.ID, h.Chunk.Text)
-}
-return b.String()
+	var b strings.Builder
+	fmt.Fprintf(&b, "ROLE: %s\nQUESTION: %s\nCONTEXT:\n", role, q)
+	for _, h := range hits {
+		fmt.Fprintf(&b, "[%s] %s\n", h.Chunk.ID, h.Chunk.Text)
+	}
+	return b.String()
 }

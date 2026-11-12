@@ -108,211 +108,224 @@
 		<pre class="file" id="file0" style="display: none">package main
 
 import (
-"log"
-"net/http"
-"time"
+        "log"
+        "net/http"
+        "time"
 
-"github.com/ElzaraA/ai-buddy-avito/internal/agent"
-"github.com/ElzaraA/ai-buddy-avito/internal/api"
-"github.com/ElzaraA/ai-buddy-avito/internal/config"
-"github.com/ElzaraA/ai-buddy-avito/internal/llm"
-"github.com/ElzaraA/ai-buddy-avito/internal/rag"
-"github.com/ElzaraA/ai-buddy-avito/internal/store"
-"github.com/ElzaraA/ai-buddy-avito/internal/tools"
+        "github.com/ElzaraA/ai-buddy-avito/internal/agent"
+        "github.com/ElzaraA/ai-buddy-avito/internal/api"
+        "github.com/ElzaraA/ai-buddy-avito/internal/config"
+        "github.com/ElzaraA/ai-buddy-avito/internal/llm"
+        "github.com/ElzaraA/ai-buddy-avito/internal/rag"
+        "github.com/ElzaraA/ai-buddy-avito/internal/store"
+        "github.com/ElzaraA/ai-buddy-avito/internal/tools"
 )
 
 func main() {
-<span class="cov0" title="0">config.LoadDotEnv(".env")
-</span>cfg := config.Load()
+<span class="cov0" title="0">        config.LoadDotEnv(".env")
+</span>        cfg := config.Load()
 <span class="cov0" title="0">
-chunks, err :=</span> rag.LoadDir("data/knowledge")
-<span class="cov0" title="0">if err != nil {
-</span>log.Fatal("load knowledge: ", err)
-<span class="cov0" title="0">}
-</span>idx := rag.NewIndex(chunks)
+        chunks, err :</span>= rag.LoadDir("data/knowledge")
+<span class="cov0" title="0">        if err != nil {
+</span>                log.Fatal("load knowledge: ", err)
+<span class="cov0" title="0">        }
+</span>        idx := rag.NewIndex(chunks)
 <span class="cov0" title="0">
-st := store.New()
-st.SeedChecklist("intern-1", []store.ChecklistItem{
-{ID: "c1-intern-1", Title: "Познакомиться с командой", Stage: "week1", Done: true},
-{ID: "c2-intern-1", Title: "Получить доступы", Stage: "week1", Done: false},
-{ID: "c3-intern-1", Title: "Прочитать Playbook", Stage: "week2", Done: false},
-{ID: "c4-intern-1", Title: "Взять первую задачу", Stage: "week2", Done: false},
-</span>})
-<span class="cov0" title="0">st.SeedChecklist("intern-2", []store.ChecklistItem{
-{ID: "c1-intern-2", Title: "Познакомиться с командой", Stage: "week1", Done: false},
-})
+        st := store.New()
+        st.SeedChecklist("intern-1", []store.ChecklistItem{
+                {ID: "c1-intern-1", Title: "Познакомиться с командой", Stage: "week1", Done: true},
+                {ID: "c2-intern-1", Title: "Получить доступы", Stage: "week1", Done: false},
+                {ID: "c3-intern-1", Title: "Прочитать Playbook", Stage: "week2", Done: false},
+                {ID: "c4-intern-1", Title: "Взять первую задачу", Stage: "week2", Done: false},
+</span>        })
+<span class="cov0" title="0">        st.SeedChecklist("intern-2", []store.ChecklistItem{
+                {ID: "c1-intern-2", Title: "Познакомиться с командой", Stage: "week1", Done: false},
+        })
 
-</span>reg := tools.NewRegistry()
-<span class="cov0" title="0">reg.Register(&amp;tools.ChecklistGet{S: st})
-reg.Register(&amp;t</span>ools.AbsenceCreateRequest{S: st})
-<span class="cov0" title="0">reg.Register(&amp;tools.DirectoryFindOwner{})
-</span>reg.Register(&amp;tools.AbsenceGetPolicy{})
-<span class="cov0" title="0">reg.Register(&amp;tools.AccessRequest{})
+</span>        reg := tools.NewRegistry()
+<span class="cov0" title="0">        reg.Register(&amp;tools.ChecklistGet{S: st})
+        reg.Register(&amp;</span>tools.AbsenceCreateRequest{S: st})
+<span class="cov0" title="0">        reg.Register(&amp;tools.DirectoryFindOwner{})
+</span>        reg.Register(&amp;tools.AbsenceGetPolicy{})
+<span class="cov0" title="0">        reg.Register(&amp;tools.AccessRequest{})
 
-var llmClient llm.Client
-</span>if cfg.LLMMock {
-log.Println("LLM mode: mock")
-llmClient = llm.MockClient{}
-<span class="cov0" title="0">} else {
-log.Println("LLM mode: real, model=", cfg.LLMModel)
-</span>llmClient = &amp;llm.OpenAIClient{
-<span class="cov0" title="0">BaseURL: cfg.LLMBaseURL, APIKey: cfg.LLMAPIKey, Model: cfg.LLMModel,
-HTTP: &amp;http.Client{Timeout: 60 * time.Second},
-</span>}
+        var llmClient llm.Client
+</span>        if cfg.LLMMock {
+                log.Println("LLM mode: mock")
+                llmClient = llm.MockClient{}
+<span class="cov0" title="0">        } else {
+                log.Println("LLM mode: real, model=", cfg.LLMModel)
+</span>                llmClient = &amp;llm.OpenAIClient{
+<span class="cov0" title="0">                        BaseURL: cfg.LLMBaseURL, APIKey: cfg.LLMAPIKey, Model: cfg.LLMModel,
+                        HTTP: &amp;http.Client{Timeout: 60 * time.Second},
+</span>                }
+        }
+
+        ag := &amp;agent.Agent{LLM: llmClient, Index: idx, Tools: reg, Now: time.Now}
+
+        msgs := store.NewMessageStore()
+        broker := api.NewBroker()
+        chat := &amp;api.ChatHandlers{Agent: ag, Store: st, Msgs: msgs, Broker: broker}
+        handlers := &amp;api.Handlers{Agent: ag, Store: st, Chat: chat}
+
+        log.Println("listening on", cfg.Addr)
+        log.Fatal(http.ListenAndServe(cfg.Addr, api.NewRouter(handlers)))
 }
-
-ag := &amp;agent.Agent{LLM: llmClient, Index: idx, Tools: reg, Now: time.Now}
-
-msgs := store.NewMessageStore()
-broker := api.NewBroker()
-chat := &amp;api.ChatHandlers{Agent: ag, Store: st, Msgs: msgs, Broker: broker}
-handlers := &amp;api.Handlers{Agent: ag, Store: st, Chat: chat}
-
-log.Println("listening on", cfg.Addr)
-log.Fatal(http.ListenAndServe(cfg.Addr, api.NewRouter(handlers)))
-}</pre>
+</pre>
 		
 		<pre class="file" id="file1" style="display: none">package agent
 
 import (
-"context"
-"encoding/json"
-"strings"
-"time"
+        "context"
+        "encoding/json"
+        "strings"
+        "time"
 
-"github.com/ElzaraA/ai-buddy-avito/internal/auth"
-"github.com/ElzaraA/ai-buddy-avito/internal/llm"
-"github.com/ElzaraA/ai-buddy-avito/internal/rag"
-"github.com/ElzaraA/ai-buddy-avito/internal/tools"
+        "github.com/ElzaraA/ai-buddy-avito/internal/auth"
+        "github.com/ElzaraA/ai-buddy-avito/internal/llm"
+        "github.com/ElzaraA/ai-buddy-avito/internal/rag"
+        "github.com/ElzaraA/ai-buddy-avito/internal/tools"
 )
 
-const BuddyName = "РРІР°РЅ РџРµС‚СЂРѕРІ"
-const ManagerName = "РњР°СЂРёСЏ РЎРёРґРѕСЂРѕРІР°"
+const BuddyName = "Иван Петров"
+const ManagerName = "Мария Сидорова"
 
 type Agent struct {
-LLM   llm.Client
-Index *rag.Index
-Tools *tools.Registry
-Now   func() time.Time
+        LLM   llm.Client
+        Index *rag.Index
+        Tools *tools.Registry
+        Now   func() time.Time
 }
 
 type Response struct {
-Type    string            `json:"type"`
-Text    string            `json:"text,omitempty"`
-<span class="cov8" title="1">Action  string            `json:"action,omitempty"`
-Args    map[string]string `json:"args,omitempty"`
-Result  *tools.Result  </span>   `json:"result,omitempty"`
-<span class="cov8" title="1">Sources []Source          `json:"sources,omitempty"`
-</span>Buddy   string            `json:"buddy_name,omitempty"`
-<span class="cov8" title="1">Manager string    </span>        `json:"manager_name,omitempty"`
+        Type    string            `json:"type"`
+        Text    string            `json:"text,omitempty"`
+<span class="cov8" title="1">        Action  string            `json:"action,omitempty"`
+        Args    map[string]string `json:"args,omitempty"`
+        Result  *tools.Result </span>    `json:"result,omitempty"`
+<span class="cov8" title="1">        Sources []Source          `json:"sources,omitempty"`
+</span>        Buddy   string            `json:"buddy_name,omitempty"`
+<span class="cov8" title="1">        Manager string   </span>         `json:"manager_name,omitempty"`
 <span class="cov8" title="1">}
 </span>
 func (a *Agent) Ask(ctx context.Context, user auth.User, question string) (Response, error) {
-<span class="cov8" title="1">ctx, cancel := context.WithTimeout(ctx, 60*time.Second)
-defer cancel()
+<span class="cov8" title="1">        ctx, cancel := context.WithTimeout(ctx, 60*time.Second)
+        defer cancel()
 
-</span>hits := a.Index.Search(question, user.TeamID, string(user.Role), 4)
-<span class="cov8" title="1">srcs := make([]Source, 0, len(hits))
-for _, h := ra</span>nge hits {
-<span class="cov0" title="0">srcs = append(srcs, Source{ID: h.Chunk.ID, Source: h.Chunk.Source, Stage: h.Chunk.Stage})
-</span>}
-if len(srcs) == 0 {
-<span class="cov8" title="1">return Response{
-Type: "refusal",
-</span><span class="cov0" title="0">Text: "РќРµ РЅР°С€С‘Р» РІ РґРѕСЃС‚СѓРїРЅС‹С… РёСЃС‚РѕС‡РЅРёРєР°С…. РћР±СЂР°С‚РёС‚РµСЃСЊ Рє РЅР°СЃС‚Р°РІРЅРёРєСѓ " + BuddyName + ".",
-</span>Buddy: BuddyName,
-}, nil
-<span class="cov8" title="1">}
+</span>        hits := a.Index.Search(question, user.TeamID, string(user.Role), 4)
+<span class="cov8" title="1">        srcs := make([]Source, 0, len(hits))
+        for _, h := r</span>ange hits {
+<span class="cov0" title="0">                srcs = append(srcs, Source{ID: h.Chunk.ID, Source: h.Chunk.Source, Stage: h.Chunk.Stage})
+</span>        }
+        if len(srcs) == 0 {
+<span class="cov8" title="1">                return Response{
+                        Type:  "refusal",
+</span><span class="cov0" title="0">                        Text:  "Не нашёл в доступных источниках. Обратитесь к наставнику " + BuddyName + ".",
+</span>                        Buddy: BuddyName,
+                }, nil
+<span class="cov8" title="1">        }
 </span><span class="cov8" title="1">
-msgs :=</span> []llm.Message{
-<span class="cov8" title="1">{Role: "system", Content: SystemPrompt},
-</span>{Role: "user", Content: UserPrompt(question, hits, string(user.Role))},
-<span class="cov8" title="1">}
-raw, err := a.</span>LLM.Complete(ctx, msgs)
-<span class="cov0" title="0">if err != nil {
-</span>return Response{}, err
-<span class="cov8" title="1">}
+        msgs :</span>= []llm.Message{
+<span class="cov8" title="1">                {Role: "system", Content: SystemPrompt},
+</span>                {Role: "user", Content: UserPrompt(question, hits, string(user.Role))},
+<span class="cov8" title="1">        }
+        raw, err := a</span>.LLM.Complete(ctx, msgs)
+<span class="cov0" title="0">        if err != nil {
+</span>                return Response{}, err
+<span class="cov8" title="1">        }
 </span>
-<span class="cov0" title="0">raw = stripCodeFence(raw)</span>
-<span class="cov0" title="0">var out AgentOutput
-</span>if err := json.Unmarshal([]byte(raw), &amp;out); err != nil {
-<span class="cov0" title="0">return Response{Type: "answer", Text: raw, Sources: srcs}, nil
-</span>}
+<span class="cov0" title="0">        raw = stripCodeFence(raw</span>)
+<span class="cov0" title="0">        var out AgentOutput
+</span>        if err := json.Unmarshal([]byte(raw), &amp;out); err != nil {
+<span class="cov0" title="0">                return Response{Type: "answer", Text: raw, Sources: srcs}, nil
+</span>        }
 
-switch out.Type {
-case "tool_call":
-t, ok := a.Tools.Get(out.Tool)
-if !ok {
-return Response{Type: "refusal", Text: "РРЅСЃС‚СЂСѓРјРµРЅС‚ РЅРµРґРѕСЃС‚СѓРїРµРЅ. РћР±СЂР°С‚РёС‚РµСЃСЊ Рє РЅР°СЃС‚Р°РІРЅРёРєСѓ " + BuddyName + ".", Buddy: BuddyName}, nil
-}
-res, err := tools.Run(ctx, t, user, out.Args)
-if err != nil {
-return Response{Type: "refusal", Text: "Р”РµР№СЃС‚РІРёРµ РЅРµРґРѕСЃС‚СѓРїРЅРѕ: " + err.Error() + ". РќР°СЃС‚Р°РІРЅРёРє: " + BuddyName + ".", Buddy: BuddyName}, nil
-}
-return Response{Type: "action", Result: &amp;res, Sources: srcs, Buddy: BuddyName, Manager: ManagerName}, nil
+        switch out.Type {
+        case "tool_call":
+                t, ok := a.Tools.Get(out.Tool)
+                if !ok {
+                        return Response{Type: "refusal", Text: "Инструмент недоступен. Обратитесь к наставнику " + BuddyName + ".", Buddy: BuddyName}, nil
+                }
+                if t.RequiresConfirmation() {
+                        return Response{
+                                Type:    "draft",
+                                Action:  "absence",
+                                Args:    out.Args,
+                                Text:    "Черновик. Подтвердите через POST /api/v1/actions/{id}/confirm.",
+                                Sources: srcs,
+                                Buddy:   BuddyName,
+                                Manager: ManagerName,
+                        }, nil
+                }
+                res, err := tools.Run(ctx, t, user, out.Args)
+                if err != nil {
+                        return Response{Type: "refusal", Text: "Действие недоступно. Наставник: " + BuddyName + ".", Buddy: BuddyName}, nil
+                }
+                return Response{Type: "action", Result: &amp;res, Sources: srcs, Buddy: BuddyName, Manager: ManagerName}, nil
 
-case "draft":
-return a.buildDraft(question, out, srcs), nil
+        case "draft":
+                return a.buildDraft(question, out, srcs), nil
 
-case "refusal":
-return Response{Type: "refusal", Text: out.Text, Buddy: BuddyName}, nil
-}
-return Response{Type: "answer", Text: out.Text, Sources: srcs}, nil
+        case "refusal":
+                return Response{Type: "refusal", Text: out.Text, Buddy: BuddyName}, nil
+        }
+        return Response{Type: "answer", Text: out.Text, Sources: srcs}, nil
 }
 
 func (a *Agent) buildDraft(question string, out AgentOutput, srcs []Source) Response {
-if out.Action != "absence" {
-return Response{Type: "refusal", Text: "РќРµРёР·РІРµСЃС‚РЅРѕРµ РґРµР№СЃС‚РІРёРµ. РќР°СЃС‚Р°РІРЅРёРє: " + BuddyName + ".", Buddy: BuddyName}
-}
-from, to := ParseDates(question)
-if from == "" {
-now := time.Now()
-if a.Now != nil {
-now = a.Now()
-}
-if d, ok := ParseWeekday(question, now); ok {
-from, to = d, d
-}
-}
-base := Response{
-Type:    "draft",
-Action:  "absence",
-Sources: srcs,
-Buddy:   BuddyName,
-Manager: ManagerName,
-}
-if from == "" {
-base.Args = map[string]string{"reason": "personal"}
-base.Text = "РќР° РєР°РєСѓСЋ РґР°С‚Сѓ РѕС„РѕСЂРјРёС‚СЊ РѕС‚РіСѓР»? РЈРєР°Р¶РёС‚Рµ РІ С„РѕСЂРјР°С‚Рµ 2026-11-20. Р СѓРєРѕРІРѕРґРёС‚РµР»СЊ: " + ManagerName + ", РЅР°СЃС‚Р°РІРЅРёРє: " + BuddyName + "."
-return base
-}
-base.Args = map[string]string{
-"date_from": from, "date_to": to, "reason": "personal",
-"suggest_notify_buddy": "true",
-}
-base.Text = "Р§РµСЂРЅРѕРІРёРє Р·Р°СЏРІРєРё. РЎРѕРіР»Р°СЃСѓР№С‚Рµ СЃ СЂСѓРєРѕРІРѕРґРёС‚РµР»РµРј " + ManagerName + " Рё РїСЂРµРґСѓРїСЂРµРґРёС‚Рµ РЅР°СЃС‚Р°РІРЅРёРєР° " + BuddyName + ". РџРѕРґС‚РІРµСЂРґРёС‚Рµ С‡РµСЂРµР· POST /api/v1/actions/{id}/confirm."
-return base
+        if out.Action != "absence" {
+                return Response{Type: "refusal", Text: "Неизвестное действие. Наставник: " + BuddyName + ".", Buddy: BuddyName}
+        }
+        from, to := ParseDates(question)
+        if from == "" {
+                now := time.Now()
+                if a.Now != nil {
+                        now = a.Now()
+                }
+                if d, ok := ParseWeekday(question, now); ok {
+                        from, to = d, d
+                }
+        }
+        base := Response{
+                Type:    "draft",
+                Action:  "absence",
+                Sources: srcs,
+                Buddy:   BuddyName,
+                Manager: ManagerName,
+        }
+        if from == "" {
+                base.Args = map[string]string{"reason": "personal"}
+                base.Text = "На какую дату оформить отгул? Укажите в формате 2026-11-20. Руководитель: " + ManagerName + ", наставник: " + BuddyName + "."
+                return base
+        }
+        base.Args = map[string]string{
+                "date_from": from, "date_to": to, "reason": "personal",
+                "suggest_notify_buddy": "true",
+        }
+        base.Text = "Черновик заявки. Согласуйте с руководителем " + ManagerName + " и предупредите наставника " + BuddyName + ". Подтвердите через POST /api/v1/actions/{id}/confirm."
+        return base
 }
 
 func stripCodeFence(s string) string {
-s = strings.TrimSpace(s)
-if strings.HasPrefix(s, "```") {
-if i := strings.Index(s, "\n"); i &gt;= 0 {
-s = s[i+1:]
+        s = strings.TrimSpace(s)
+        if strings.HasPrefix(s, "```") {
+                if i := strings.Index(s, "\n"); i &gt;= 0 {
+                        s = s[i+1:]
+                }
+                s = strings.TrimSuffix(s, "```")
+                s = strings.TrimSpace(s)
+        }
+        return s
 }
-s = strings.TrimSuffix(s, "```")
-s = strings.TrimSpace(s)
-}
-return s
-}</pre>
+</pre>
 		
 		<pre class="file" id="file2" style="display: none">package agent
 
 import (
-"fmt"
-"strings"
+        "fmt"
+        "strings"
 
-"github.com/ElzaraA/ai-buddy-avito/internal/rag"
+        "github.com/ElzaraA/ai-buddy-avito/internal/rag"
 )
 
 const SystemPrompt = `Ты — AI-buddy, помощник стажёра Авито (Backend-команда).
@@ -326,89 +339,116 @@ const SystemPrompt = `Ты — AI-buddy, помощник стажёра Ави�
 Формат ответа — строго JSON, без markdown.`
 
 func UserPrompt(q string, hits []rag.Hit, role string) string {
-var b strings.Builder
-fmt.Fprintf(&amp;b, "ROLE: %s\nQUESTION: %s\nCONTEXT:\n", role, q)
-for _, h := range hits {
-fmt.Fprintf(&amp;b, "[%s] %s\n", h.Chunk.ID, h.Chunk.Text)
+        var b strings.Builder
+        fmt.Fprintf(&amp;b, "ROLE: %s\nQUESTION: %s\nCONTEXT:\n", role, q)
+        for _, h := range hits {
+                fmt.Fprintf(&amp;b, "[%s] %s\n", h.Chunk.ID, h.Chunk.Text)
+        }
+        return b.String()
 }
-return b.String()
-}</pre>
+</pre>
 		
 		<pre class="file" id="file3" style="display: none">package api
 
 import (
-"encoding/json"
-"fmt"
-"net/http"
-"time"
+        "encoding/json"
+        "fmt"
+        "net/http"
+        "time"
 
-"github.com/ElzaraA/ai-buddy-avito/internal/agent"
-"github.com/ElzaraA/ai-buddy-avito/internal/auth"
-"github.com/ElzaraA/ai-buddy-avito/internal/store"
-"github.com/go-chi/chi/v5"
+        "github.com/ElzaraA/ai-buddy-avito/internal/agent"
+        "github.com/ElzaraA/ai-buddy-avito/internal/auth"
+        "github.com/ElzaraA/ai-buddy-avito/internal/store"
+        "github.com/go-chi/chi/v5"
 )
 
 type Handlers struct {
-Agent *agent.Agent
-Store *store.Store
-Chat  *ChatHandlers
+        Agent *agent.Agent
+        Store *store.Store
+        Chat  *ChatHandlers
 }
 <span class="cov8" title="1">
 type as</span>kReq struct {
-<span class="cov8" title="1">Question string `json:"question"`
+<span class="cov8" title="1">        Question string `json:"question"`
+        Text     string `json:"text"`
+</span>}
+<span class="cov8" title="1">
+func (r askReq) Q() string {
+</span><span class="cov8" title="1">        if r.Text != "" {
+                return r.Text
+</span>        }
+<span class="cov8" title="1">        return r.Question
 }
-</span>
-<span class="cov8" title="1">func (h *Handlers) Ask(w http.ResponseWriter, r *http.Request) {
-u, ok := auth.FromCtx(r.Context())
-</span><span class="cov8" title="1">if !ok {
-writeError(w, http.StatusUnauthorized, "unauthorized", "no user")
-</span>return
-<span class="cov8" title="1">}
-var body askRe</span>q
-<span class="cov0" title="0">if err := json.NewDecoder(r.Body).Decode(&amp;body); err != nil || body.Question == "" {
-writeError(w, http.StatusBadRequest, "bad_request", "question required")
-</span>return
-<span class="cov8" title="1">}
-resp, err := h.Agent.Ask(r.Context(</span>), u, body.Question)
-if err != nil {
-writeError(w, http.StatusInternalServerError, "agent_error", err.Error())
-return
-<span class="cov8" title="1">}
-if resp.Type == "draft" &amp;&amp; resp.Action == "absence" &amp;&amp; resp.Args["date_from"] != "" {
-</span>a := h.Store.CreateAbsence(store.Absence{
-ID: h.Store.NextAbsenceID(),
-UserID: u.ID, DateFrom: resp.Args["date_from"], DateTo: resp.Args["date_to"],
-Reason: resp.Args["reason"], Status: "draft", CreatedAt: time.Now(),
-})
-resp.Args["action_id"] = a.ID
+</span><span class="cov0" title="0">
+func (h *Handlers) Ask(w http.ResponseWriter, r *http.Request) {
+</span>        u, ok := auth.FromCtx(r.Context())
+<span class="cov8" title="1">        if !ok {
+                writeError(w, http.StatusUnauthor</span>ized, "unauthorized", "no user")
+                return
+        }
+        var body askReq
+<span class="cov8" title="1">        if err := json.NewDecoder(r.Body).Decode(&amp;body); err != nil || body.Q() == "" {
+                writeError(w, http.StatusBadRequest, "bad_request", "question required")
+</span>                return
+        }
+        resp, err := h.Agent.Ask(r.Context(), u, body.Q())
+        if err != nil {
+                writeError(w, http.StatusInternalServerError, "agent_error", "agent failed")
+                return
+        }
+        h.maybeCreateDraft(u, body.Q(), &amp;resp)
+        w.Header().Set("Content-Type", "application/json; charset=utf-8")
+        _ = json.NewEncoder(w).Encode(resp)
 }
-w.Header().Set("Content-Type", "application/json; charset=utf-8")
-_ = json.NewEncoder(w).Encode(resp)
+
+func (h *Handlers) maybeCreateDraft(u auth.User, question string, resp *agent.Response) {
+        if resp.Type != "draft" || resp.Action != "absence" {
+                return
+        }
+        if resp.Args == nil {
+                resp.Args = map[string]string{}
+        }
+        from := resp.Args["date_from"]
+        to := resp.Args["date_to"]
+        if from == "" {
+                from, to = agent.ParseDates(question)
+        }
+        if from == "" {
+                return
+        }
+        a := h.Store.CreateAbsence(store.Absence{
+                ID: h.Store.NextAbsenceID(), UserID: u.ID,
+                DateFrom: from, DateTo: to, Reason: resp.Args["reason"],
+                Status: "draft", CreatedAt: time.Now(),
+        })
+        resp.Args["action_id"] = a.ID
+        resp.Args["date_from"] = from
+        resp.Args["date_to"] = to
 }
 
 func (h *Handlers) Health(w http.ResponseWriter, _ *http.Request) {
-w.Header().Set("Content-Type", "application/json")
-_, _ = w.Write([]byte(`{"status":"ok"}`))
+        w.Header().Set("Content-Type", "application/json")
+        _, _ = w.Write([]byte(`{"status":"ok"}`))
 }
 
 func (h *Handlers) Me(w http.ResponseWriter, r *http.Request) {
-u, _ := auth.FromCtx(r.Context())
-w.Header().Set("Content-Type", "application/json; charset=utf-8")
-_ = json.NewEncoder(w).Encode(u)
+        u, _ := auth.FromCtx(r.Context())
+        w.Header().Set("Content-Type", "application/json; charset=utf-8")
+        _ = json.NewEncoder(w).Encode(u)
 }
 
 func (h *Handlers) OnboardingProgress(w http.ResponseWriter, r *http.Request) {
-u, _ := auth.FromCtx(r.Context())
-items := h.Store.Checklist(u.ID)
-next := ""
-for _, it := range items {
-if !it.Done {
-next = it.Title
-break
-}
-}
-w.Header().Set("Content-Type", "application/json; charset=utf-8")
-_ = json.NewEncoder(w).Encode(map[string]any{"items": items, "next_step": next})
+        u, _ := auth.FromCtx(r.Context())
+        items := h.Store.Checklist(u.ID)
+        next := ""
+        for _, it := range items {
+                if !it.Done {
+                        next = it.Title
+                        break
+                }
+        }
+        w.Header().Set("Content-Type", "application/json; charset=utf-8")
+        _ = json.NewEncoder(w).Encode(map[string]any{"items": items, "next_step": next})
 }
 
 func (h *Handlers) OnboardingStepUpdate(w http.ResponseWriter, r *http.Request) {
@@ -427,150 +467,167 @@ func (h *Handlers) OnboardingStepUpdate(w http.ResponseWriter, r *http.Request) 
 }
 
 type actionReq struct {
-Type     string `json:"type"`
-DateFrom string `json:"date_from"`
-DateTo   string `json:"date_to"`
-Reason   string `json:"reason"`
+        Type     string `json:"type"`
+        DateFrom string `json:"date_from"`
+        DateTo   string `json:"date_to"`
+        Reason   string `json:"reason"`
 }
 
 func (h *Handlers) CreateAction(w http.ResponseWriter, r *http.Request) {
-u, _ := auth.FromCtx(r.Context())
-var body actionReq
-if err := json.NewDecoder(r.Body).Decode(&amp;body); err != nil {
-writeError(w, http.StatusBadRequest, "bad_request", "invalid json")
-return
-}
-if body.Type != "absence" || body.DateFrom == "" || body.DateTo == "" {
-writeError(w, http.StatusBadRequest, "bad_request", "type=absence and dates required")
-return
-}
-a := h.Store.CreateAbsence(store.Absence{
-ID: h.Store.NextAbsenceID(),
-UserID: u.ID, DateFrom: body.DateFrom, DateTo: body.DateTo, Reason: body.Reason,
-Status: "draft", CreatedAt: time.Now(),
-})
-w.Header().Set("Content-Type", "application/json; charset=utf-8")
-w.WriteHeader(http.StatusCreated)
-_ = json.NewEncoder(w).Encode(a)
+        u, _ := auth.FromCtx(r.Context())
+        var body actionReq
+        if err := json.NewDecoder(r.Body).Decode(&amp;body); err != nil {
+                writeError(w, http.StatusBadRequest, "bad_request", "invalid json")
+                return
+        }
+        if body.Type != "absence" || body.DateFrom == "" || body.DateTo == "" {
+                writeError(w, http.StatusBadRequest, "bad_request", "type=absence and dates required")
+                return
+        }
+        a := h.Store.CreateAbsence(store.Absence{
+                ID: h.Store.NextAbsenceID(), UserID: u.ID,
+                DateFrom: body.DateFrom, DateTo: body.DateTo, Reason: body.Reason,
+                Status: "draft", CreatedAt: time.Now(),
+        })
+        w.Header().Set("Content-Type", "application/json; charset=utf-8")
+        w.WriteHeader(http.StatusCreated)
+        _ = json.NewEncoder(w).Encode(a)
 }
 
 func (h *Handlers) ConfirmAction(w http.ResponseWriter, r *http.Request) {
-u, _ := auth.FromCtx(r.Context())
-if !auth.Can(u, "absence.create") {
-writeError(w, http.StatusForbidden, "forbidden", "role cannot create absence")
-return
-}
-id := chi.URLParam(r, "id")
-a, ok := h.Store.GetAbsence(id)
-if !ok {
-writeError(w, http.StatusNotFound, "not_found", "action not found")
-return
-}
-if a.Status != "draft" {
-writeError(w, http.StatusConflict, "conflict", "already confirmed")
-return
-}
-a.Status = "pending"
-h.Store.CreateAbsence(a)
-w.Header().Set("Content-Type", "application/json; charset=utf-8")
-_ = json.NewEncoder(w).Encode(a)
+        u, _ := auth.FromCtx(r.Context())
+        id := chi.URLParam(r, "id")
+        a, ok := h.Store.GetAbsence(id)
+        if !ok {
+                writeError(w, http.StatusNotFound, "not_found", "action not found")
+                return
+        }
+        if a.UserID != u.ID {
+                writeError(w, http.StatusForbidden, "forbidden", "not your action")
+                return
+        }
+        if !auth.Can(u, "absence.create") {
+                writeError(w, http.StatusForbidden, "forbidden", "role cannot create absence")
+                return
+        }
+        upd, ok := h.Store.Transition(id, "draft", "pending")
+        if !ok {
+                writeError(w, http.StatusConflict, "conflict", "already confirmed")
+                return
+        }
+        w.Header().Set("Content-Type", "application/json; charset=utf-8")
+        _ = json.NewEncoder(w).Encode(upd)
 }
 
 func (h *Handlers) GetAction(w http.ResponseWriter, r *http.Request) {
-id := chi.URLParam(r, "id")
-a, ok := h.Store.GetAbsence(id)
-if !ok {
-writeError(w, http.StatusNotFound, "not_found", "action not found")
-return
-}
-w.Header().Set("Content-Type", "application/json; charset=utf-8")
-_ = json.NewEncoder(w).Encode(a)
+        u, _ := auth.FromCtx(r.Context())
+        id := chi.URLParam(r, "id")
+        a, ok := h.Store.GetAbsence(id)
+        if !ok {
+                writeError(w, http.StatusNotFound, "not_found", "action not found")
+                return
+        }
+        if a.UserID != u.ID {
+                writeError(w, http.StatusForbidden, "forbidden", "not your action")
+                return
+        }
+        w.Header().Set("Content-Type", "application/json; charset=utf-8")
+        _ = json.NewEncoder(w).Encode(a)
 }
 
 func (h *Handlers) Events(w http.ResponseWriter, r *http.Request) {
-w.Header().Set("Content-Type", "text/event-stream")
-w.Header().Set("Cache-Control", "no-cache")
-fl, ok := w.(http.Flusher)
-if !ok {
-writeError(w, http.StatusInternalServerError, "sse_unsupported", "flusher not available")
-return
+        w.Header().Set("Content-Type", "text/event-stream")
+        w.Header().Set("Cache-Control", "no-cache")
+        fl, ok := w.(http.Flusher)
+        if !ok {
+                writeError(w, http.StatusInternalServerError, "sse_unsupported", "flusher not available")
+                return
+        }
+        for i := 0; i &lt; 5; i++ {
+                select {
+                case &lt;-r.Context().Done():
+                        return
+                case &lt;-time.After(time.Second):
+                        fmt.Fprintf(w, "event: ping\ndata: {\"tick\":%d}\n\n", i)
+                        fl.Flush()
+                }
+        }
 }
-for i := 0; i &lt; 5; i++ {
-select {
-case &lt;-r.Context().Done():
-return
-case &lt;-time.After(time.Second):
-fmt.Fprintf(w, "event: ping\ndata: {\"tick\":%d}\n\n", i)
-fl.Flush()
-}
-}
-}</pre>
+</pre>
 		
 		<pre class="file" id="file4" style="display: none">package api
 
 import (
-"net/http"
+        "net/http"
 
-"github.com/ElzaraA/ai-buddy-avito/internal/auth"
+        "github.com/ElzaraA/ai-buddy-avito/internal/auth"
 )
 
-// DemoUser берёт пользователя из заголовка X-Demo-User или дефолтного стажёра.
-<span class="cov8" title="1">func DemoUser(next http.Handler) http.Handler {
-</span><span class="cov8" title="1">return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-key := r.Header.Get("X-Demo-User")
-</span>u, ok := auth.DemoUsers[key]
-if !ok {
-u = auth.DemoUsers["intern.backend"]
+func DemoUser(next http.Handler) http.Handler {
+<span class="cov8" title="1">        return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request)</span> {
+<span class="cov8" title="1">                key := r.Header.Get("X-Demo-User")
+                if key == "" {
+</span>                        key = r.URL.Query().Get("user")
+                }
+                if key == "" {
+                        key = "intern.backend"
+                }
+                u, ok := auth.DemoUsers[key]
+                if !ok {
+                        writeError(w, http.StatusUnauthorized, "unauthorized", "unknown demo user")
+                        return
+                }
+                next.ServeHTTP(w, r.WithContext(auth.WithUser(r.Context(), u)))
+        })
 }
-next.ServeHTTP(w, r.WithContext(auth.WithUser(r.Context(), u)))
-})
-}</pre>
+</pre>
 		
 		<pre class="file" id="file5" style="display: none">package api
 
 import (
-"github.com/go-chi/chi/v5"
-"github.com/go-chi/cors"
+        "github.com/go-chi/chi/v5"
+        "github.com/go-chi/cors"
 <span class="cov8" title="1">)
 
 func NewRouter(h *Handlers) *chi.Mux {
-r := chi.NewRouter()
-r.Use(cors.Handler(cors.Options{
-</span>AllowedOrigins:   []string{"http://localhost:5173", "http://localhost:3000"},
-AllowedMethods:   []string{"GET", "POST", "PATCH", "OPTIONS"},
-AllowedHeaders:   []string{"Content-Type", "X-Demo-User"},
-AllowCredentials: true,
-MaxAge:           300,
-}))
-r.Use(DemoUser)
+        r := chi.NewRouter()
+        r.Use(cors.Handler(cors.Options{
+</span>                AllowedOrigins:   []string{"http://localhost:5173", "http://localhost:3000"},
+                AllowedMethods:   []string{"GET", "POST", "PATCH", "OPTIONS"},
+                AllowedHeaders:   []string{"Content-Type", "X-Demo-User"},
+                AllowCredentials: true,
+                MaxAge:           300,
+        }))
+        r.Use(DemoUser)
 
-r.Get("/health", h.Health)
+        r.Get("/health", h.Health)
 
-r.Route("/api/v1", func(r chi.Router) {
-r.Get("/me", h.Me)
-r.Post("/auth/login", h.Me)
+        r.Route("/api/v1", func(r chi.Router) {
+                r.Get("/me", h.Me)
+                r.Post("/auth/login", h.Me)
 
-r.Get("/onboarding/progress", h.OnboardingProgress)
-r.Patch("/onboarding/steps/{id}", h.OnboardingStepUpdate)
+                r.Get("/onboarding/progress", h.OnboardingProgress)
+                r.Patch("/onboarding/steps/{id}", h.OnboardingStepUpdate)
 
-r.Post("/actions", h.CreateAction)
-r.Post("/actions/{id}/confirm", h.ConfirmAction)
-r.Get("/actions/{id}", h.GetAction)
+                r.Post("/actions", h.CreateAction)
+                r.Post("/actions/{id}/confirm", h.ConfirmAction)
+                r.Get("/actions/{id}", h.GetAction)
 
-if h.Chat != nil {
-r.Post("/chat/sessions", h.Chat.CreateSession)
-r.Get("/chat/sessions/{id}/messages", h.Chat.ListMessages)
-r.Post("/chat/sessions/{id}/messages", h.Chat.SendMessage)
-r.Get("/chat/sessions/{id}/events", h.Chat.Events)
+                if h.Chat != nil {
+                        r.Post("/chat/sessions", h.Chat.CreateSession)
+                        r.Get("/chat/sessions/{id}/messages", h.Chat.ListMessages)
+                        r.Post("/chat/sessions/{id}/messages", h.Chat.SendMessage)
+                        r.Get("/chat/sessions/{id}/events", h.Chat.Events)
+                }
+
+                r.Get("/events", h.Events)
+                r.Post("/ask", h.Ask)
+        })
+
+        r.Post("/api/ask", h.Ask)
+        return r
 }
-
-r.Get("/events", h.Events)
-r.Post("/ask", h.Ask)
-})
-
-r.Post("/api/ask", h.Ask)
-return r
-}</pre>
+</pre>
 		
 		<pre class="file" id="file6" style="display: none">package auth
 
@@ -579,741 +636,768 @@ import "context"
 type Role string
 
 const (
-RoleIntern Role = "intern"
-RoleBuddy  Role = "buddy"
-RoleLead   Role = "lead"
-RoleHRBP   Role = "hr_bp"
+        RoleIntern Role = "intern"
+        RoleBuddy  Role = "buddy"
+        RoleLead   Role = "lead"
+        RoleHRBP   Role = "hr_bp"
 )
 
 type User struct {
-ID     string `json:"id"`
-Name   string `json:"name"`
-Role   Role   `json:"role"`
-TeamID string `json:"team_id"`
+        ID     string `json:"id"`
+        Name   string `json:"name"`
+        Role   Role   `json:"role"`
+        TeamID string `json:"team_id"`
 }
 
 type ctxKey struct{}
 
 func WithUser(ctx context.Context, u User) context.Context {
-<span class="cov8" title="1">return context.WithValue(ctx, ctxKey{}, u)
+<span class="cov8" title="1">        return context.WithValue(ctx, ctxKey{}, u)
 </span>}
 
 func FromCtx(ctx context.Context) (User, bool) {
-<span class="cov8" title="1">u, ok := ctx.Value(ctxKey{}).(User)
-return u, ok
+<span class="cov8" title="1">        u, ok := ctx.Value(ctxKey{}).(User)
+        return u, ok
 </span>}
 
 // DemoUsers — тестовые учётки для проверки прав (X-Demo-User).
 <span class="cov8" title="1">var DemoUsers </span>= map[string]User{
-"intern.backend": {ID: "intern-1", Name: "Стажёр Backend", Role: RoleIntern, TeamID: "backend"},
-<span class="cov8" title="1">"mentor.bac</span>kend": {ID: "mentor-1", Name: "Наставник Backend", Role: RoleBuddy, TeamID: "backend"},
-"intern.other":   {ID: "intern-2", Name: "Стажёр другой команды", Role: RoleIntern, TeamID: "frontend"},
-<span class="cov8" title="1">"lead.backend":   {ID: "lead-1", Name: "Руков</span>одитель Backend", Role: RoleLead, TeamID: "backend"},
+        "intern.backend": {ID: "intern-1", Name: "Стажёр Backend", Role: RoleIntern, TeamID: "backend"},
+<span class="cov8" title="1">        "mentor.ba</span>ckend": {ID: "mentor-1", Name: "Наставник Backend", Role: RoleBuddy, TeamID: "backend"},
+        "intern.other":   {ID: "intern-2", Name: "Стажёр другой команды", Role: RoleIntern, TeamID: "frontend"},
+<span class="cov8" title="1">        "lead.backend":   {ID: "lead-1", Name: "Руко�</span>�одитель Backend", Role: RoleLead, TeamID: "backend"},
 }
 <span class="cov8" title="1">
 </span>func Can(u User, action string) bool {
-<span class="cov8" title="1">switch action {
-</span>case "checklist.read":
-<span class="cov8" title="1">return true
-</span>case "absence.create":
-return u.Role == RoleIntern || u.Role == RoleBuddy
-case "directory.read":
-return u.Role == RoleIntern || u.Role == RoleBuddy || u.Role == RoleLead
-case "absence.read.all":
-return u.Role == RoleLead || u.Role == RoleHRBP
-default:
-return false
+<span class="cov8" title="1">        switch action {
+</span>        case "checklist.read":
+<span class="cov8" title="1">                return tru</span>e
+        case "absence.create":
+                return u.Role == RoleIntern || u.Role == RoleBuddy
+        case "directory.read":
+                return u.Role == RoleIntern || u.Role == RoleBuddy || u.Role == RoleLead
+        case "absence.read.all":
+                return u.Role == RoleLead || u.Role == RoleHRBP
+        default:
+                return false
+        }
 }
-}</pre>
+</pre>
 		
 		<pre class="file" id="file7" style="display: none">package config
 
 import "os"
 
 type Config struct {
-Addr       string
-LLMBaseURL string
-LLMAPIKey  string
-LLMModel   string
-LLMMock    bool
+        Addr       string
+        LLMBaseURL string
+        LLMAPIKey  string
+        LLMModel   string
+        LLMMock    bool
 }
 
 func Load() Config {
-<span class="cov8" title="1">apiKey := os.Getenv("LLM_API_KEY")
-mock := os.Getenv("LLM_MOCK") == "true" || apiKey == ""
-return Config{
-Addr:       getenv("ADDR", ":8080"),
-LLMBaseURL: getenv("LLM_BASE_URL", "https://api.openai.com/v1"),
-LLMAPIKey:  apiKey,
-</span>LLMModel:   getenv("LLM_MODEL", "gpt-4o-mini"),
-LLMMock:    mock,
-}
+<span class="cov8" title="1">        apiKey := os.Getenv("LLM_API_KEY")
+        mock := os.Getenv("LLM_MOCK") == "true" || apiKey == ""
+        return Config{
+                Addr:       getenv("ADDR", ":8080"),
+                LLMBaseURL: getenv("LLM_BASE_URL", "https://api.openai.com/v1"),
+                LLMAPIKey:  apiKey,
+</span>                LLMModel:   getenv("LLM_MODEL", "gpt-4o-mini"),
+                LLMMock:    mock,
+        }
 }
 <span class="cov8" title="1">
 </span><span class="cov8" title="1">func getenv(k, d string) string {
-</span>if v := os.Getenv(k); v != "" {
-<span class="cov8" title="1">return v</span>
+</span>        if v := os.Getenv(k); v != "" {
+<span class="cov8" title="1">                return</span> v
+        }
+        return d
 }
-return d
-}</pre>
+</pre>
 		
 		<pre class="file" id="file8" style="display: none">package config
 
 import (
-"bufio"
-"os"
-"strings"
+        "bufio"
+        "os"
+        "strings"
 )
 
 func LoadDotEnv(path string) {
-<span class="cov8" title="1">f, err := os.Open(path)
-if err != nil </span>{
-<span class="cov0" title="0">return
-</span>}
-<span class="cov8" title="1">defer f.Close()
-sc := bufio.NewScanner(f)
-for sc.Scan() </span>{
-<span class="cov8" title="1">line := strings.TrimSpace(sc.Text())
-if line == "" || strings.HasPrefix(line, "#") </span>{
-<span class="cov8" title="1">continue</span>
+<span class="cov8" title="1">        f, err := os.Open(path)
+        if err != nil</span> {
+<span class="cov0" title="0">                return
+</span>        }
+<span class="cov8" title="1">        defer f.Close()
+        sc := bufio.NewScanner(f)
+        for sc.Scan()</span> {
+<span class="cov8" title="1">                line := strings.TrimSpace(sc.Text())
+                if line == "" || strings.HasPrefix(line, "#"</span>) {
+<span class="cov8" title="1">                        conti</span>nue
+                }
+<span class="cov8" title="1">                parts := strings.SplitN(line, "=", 2)
+                if len(parts) != </span>2 {
+<span class="cov8" title="1">                        conti</span>nue
+                }
+<span class="cov8" title="1">                k := strings.TrimSpace(parts[0])
+                v := strings.TrimSpace(parts[1])
+                if os.Getenv(k) == "</span>" {
+<span class="cov8" title="1">                        _ = os.Setenv(k, v)
+</span>                }
+        }
 }
-<span class="cov8" title="1">parts := strings.SplitN(line, "=", 2)
-if len(parts) != 2 </span>{
-<span class="cov8" title="1">continue</span>
-}
-<span class="cov8" title="1">k := strings.TrimSpace(parts[0])
-v := strings.TrimSpace(parts[1])
-if os.Getenv(k) == "" </span>{
-<span class="cov8" title="1">_ = os.Setenv(k, v)
-</span>}
-}
-}</pre>
+</pre>
 		
 		<pre class="file" id="file9" style="display: none">package llm
 
 import (
-"context"
-"encoding/json"
-"strings"
+        "context"
+        "encoding/json"
+        "strings"
 )
 
 type MockClient struct{}
 
 func (MockClient) Complete(_ context.Context, msgs []Message) (string, error) {
-<span class="cov8" title="1">last := strings.ToLower(msgs[len(msgs)-1].Content)
+<span class="cov8" title="1">        last := strings.ToLower(msgs[len(msgs)-1].Content)
 
-</span>if strings.Contains(last, "ignore previous") ||
-<span class="cov8" title="1">strings.Contains(last, "show all") ||
-strings.Contains(last, "all absences") {
-b, _ := json.Marshal(map[string]any{
-"type": "refusal",
-"text": "Cannot perform this action. Contact your buddy Ivan Petrov.",
-})
-</span>return string(b), nil
-<span class="cov8" title="1">}
+</span>        if strings.Contains(last, "ignore previous") ||
+<span class="cov8" title="1">                strings.Contains(last, "show all") ||
+                strings.Contains(last, "all absences") {
+                b, _ := json.Marshal(map[string]any{
+                        "type": "refusal",
+                        "text": "Cannot perform this action. Contact your buddy Ivan Petrov.",
+                })
+</span>                return string(b), nil
+<span class="cov8" title="1">        }
 
-if (strings.Contains(last, "absence") || strings.Contains(last, "time off")) &amp;&amp;
-(strings.Contains(last, "how") || strings.Contains(last, "policy") || strings.Contains(last, "rules")) &amp;&amp;
-!strings.Contains(last, "want") &amp;&amp; !strings.Contains(last, "2026-") &amp;&amp; !strings.Contains(last, "friday") {
-b, _ := json.Marshal(</span>map[string]any{
-"type": "tool_call",
-<span class="cov8" title="1">"tool": "absence_get_policy",
-"args": map[string]string{},
-})
-return string(b), nil
-}
+        if (strings.Contains(last, "absence") || strings.Contains(last, "time off")) &amp;&amp;
+                (strings.Contains(last, "how") || strings.Contains(last, "policy") || strings.Contains(last, "rules")) &amp;&amp;
+                !strings.Contains(last, "want") &amp;&amp; !strings.Contains(last, "2026-") &amp;&amp; !strings.Contains(last, "friday") {
+                b, _ := json.Marsha</span>l(map[string]any{
+                        "type": "tool_call",
+<span class="cov8" title="1">                        "tool": "absence_get_policy",
+                        "args": map[string]string{},
+                })
+                return string(b), nil
+        }
 </span>
-if (strings.Contains(last, "absence") || strings.Contains(last, "time off")) &amp;&amp;
-(strings.Contains(last, "want") || strings.Contains(last, "need") || strings.Contains(last, "2026-") || strings.Contains(last, "friday")) {
-b, _ := json.Marshal(map[string]any{
-"type":   "draft",
-"action": "absence",
-"args":   map[string]string{"reason": "personal"},
-})
-return string(b), nil
-}
+        if (strings.Contains(last, "absence") || strings.Contains(last, "time off")) &amp;&amp;
+                (strings.Contains(last, "want") || strings.Contains(last, "need") || strings.Contains(last, "2026-") || strings.Contains(last, "friday")) {
+                b, _ := json.Marshal(map[string]any{
+                        "type":   "draft",
+                        "action": "absence",
+                        "args":   map[string]string{"reason": "personal"},
+                })
+                return string(b), nil
+        }
 
-if strings.Contains(last, "access") || strings.Contains(last, "jira") {
-b, _ := json.Marshal(map[string]any{
-"type": "tool_call",
-"tool": "access_request",
-"args": map[string]string{"resource": "jira", "reason": "onboarding"},
-})
-return string(b), nil
-}
+        if strings.Contains(last, "access") || strings.Contains(last, "jira") {
+                b, _ := json.Marshal(map[string]any{
+                        "type": "tool_call",
+                        "tool": "access_request",
+                        "args": map[string]string{"resource": "jira", "reason": "onboarding"},
+                })
+                return string(b), nil
+        }
 
-if strings.Contains(last, "checklist") || strings.Contains(last, "next step") {
-b, _ := json.Marshal(map[string]any{
-"type": "tool_call",
-"tool": "checklist_get",
-"args": map[string]string{},
-})
-return string(b), nil
-}
+        if strings.Contains(last, "checklist") || strings.Contains(last, "next step") {
+                b, _ := json.Marshal(map[string]any{
+                        "type": "tool_call",
+                        "tool": "checklist_get",
+                        "args": map[string]string{},
+                })
+                return string(b), nil
+        }
 
-b, _ := json.Marshal(map[string]any{
-"type": "answer",
-"text": "Answering from sources.",
-})
-return string(b), nil
-}</pre>
+        b, _ := json.Marshal(map[string]any{
+                "type": "answer",
+                "text": "Answering from sources.",
+        })
+        return string(b), nil
+}
+</pre>
 		
 		<pre class="file" id="file10" style="display: none">package llm
 
 import (
-"bytes"
-"context"
-"encoding/json"
-"fmt"
-"net/http"
+        "bytes"
+        "context"
+        "encoding/json"
+        "fmt"
+        "net/http"
 )
 
 type OpenAIClient struct {
-BaseURL, APIKey, Model string
-HTTP                   *http.Client
+        BaseURL, APIKey, Model string
+        HTTP                   *http.Client
 }
 
 type respFormat struct {
-Type string `json:"type"`
+        Type string `json:"type"`
 }
 
 type req struct {
-Model          string     `json:"model"`
-Messages       []Message  `json:"messages"`
-Temperature    float64    `json:"temperature"`
-ResponseFormat respFormat `json:"response_format"`
+        Model          string     `json:"model"`
+        Messages       []Message  `json:"messages"`
+        Temperature    float64    `json:"temperature"`
+        ResponseFormat respFormat `json:"response_format"`
 }
 
 type resp struct {
-Choices []struct {
-<span class="cov8" title="1">Message Message `json:"message"`
-} `json:"choices"`
+        Choices []struct {
+<span class="cov8" title="1">                Message Message `json:"message"`
+        } `json:"choices"`
 }
 </span><span class="cov0" title="0">
 </span>func (c *OpenAIClient) Complete(ctx context.Context, msgs []Message) (string, error) {
-<span class="cov8" title="1">body, _ := json.Marshal(req{
-Model: c.Model, Messages: msgs, Temperature: 0.2,
-ResponseFormat: respFormat{Type: "json_object"},
-})
-</span><span class="cov0" title="0">r, err := http.NewRequestWithContext(ctx, "POST", c.BaseURL+"/chat/completions", bytes.NewReader(body))
-</span>if err != nil {
-<span class="cov8" title="1">return "", err
+<span class="cov8" title="1">        body, _ := json.Marshal(req{
+                Model: c.Model, Messages: msgs, Temperature: 0.2,
+                ResponseFormat: respFormat{Type: "json_object"},
+        })
+</span><span class="cov0" title="0">        r, err := http.NewRequestWithContext(ctx, "POST", c.BaseURL+"/chat/completions", bytes.NewReader(body))
+</span>        if err != nil {
+<span class="cov8" title="1">                return "", err
+        }
+</span><span class="cov8" title="1">        r.Header.Set("Content-Type", "application/json")
+</span>        r.Header.Set("Authorization", "Bearer "+c.APIKey)
+<span class="cov8" title="1">        res, err := c.HTTP.Do(r)
+        if err != nil {
+</span><span class="cov8" title="1">                return "", err
+</span>        }
+<span class="cov8" title="1">        defer res.Body.Close()
+</span><span class="cov8" title="1">        if res.StatusCode &gt;= 300 {
+</span>                return "", fmt.Errorf("llm status %d", res.StatusCode)
+<span class="cov8" title="1">        }
+</span>        var out resp
+        if err := json.NewDecoder(res.Body).Decode(&amp;out); err != nil {
+                return "", err
+        }
+        if len(out.Choices) == 0 {
+                return "", fmt.Errorf("empty choices")
+        }
+        return out.Choices[0].Message.Content, nil
 }
-</span><span class="cov8" title="1">r.Header.Set("Content-Type", "application/json")
-</span>r.Header.Set("Authorization", "Bearer "+c.APIKey)
-<span class="cov8" title="1">res, err := c.HTTP.Do(r)
-if err != nil {
-</span><span class="cov8" title="1">return "", err
-</span>}
-<span class="cov8" title="1">defer res.Body.Close()
-</span><span class="cov8" title="1">if res.StatusCode &gt;= 300 {
-</span>return "", fmt.Errorf("llm status %d", res.StatusCode)
-<span class="cov8" title="1">}
-</span>var out resp
-if err := json.NewDecoder(res.Body).Decode(&amp;out); err != nil {
-return "", err
-}
-if len(out.Choices) == 0 {
-return "", fmt.Errorf("empty choices")
-}
-return out.Choices[0].Message.Content, nil
-}</pre>
+</pre>
 		
 		<pre class="file" id="file11" style="display: none">package rag
 
 import (
-"regexp"
-"strings"
+        "regexp"
+        "strings"
 )
 
 type Chunk struct {
-ID         string
-Source     string
-Stage      string
-TeamID     string
-Audience   []string
-Text       string
-Disclaimer string
+        ID         string
+        Source     string
+        Stage      string
+        TeamID     string
+        Audience   []string
+        Text       string
+        Disclaimer string
 }
 
 var headerRe = regexp.MustCompile(`^#+\s+(.*)$`)
 <span class="cov8" title="1">
 func ChunkMarkdown(source, content string) []Chunk {
-lines := strings.Split(content, "\n")
-var chunks []Chunk
-</span>var cur Chunk
-<span class="cov8" title="1">var buf []string</span>
+        lines := strings.Split(content, "\n")
+        var chunks []Chunk
+</span>        var cur Chunk
+<span class="cov8" title="1">        var buf []strin</span>g
 <span class="cov8" title="1">
-flush := func(</span>) {
-<span class="cov8" title="1">text := strings.TrimSpace(strings.Join(buf, "\n"))
-</span>if text == "" {
-<span class="cov8" title="1">return
-}
-cur.Text = text
-cur.Source = source
-cur.ID = sour</span>ce + "#" + cur.Stage + "#" + itoa(len(chunks))
-chunks = append(chunks, cur)
-buf = buf[:0]
-<span class="cov8" title="1">}
+        flush := func</span>() {
+<span class="cov8" title="1">                text := strings.TrimSpace(strings.Join(buf, "\n"))
+</span>                if text == "" {
+<span class="cov8" title="1">                        return
+                }
+                cur.Text = text
+                cur.Source = source
+                cur.ID = so</span>urce + "#" + cur.Stage + "#" + itoa(len(chunks))
+                chunks = append(chunks, cur)
+                buf = buf[:0]
+<span class="cov8" title="1">        }
 </span><span class="cov8" title="1">
-</span><span class="cov8" title="1">for _, ln := range lines {
-if m := headerRe.FindStringSubmatch(ln); m != nil {
-flush()
-</span>cur = Chunk{Stage: m[1]}
-<span class="cov8" title="1">continue
-</span><span class="cov8" title="1">}
-if strings.HasPrefix(ln, "&lt;!--") &amp;&amp; strings.Contains(ln, "stage:") {
-cur.Stag</span>e = extract(ln, "stage")
-cur.TeamID = extract(ln, "team")
-<span class="cov8" title="1">cur.Audience = splitC</span>SV(extract(ln, "audience"))
-continue
-<span class="cov8" title="1">}
-buf = append(</span>buf, ln)
-}
-flush()
-return chunks
+</span><span class="cov8" title="1">        for _, ln := range lines {
+                if m := headerRe.FindStringSubmatch(ln); m != nil {
+                        flush</span>()
+                        cur = Chunk{Stage: m[1]}
+<span class="cov8" title="1">                        continue
+</span><span class="cov8" title="1">                }
+                if strings.HasPrefix(ln, "&lt;!--") &amp;&amp; strings.Contains(ln, "stage:") {
+                        cur.S</span>tage = extract(ln, "stage")
+                        cur.TeamID = extract(ln, "team")
+<span class="cov8" title="1">                        cur.Audience = spl</span>itCSV(extract(ln, "audience"))
+                        continue
+<span class="cov8" title="1">                }
+                buf = appen</span>d(buf, ln)
+        }
+        flush()
+        return chunks
 <span class="cov8" title="1">}
 
 </span><span class="cov8" title="1">func extract(s, key string) string {
-</span>re := regexp.MustCompile(key + `:\s*([^\s]+)`)
-<span class="cov0" title="0">if m := r</span>e.FindStringSubmatch(s); len(m) == 2 {
-return m[1]
-}
-return ""
+</span>        re := regexp.MustCompile(key + `:\s*([^\s]+)`)
+<span class="cov0" title="0">        if m := </span>re.FindStringSubmatch(s); len(m) == 2 {
+                return m[1]
+        }
+        return ""
 <span class="cov8" title="1">}
 </span><span class="cov8" title="1">
 </span>func splitCSV(s string) []string {
-<span class="cov8" title="1">if s == "" {
-return nil</span>
-<span class="cov8" title="1">}
-parts := strings.Split(s, ",")
-</span>out := make([]string, 0, len(parts))
-<span class="cov8" title="1">for _, p := rang</span>e parts {
-if v := strings.TrimSpace(p); v != "" {
-out = append(out, v)
-}
-}
-return out
+<span class="cov8" title="1">        if s == "" {
+                return n</span>il
+<span class="cov8" title="1">        }
+        parts := strings.Split(s, ",")
+</span>        out := make([]string, 0, len(parts))
+<span class="cov8" title="1">        for _, p := ran</span>ge parts {
+                if v := strings.TrimSpace(p); v != "" {
+                        out = append(out, v)
+                }
+        }
+        return out
 }
 
 func itoa(i int) string {
-if i == 0 {
-return "0"
+        if i == 0 {
+                return "0"
+        }
+        var b []byte
+        for i &gt; 0 {
+                b = append([]byte{byte('0' + i%10)}, b...)
+                i /= 10
+        }
+        return string(b)
 }
-var b []byte
-for i &gt; 0 {
-b = append([]byte{byte('0' + i%10)}, b...)
-i /= 10
-}
-return string(b)
-}</pre>
+</pre>
 		
 		<pre class="file" id="file12" style="display: none">package rag
 
 import (
-"math"
-"sort"
-"strings"
+        "math"
+        "sort"
+        "strings"
 )
 
 type Index struct {
-chunks []Chunk
-df     map[string]int
-tf     []map[string]int
-lens   []int
+        chunks []Chunk
+        df     map[string]int
+        tf     []map[string]int
+        lens   []int
 }
 
 func tokenize(s string) []string {
-<span class="cov8" title="1">s = strings.ToLower(s)
-return strings.FieldsFunc(s, func(r rune) bool </span>{
-<span class="cov8" title="1">if r == 'ё' {
-</span>return false
-}
-return !(r &gt;= 'a' &amp;&amp; r &lt;= 'z') &amp;&amp; !(r &gt;= 'а' &amp;&amp; r &lt;= 'я') &amp;&amp; !(r &gt;= '0' &amp;&amp; r &lt;= '9')
-})
+<span class="cov8" title="1">        s = strings.ToLower(s)
+        return strings.FieldsFunc(s, func(r rune) bool</span> {
+<span class="cov8" title="1">                if r == 'ё' {
+</span>                        return false
+                }
+                return !(r &gt;= 'a' &amp;&amp; r &lt;= 'z') &amp;&amp; !(r &gt;= 'а' &amp;&amp; r &lt;= 'я') &amp;&amp; !(r &gt;= '0' &amp;&amp; r &lt;= '9')
+        })
 <span class="cov8" title="1">}
 
 </span><span class="cov8" title="1">func NewIndex(chunks []Chunk) *Index {
-idx := &amp;Index{chunks: chunks, df: map[string]int{}}
-for _, c := range chunk</span>s {
-<span class="cov8" title="1">tf := map[string]int{}
-</span>toks := tokenize(c.Text + " " + c.Stage)
-<span class="cov8" title="1">for _, t := range </span>toks {
-<span class="cov8" title="1">tf[t]++
-</span>}
-<span class="cov8" title="1">for t := range tf {
-idx.df[t]++
-</span>}
-<span class="cov8" title="1">idx.tf = a</span>ppend(idx.tf, tf)
-idx.lens = append(idx.lens, len(toks))
-}
-return idx
+        idx := &amp;Index{chunks: chunks, df: map[string]int{}}
+        for _, c := range chun</span>ks {
+<span class="cov8" title="1">                tf := map[string]int{}
+</span>                toks := tokenize(c.Text + " " + c.Stage)
+<span class="cov8" title="1">                for _, t := rang</span>e toks {
+<span class="cov8" title="1">                        tf[t]++
+</span>                }
+<span class="cov8" title="1">                for t := range tf {
+                        idx.df[t]++
+</span>                }
+<span class="cov8" title="1">                idx.tf =</span> append(idx.tf, tf)
+                idx.lens = append(idx.lens, len(toks))
+        }
+        return idx
 }
 
 type Hit struct {
-Chunk Chunk
-Score float64
+        Chunk Chunk
+        Score float64
 <span class="cov8" title="1">}
 </span><span class="cov0" title="0">
 </span>func prefixMatch(a, b string) bool {
-<span class="cov8" title="1">if a == b {
-return true
-</span><span class="cov0" title="0">}
-</span>ra, rb := []rune(a), []rune(b)
-<span class="cov8" title="1">n := 5
-</span><span class="cov0" title="0">if len(ra) &lt; n {
-</span>n = len(ra)
-<span class="cov8" title="1">}
-</span><span class="cov0" title="0">if len(rb) &lt; n {
-</span>n = len(rb)
-<span class="cov8" title="1">}
-</span>if n &lt; 4 {
-return false
-}
-<span class="cov8" title="1">return string(ra[:n]) == string(rb[:n])
+<span class="cov8" title="1">        if a == b {
+                return true
+</span><span class="cov0" title="0">        }
+</span>        ra, rb := []rune(a), []rune(b)
+<span class="cov8" title="1">        n := 5
+</span><span class="cov0" title="0">        if len(ra) &lt; n {
+</span>                n = len(ra)
+<span class="cov8" title="1">        }
+</span><span class="cov0" title="0">        if len(rb) &lt; n {
+</span>                n = len(rb)
+<span class="cov8" title="1">        }
+</span>        if n &lt; 4 {
+                return false
+        }
+<span class="cov8" title="1">        return string(ra[:n]) == string(rb[:n])
 }
 
 const minScore = 0.5
 </span><span class="cov8" title="1">
 </span>// allowed — deny-by-default: если у чанка пустой audience — невидим.
 <span class="cov8" title="1">func allo</span>wed(c Chunk, role string) bool {
-<span class="cov8" title="1">if len(c.Audience) == 0 {
-</span>return false
-<span class="cov8" title="1">}
-</span><span class="cov8" title="1">for _, a := range c.Audience {
-</span>if a == role || a == "all" {
-return true
-<span class="cov8" title="1">}
-}
-</span><span class="cov8" title="1">return false
+<span class="cov8" title="1">        if len(c.Audience) == 0 {
+</span>                return false
+<span class="cov8" title="1">        }
+</span><span class="cov8" title="1">        for _, a := range c.Audience {
+</span>                if a == role || a == "all" {
+                        return true
+<span class="cov8" title="1">                }
+        }
+</span><span class="cov8" title="1">        return false
 </span><span class="cov8" title="1">}
 </span>
 <span class="cov8" title="1">func (idx *Index) Search(q string, teamID string, role string, k int) []Hit {
-qt := tokenize(q)
-</span><span class="cov8" title="1">n := float64(len(idx.chunks))</span>
-<span class="cov8" title="1">avg := 0.0
-</span><span class="cov8" title="1">for _, l := range idx.lens {
-avg += float64(l)
-}
-</span>if n &gt; 0 {
-avg /= n
-}
-<span class="cov8" title="1">if avg == 0 {</span>
-<span class="cov8" title="1">avg = 1
-</span>}
+        qt := tokenize(q)
+</span><span class="cov8" title="1">        n := float64(len(idx.chunks)</span>)
+<span class="cov8" title="1">        avg := 0.0
+</span><span class="cov8" title="1">        for _, l := range idx.lens {
+                avg += float64(l)
+        }
+</span>        if n &gt; 0 {
+                avg /= n
+        }
+<span class="cov8" title="1">        if avg == 0 </span>{
+<span class="cov8" title="1">                avg = 1
+</span>        }
 
-<span class="cov8" title="1">var hits []Hit
-</span></span><span class="cov8" title="1">for i, c := range</span> idx.chunks {
-<span class="cov0" title="0">if teamID != "" &amp;&amp; c.TeamID != "" &amp;&amp; c.TeamID != teamID {
-</span>continue
-<span class="cov8" title="1">}
-</span>if !allowed(c, role) {
-continue
+<span class="cov8" title="1">        var hits []Hit
+</span></span><span class="cov8" title="1">        for i, c := rang</span>e idx.chunks {
+<span class="cov0" title="0">                if teamID != "" &amp;&amp; c.TeamID != "" &amp;&amp; c.TeamID != teamID {
+</span>                        continue
+<span class="cov8" title="1">                }
+</span>                if !allowed(c, role) {
+                        continue
+                }
+                score := 0.0
+                for _, t := range qt {
+                        for ct, f := range idx.tf[i] {
+                                if prefixMatch(t, ct) {
+                                        df := float64(idx.df[ct])
+                                        idf := math.Log(1 + (n-df+0.5)/(df+0.5))
+                                        score += idf * (float64(f) * 2.2) / (float64(f) + 1.2*(0.25+0.75*float64(idx.lens[i])/avg))
+                                }
+                        }
+                }
+                if score &gt;= minScore {
+                        hits = append(hits, Hit{Chunk: c, Score: score})
+                }
+        }
+        sort.Slice(hits, func(i, j int) bool { return hits[i].Score &gt; hits[j].Score })
+        if len(hits) &gt; k {
+                hits = hits[:k]
+        }
+        return hits
 }
-score := 0.0
-for _, t := range qt {
-for ct, f := range idx.tf[i] {
-if prefixMatch(t, ct) {
-df := float64(idx.df[ct])
-idf := math.Log(1 + (n-df+0.5)/(df+0.5))
-score += idf * (float64(f) * 2.2) / (float64(f) + 1.2*(0.25+0.75*float64(idx.lens[i])/avg))
-}
-}
-}
-if score &gt;= minScore {
-hits = append(hits, Hit{Chunk: c, Score: score})
-}
-}
-sort.Slice(hits, func(i, j int) bool { return hits[i].Score &gt; hits[j].Score })
-if len(hits) &gt; k {
-hits = hits[:k]
-}
-return hits
-}</pre>
+</pre>
 		
 		<pre class="file" id="file13" style="display: none">package rag
 
 import (
-"os"
-"path/filepath"
+        "os"
+        "path/filepath"
 )
 
 func LoadDir(dir string) ([]Chunk, error) {
-<span class="cov0" title="0">var all []Chunk
-entries, err := os.ReadDir(dir)
-if err != nil </span>{
-<span class="cov0" title="0">return nil, err
-</span>}
-<span class="cov0" title="0">for _, e := range entries </span>{
-<span class="cov0" title="0">if e.IsDir() || filepath.Ext(e.Name()) != ".md" </span>{
-<span class="cov0" title="0">continue</span>
-}
-<span class="cov0" title="0">b, err := os.ReadFile(filepath.Join(dir, e.Name()))
-if err != nil </span>{
-<span class="cov0" title="0">return nil, err
-</span>}
-<span class="cov0" title="0">all = append(all, ChunkMarkdown(e.Name(), string(b))...)</span>
-}
-<span class="cov0" title="0">return all, nil</span>
+<span class="cov0" title="0">        var all []Chunk
+        entries, err := os.ReadDir(dir)
+        if err != nil</span> {
+<span class="cov0" title="0">                return nil, err
+</span>        }
+<span class="cov0" title="0">        for _, e := range entries</span> {
+<span class="cov0" title="0">                if e.IsDir() || filepath.Ext(e.Name()) != ".md</span>" {
+<span class="cov0" title="0">                        conti</span>nue
+                }
+<span class="cov0" title="0">                b, err := os.ReadFile(filepath.Join(dir, e.Name()))
+                if err != ni</span>l {
+<span class="cov0" title="0">                        return nil, err
+</span>                }
+<span class="cov0" title="0">                all = append(all, ChunkMarkdown(e.Name(), string(b))..</span>.)
+        }
+<span class="cov0" title="0">        return all, ni</span>l
 }
 </pre>
 		
 		<pre class="file" id="file14" style="display: none">package store
 
 import (
-"fmt"
-"sync"
-"time"
+        "fmt"
+        "sync"
+        "time"
 )
 
 type Absence struct {
-ID        string    `json:"id"`
-UserID    string    `json:"user_id"`
-DateFrom  string    `json:"date_from"`
-DateTo    string    `json:"date_to"`
-Reason    string    `json:"reason"`
-Status    string    `json:"status"`
-CreatedAt time.Time `json:"created_at"`
+        ID        string    `json:"id"`
+        UserID    string    `json:"user_id"`
+        DateFrom  string    `json:"date_from"`
+        DateTo    string    `json:"date_to"`
+        Reason    string    `json:"reason"`
+        Status    string    `json:"status"`
+        CreatedAt time.Time `json:"created_at"`
 }
 
 type ChecklistItem struct {
-ID    string `json:"id"`
-Title string `json:"title"`
-Stage string `json:"stage"`
-Done  bool   `json:"done"`
-Owner string `json:"owner"`
+        ID    string `json:"id"`
+        Title string `json:"title"`
+        Stage string `json:"stage"`
+        Done  bool   `json:"done"`
+        Owner string `json:"owner"`
 }
 
 type Store struct {
-mu        sync.RWMutex
-absences  map[string]Absence
-checklist map[string][]ChecklistItem
-seq       int64
+        mu        sync.RWMutex
+        absences  map[string]Absence
+        checklist map[string][]ChecklistItem
+        seq       int64
 }
 <span class="cov8" title="1">
 func New() *Store {
-return &amp;Store{
-</span>absences:  map[string]Absence{},
-checklist: map[string][]ChecklistItem{},
-}
+        return &amp;Store{
+</span>                absences:  map[string]Absence{},
+                checklist: map[string][]ChecklistItem{},
+        }
 }
 <span class="cov8" title="1">
 func (s *Store) NextAbsenceID() string {
-s.mu.Lock()
-defer s.mu.Unlock()
-</span>s.seq++
-return fmt.Sprintf("ABS-%06d", s.seq)
+        s.mu.Lock()
+        defer s.mu.Unlock()
+</span>        s.seq++
+        return fmt.Sprintf("ABS-%06d", s.seq)
 }
 <span class="cov8" title="1">
 func (s *Store) CreateAbsence(a Absence) Absence {
-s.mu.Lock()
-defer s.mu.Unlock()
-</span>s.absences[a.ID] = a
-return a
+        s.mu.Lock()
+        defer s.mu.Unlock()
+</span>        s.absences[a.ID] = a
+        return a
 }
 <span class="cov8" title="1">
 func (s *Store) GetAbsence(id string) (Absence, bool) {
-s.mu.RLock()
-</span>defer s.mu.RUnlock()
-a, ok := s.absences[id]
-return a, ok
+        s.mu.RLock()
+</span>        defer s.mu.RUnlock()
+        a, ok := s.absences[id]
+        return a, ok
 <span class="cov8" title="1">}
 
-func (s *Store) SeedChecklist(userID string, items []ChecklistItem) {
-</span>s.mu.Lock()
-defer s.mu.Unlock()
-for i := range items {
-<span class="cov8" title="1">items[i].Owner = userID
+func (s *Store) Transition(id, from, to string) (Absence, bool) {
+</span>        s.mu.Lock()
+        defer s.mu.Unlock()
+        a, ok := s.absences[id]
+<span class="cov8" title="1">        if !ok || a.Status != from {
+                return Absence{}, false
+        }
+        a.Status = to
+</span><span class="cov8" title="1">        s.absences[id] = a
+</span><span class="cov8" title="1">        return a, true
 }
-s.checklist[userID] = items
+
+</span>func (s *Store) SeedChecklist(userID string, items []ChecklistItem) {
+        s.mu.Lock()
+<span class="cov8" title="1">        defer s.mu.</span>Unlock()
+        for i := range items {
+                items[i].Owner = userID
+        }
+        s.checklist[userID] = items
 }
-</span><span class="cov8" title="1">
-</span><span class="cov8" title="1">func (s *Store) Checklist(userID string) []ChecklistItem {
-s.mu.RLock()
-defer s.mu.RUnlock()
-</span>return s.checklist[userID]
+
+func (s *Store) Checklist(userID string) []ChecklistItem {
+        s.mu.RLock()
+        defer s.mu.RUnlock()
+        return s.checklist[userID]
 }
-<span class="cov8" title="1">
-</span>func (s *Store) MarkDoneOwned(userID, itemID string) (found, owned bool) {
-s.mu.Lock()
-defer s.mu.Unlock()
-for uid, items := range s.checklist {
-for i := range items {
-if items[i].ID == itemID {
-found = true
-if uid != userID {
-return true, false
-}
-items[i].Done = true
-s.checklist[uid] = items
-return true, true
-}
-}
-}
-return false, false
+
+func (s *Store) MarkDoneOwned(userID, itemID string) (found, owned bool) {
+        s.mu.Lock()
+        defer s.mu.Unlock()
+        for uid, items := range s.checklist {
+                for i := range items {
+                        if items[i].ID == itemID {
+                                found = true
+                                if uid != userID {
+                                        return true, false
+                                }
+                                items[i].Done = true
+                                s.checklist[uid] = items
+                                return true, true
+                        }
+                }
+        }
+        return false, false
 }
 
 func (s *Store) MarkDone(userID, itemID string) bool {
-_, owned := s.MarkDoneOwned(userID, itemID)
-return owned
-}</pre>
+        _, owned := s.MarkDoneOwned(userID, itemID)
+        return owned
+}
+</pre>
 		
 		<pre class="file" id="file15" style="display: none">package tools
 
 import (
-"context"
-"errors"
-"time"
+        "context"
+        "errors"
+        "time"
 
-"github.com/ElzaraA/ai-buddy-avito/internal/auth"
-"github.com/ElzaraA/ai-buddy-avito/internal/store"
+        "github.com/ElzaraA/ai-buddy-avito/internal/auth"
+        "github.com/ElzaraA/ai-buddy-avito/internal/store"
 )
 
 type AbsenceCreateRequest struct{ S *store.Store }
 
 func (t *AbsenceCreateRequest) Name() string               { return "absence_create_request" }
 func (t *AbsenceCreateRequest) RequiredPermission() st<span class="cov0" title="0">ring { return "absence.cr</span>eate" }
-
+func (t *AbsenceCreateRequest) RequiresConfirmation() <span class="cov8" title="1">bool { return true }
 </span>func (t *AbsenceCreateRequest) Run(ctx context.Context, u auth.User, args map[string]string) (Result, error) {
-if !auth.Can(u, t.RequiredPermission()) {
-<span class="cov8" title="1">return Result{}, ErrForbidden
-</span><span class="cov8" title="1">}
-</span>from, to := args["dateFrom"], args["dateTo"]
-<span class="cov8" title="1">if from == "" || to == "" {
-from, to = args["date_from</span>"], args["date_to"]
-<span class="cov8" title="1">}
-</span>if from == "" || to == "" {
-<span class="cov8" title="1">return Result{}, errors.New("dateFrom and dateTo required")
+        if !auth.Can(u, t.RequiredPermission()) {
+<span class="cov8" title="1">                return Result{}, ErrForbidden
+</span><span class="cov8" title="1">        }
+</span>        from, to := args["dateFrom"], args["dateTo"]
+<span class="cov8" title="1">        if from == "" || to == "" {
+                from, to = args["date_fr</span>om"], args["date_to"]
+<span class="cov8" title="1">        }
+</span>        if from == "" || to == "" {
+<span class="cov8" title="1">                return Result{}, errors.New("dateFrom and dateTo required")
+        }
+        a := store.Absence{
+                ID: t.S.NextAbsenceID(), UserID: u.ID,
+</span>                DateFrom: from, DateTo: to, Reason: args["reason"],
+<span class="cov8" title="1">                Status: "pending", CreatedAt: time.Now(),
+        }
+        t.S.CreateAbsence(a)
+        return Result{
+                OK:      true,
+                Mess</span>age: "Заявка на отгул создана и отправлена руководителю",
+                Data: map[string]any{
+                        "absence_id": a.ID, "status": a.Status,
+                        "dateFrom": from, "dateTo": to,
+                        "manager_name":         "Мария Сидорова",
+                        "buddy_name":           "Иван Петров",
+                        "suggest_notify_buddy": true,
+                },
+        }, nil
 }
-a := store.Absence{
-ID: t.S.NextAbsenceID(), UserID: u.ID,
-</span>DateFrom: from, DateTo: to, Reason: args["reason"],
-<span class="cov8" title="1">Status: "pending", CreatedAt: time.Now(),
-}
-t.S.CreateAbsence(a)
-return Result{
-OK:      true,
-Messag</span>e: "Заявка на отгул создана и отправлена руководителю",
-Data: map[string]any{
-"absence_id": a.ID, "status": a.Status,
-"dateFrom": from, "dateTo": to,
-"manager_name":         "Мария Сидорова",
-"buddy_name":           "Иван Петров",
-"suggest_notify_buddy": true,
-},
-}, nil
-}</pre>
+</pre>
 		
 		<pre class="file" id="file16" style="display: none">package tools
 
 import (
-"context"
+        "context"
 
-"github.com/ElzaraA/ai-buddy-avito/internal/auth"
-"github.com/ElzaraA/ai-buddy-avito/internal/store"
+        "github.com/ElzaraA/ai-buddy-avito/internal/auth"
+        "github.com/ElzaraA/ai-buddy-avito/internal/store"
 )
 
 type ChecklistGet struct{ S *store.Store }
 
 func (t *ChecklistGet) Name() string               { ret<span class="cov8" title="1">urn "checklist_get" }
 </span>func (t *ChecklistGet) RequiredPermission() string { ret<span class="cov8" title="1">urn "checklist.read" }
-</span>
-func (t *ChecklistGet) Run(ctx context.Context, u auth.User, _ map[string]string) (Result, error) {
-<span class="cov8" title="1">if !auth.Can(u, t.RequiredPermission()) </span>{
-<span class="cov0" title="0">return Result{}, ErrForbidden
-</span>}
-<span class="cov8" title="1">items := t.S.Checklist(u.ID)
-next := ""
-for _, it := range items </span>{
-<span class="cov8" title="1">if !it.Done </span>{
-<span class="cov8" title="1">next = it.Title
-break</span>
+</span>func (t *ChecklistGet) RequiresConfirmation() bool { return false }
+
+<span class="cov8" title="1">func (t *ChecklistGet) Run(ctx context.C</span>ontext, u auth.User, _ map[string]string) (Result, error) {
+<span class="cov0" title="0">        if !auth.Can(u, t.RequiredPermission()) {
+</span>                return Result{}, ErrForbidden
+<span class="cov8" title="1">        }
+        items := t.S.Checklist(u.ID)
+        next := ""
+</span><span class="cov8" title="1">        for _, it :</span>= range items {
+<span class="cov8" title="1">                if !it.Done {
+                        ne</span>xt = it.Title
+                        break
+                }
+<span class="cov8" title="1">        }
+        return Result{
+                OK:      true,
+                Message: "Текущий статус чек-листа",
+                Data</span>:    map[string]any{"items": items, "next_step": next},
+        }, nil
 }
-}
-<span class="cov8" title="1">return Result{
-OK:      true,
-Message: "Текущий статус чек-листа",
-Data:    map[string]any{"items": items, "next_step": next},
-}, nil</span>
-}</pre>
+</pre>
 		
 		<pre class="file" id="file17" style="display: none">package tools
 
 import (
-"context"
-"strings"
+        "context"
+        "strings"
 
-"github.com/ElzaraA/ai-buddy-avito/internal/auth"
+        "github.com/ElzaraA/ai-buddy-avito/internal/auth"
 )
 
 type DirectoryFindOwner struct{}
 
 func (t *DirectoryFindOwner) Name() string            <span class="cov8" title="1">   { return "directory_find_own</span>er" }
 func (t *DirectoryFindOwner) RequiredPermission() stri<span class="cov8" title="1">ng { return "directory.re</span>ad" }
+func (t *DirectoryFindOwner) RequiresConfirmation() bool { return false }
 
 var owners = map[string]string{
-"доступ":     "Иван Петров (IT Support)",
-"инструмент": "Мария Сидорова (Backend Lead)",
-"чек-лист":   "Наставник команды",
-"отгул":      "Руководитель команды",
+        "доступ":     "Иван Петров (IT Support)",
+        "инструмент": "Мария Сидорова (Backend Lead)",
+        "чек-лист":   "Наставник команды",
+        "отгул":      "Руководитель команды",
 }
 
-func (t *DirectoryFindOwner) Run(ctx context.Context, u auth.User, args map[string]string) (Result, error) {
-<span class="cov8" title="1">if !auth.Can(u, t.RequiredPermission()) </span>{
-<span class="cov8" title="1">return Result{}, ErrForbidden
-</span>}
-<span class="cov8" title="1">q := strings.ToLower(args["query"])
-for k, v := range owners </span>{
-<span class="cov8" title="1">if strings.Contains(q, k) </span>{
-<span class="cov8" title="1">return Result{OK: true, Message: "Ответственный найден", Data: map[string]any{"owner": v}}, nil
-</span>}
+<span class="cov8" title="1">func (t *DirectoryFindOwner) Run(ctx con</span>text.Context, u auth.User, args map[string]string) (Result, error) {
+<span class="cov8" title="1">        if !auth.Can(u, t.RequiredPermission()) {
+</span>                return Result{}, ErrForbidden
+<span class="cov8" title="1">        }
+        q := strings.ToLower(arg</span>s["query"])
+<span class="cov8" title="1">        for k, v := range owners </span>{
+<span class="cov8" title="1">                if strings.Contains(q, k) {
+</span>                        return Result{OK: true, Message: "Ответственный найден", Data: map[string]any{"owner": v}}, nil
+                }
+<span class="cov8" title="1">        }
+</span>        return Result{OK: false, Message: "Ответственный не найден"}, nil
 }
-<span class="cov8" title="1">return Result{OK: false, Message: "Ответственный не найден"}, nil</span>
-}</pre>
+</pre>
 		
 		<pre class="file" id="file18" style="display: none">package tools
 
 import (
-"context"
-"errors"
-"time"
+        "context"
+        "errors"
+        "time"
 
-"github.com/ElzaraA/ai-buddy-avito/internal/auth"
+        "github.com/ElzaraA/ai-buddy-avito/internal/auth"
 )
 
 type Result struct {
-OK      bool           `json:"ok"`
-Message string         `json:"message"`
-Data    map[string]any `json:"data,omitempty"`
+        OK      bool           `json:"ok"`
+        Message string         `json:"message"`
+        Data    map[string]any `json:"data,omitempty"`
 }
 
 type Tool interface {
-Name() string
-RequiredPermission() string
-Run(ctx context.Context, user auth.User, args map[string]string) (Result, error)
+        Name() string
+        RequiredPermission() string
+        RequiresConfirmation() bool
+        Run(ctx context.Context, user auth.User, args map[string]string) (Result, error)
 }
 
 type Registry struct {
-tools map[string]Tool
+        tools map[string]Tool
 }
+</span>
+func NewRegistry() *Registry { return <span class="cov8" title="1">&amp;Registry{tools: map[st</span>ring]Tool{}} }
 
-</span>func NewRegistry() *Registry { return &amp;Registry{tools: map[string]Tool{}} }
-
-</span>func (r *Registry) Register(t Tool) { r.tools[t.Name()] = t }
-
-<span class="cov8" title="1">func (r *Registry) Get(name string) (Tool, bool) {
-t, ok := r.tools[name]
-</span>return t, ok
+func (r *Registry) Register(t Tool) { r.tools[t.Name()] = t }
+<span class="cov8" title="1">
+func (r *Registry) Get(name string) (Tool, bool) {
+</span>        t, ok := r.tools[name]
+        return t, ok
 }
 
 // Run выполняет инструмент с таймаутом 10с.
 func Run(ctx context.Context, t Tool, u auth.User, args map[string]string) (Result, error) {
-ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
-defer cancel()
-return t.Run(ctx, u, args)
+        ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
+        defer cancel()
+        return t.Run(ctx, u, args)
 }
 
-var ErrForbidden = errors.New("forbidden")</pre>
+var ErrForbidden = errors.New("forbidden")
+</pre>
 		
 		</div>
 	</body>
