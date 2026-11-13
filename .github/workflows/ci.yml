@@ -1,0 +1,75 @@
+name: ci
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.22'
+      - name: gofmt
+        run: test -z "$(gofmt -l cmd internal)" || (gofmt -l cmd internal && exit 1)
+      - name: vet
+        run: go vet ./...
+      - name: utf-8 guard (no mojibake)
+        run: "! grep -rlE 'Р[°µ¸ѕ]|РЎ' --include='*.go' --include='*.md' --exclude-dir=node_modules ."
+      - name: test with race detector
+        run: go test -race ./...
+      - name: coverage >= 80%
+        run: |
+          go test ./... -coverprofile=coverage/coverage.out
+          go tool cover -func=coverage/coverage.out | tail -1
+          go tool cover -func=coverage/coverage.out | awk '/^total:/ {sub("%","",$3); if ($3+0 < 80) {print "coverage below 80%"; exit 1}}'
+
+  frontend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci
+      - name: typecheck
+        run: npm run typecheck
+      - name: tests with coverage (lines >= 80%)
+        run: npm run coverage
+      - name: production build
+        run: npm run build
+
+  # Проект целиком поднимается одной командой и отвечает через nginx так же, как в браузере
+  compose:
+    runs-on: ubuntu-latest
+    needs: [backend, frontend]
+    steps:
+      - uses: actions/checkout@v4
+      - name: docker compose up
+        run: |
+          cp .env.example .env
+          docker compose up --build -d --wait --wait-timeout 180
+      - name: smoke test через UI-прокси
+        run: |
+          set -e
+          curl -fsS http://localhost:5173/ | grep -q '<div id="root">'
+          curl -fsS http://localhost:8080/health | grep -q '"ok"'
+          curl -fsS http://localhost:5173/api/v1/me | grep -q 'intern-1'
+          curl -fsS http://localhost:5173/api/ask -H 'Content-Type: application/json' \
+            -d '{"question":"Как у нас устроено код-ревью?"}' | grep -q '"type":"answer"'
+          curl -fsS http://localhost:5173/api/ask -H 'Content-Type: application/json' \
+            -d '{"question":"Сколько платят в Авито?"}' | grep -q '"type":"refusal"'
+          curl -fsS http://localhost:5173/api/v1/team/progress -H 'X-Demo-User: lead.backend' | grep -q 'intern-3'
+      - name: logs on failure
+        if: failure()
+        run: docker compose logs --no-color | tail -100
+      - name: docker compose down
+        if: always()
+        run: docker compose down -v
