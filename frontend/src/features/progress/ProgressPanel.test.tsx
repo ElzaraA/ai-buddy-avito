@@ -1,6 +1,6 @@
 import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { groupByStage, percentDone, ProgressPanel } from './ProgressPanel';
+import { closesByApproval, groupByStage, percentDone, ProgressPanel } from './ProgressPanel';
 import { mockFetch, renderWithQuery } from '../../test/utils';
 
 afterEach(() => vi.unstubAllGlobals());
@@ -73,6 +73,21 @@ describe('ProgressPanel', () => {
     mockFetch([{ match: '/api/v1/onboarding/progress', body: { items: v2, next_step: '', percent_done: 33.4 } }]);
     renderWithQuery(<ProgressPanel />);
     expect(await screen.findByText('Выполнено 33%')).toBeInTheDocument();
-    expect(screen.getByText('ждёт REQ-000001')).toBeInTheDocument();
+    const badge = screen.getByText('ждёт согласования');
+    expect(badge).toHaveAttribute('title', 'Заявка REQ-000001');
+    expect(screen.getByText('закроется после согласования руководителем')).toBeInTheDocument();
+    // шаг, который ждёт согласования, нельзя закрыть вручную в обход руководителя
+    expect(screen.queryByRole('button', { name: 'Отметить «Получить доступы» выполненным' })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Отметить «Прочитать Playbook» выполненным' })).toBeInTheDocument();
+  });
+
+  it('шаг kind=access без заявки: вместо «готово» — подсказка запросить доступ', async () => {
+    const v2 = items.map((i) => (i.id === 'c2' ? { ...i, status: 'todo', kind: 'access' } : i));
+    mockFetch([{ match: '/api/v1/onboarding/progress', body: { items: v2, next_step: '' } }]);
+    renderWithQuery(<ProgressPanel />);
+    expect(await screen.findByText(/запросите доступ в чате/)).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Отметить «Получить доступы» выполненным' })).not.toBeInTheDocument();
+    expect(closesByApproval({ id: 'x', title: 't', stage: 's', done: false, status: 'waiting' })).toBe(true);
+    expect(closesByApproval({ id: 'x', title: 't', stage: 's', done: false, status: 'todo' })).toBe(false);
   });
 });

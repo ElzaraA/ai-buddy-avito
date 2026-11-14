@@ -35,7 +35,7 @@ cd frontend && npm install && npm run dev   # интерфейс на http://loc
 Откройте http://localhost:5173. Пользователь переключается в шапке («Тестовый пользователь»).
 
 1. **Стажёр Backend.** Нажмите подсказку «Хочу взять отгул в пятницу» → появится черновик с датой → «Отправить заявку». Справа в «Моих заявках» — статус «ждёт согласования».
-2. Напишите «Запроси доступ в GitLab» → «Отправить заявку». Шаг «Получить доступы» в чек-листе получает пометку «ждёт REQ-…».
+2. Напишите «Запроси доступ в GitLab» → «Отправить заявку». Шаг «Получить доступы» в чек-листе получает пометку «ждёт согласования» (номер заявки — во всплывающей подсказке); кнопки «готово» у него нет — шаг закроется сам после согласования.
 3. Спросите «Как у нас устроено код-ревью?» — ответ с источником. Спросите «Сколько платят в Авито?» — честный отказ с именем наставника.
 4. **Руководитель Backend.** Справа кабинет команды: обе заявки стажёра, прогресс стажёров и вопрос без ответа («Чего нет в базе знаний»). Впишите комментарий и нажмите «Согласовать» у заявки на доступ.
 5. **Снова Стажёр Backend.** Шаг «Получить доступы» выполнен, прогресс вырос с 25% до 50%, в «Моих заявках» — «согласована» и комментарий руководителя.
@@ -75,6 +75,8 @@ cd frontend && npm install && npm run dev   # интерфейс на http://loc
 ## Проверка сценариев (bash)
 
 Нужен только `curl`. Дата отгула — в будущем: прошедшую дату помощник не оформит и переспросит.
+
+Блоки ниже рассчитаны на `bash`. **На macOS сначала выполните `bash`** (или `setopt interactivecomments` в zsh): в интерактивном zsh по умолчанию `#` не считается комментарием, и пояснения в конце строк уйдут в `curl` как лишние аргументы. В PowerShell используйте вариант в конце раздела.
 
 ```bash
 H='Content-Type: application/json'
@@ -160,12 +162,12 @@ make race      # go test -race (нужен cgo)
 make lint      # gofmt + go vet
 ```
 
-Покрытие бэкенда: **96%** (`coverage/coverage.out`, `coverage/index.html`).
+Покрытие бэкенда: **96,8%** (`coverage/coverage.out`, `coverage/index.html`).
 
 Фронтенд:
 ```bash
 cd frontend
-npm test            # 57 тестов (vitest)
+npm test            # 72 теста (vitest)
 npm run coverage    # отчёт frontend/coverage/index.html, порог строк 80%; сейчас 100% строк
 npm run typecheck
 ```
@@ -173,7 +175,7 @@ npm run typecheck
 CI (`.github/workflows/ci.yml`) на каждый push запускает три задачи: бэкенд (gofmt, vet, `-race`, порог покрытия 80%), фронтенд (typecheck, тесты с покрытием, сборка) и весь проект целиком (`docker compose up` + проверка ответов через UI-прокси).
 
 Что проверяют тесты кроме обычных веток:
-- golden-набор из 24 фраз сценариев на реальной базе знаний (`data/golden/golden.json`);
+- golden-набор из 43 фраз сценариев на реальной базе знаний (`data/golden/golden.json`);
 - 100 параллельных диалогов без потерь и перемешивания ответов;
 - 30 параллельных подтверждений одной заявки — успешно ровно одно;
 - любая «грязь» от LLM (не JSON, галлюцинация без источника, неизвестный инструмент, мусорные даты);
@@ -212,8 +214,9 @@ internal/auth/     роли и права (RBAC)
 internal/store/    действия с историей, чек-листы, диалоги, пробелы базы, снимок на диск
 internal/metrics/  метрики в формате Prometheus без зависимостей
 data/knowledge/    синтетическая база знаний
-specs/             SDD: agent spec, контракты (openapi, mcp-tools), сценарии, traceability
+specs/             SDD: agent spec, контракты (openapi, mcp-tools, schema.sql), сценарии, traceability
 frontend/          интерфейс: чат, план адаптации, мои заявки, кабинет команды (см. frontend/README.md)
+docs/              сценарий демо-видео (DEMO.md), ответы на вопросы (FAQ.md), история (history/)
 ```
 
 ### Гарантии (инварианты из `specs/agent/spec.md`, каждый покрыт тестом)
@@ -237,5 +240,65 @@ frontend/          интерфейс: чат, план адаптации, мо
 - Нет финансовых операций и чувствительных ПДн.
 - Roadmap: PostgreSQL (`specs/contracts/schema.sql`), отдельный agent-сервис (`specs/contracts/agent-api.md`), SSO, эмбеддинги поверх BM25.
 
-## Видео
-Ссылка: TODO (добавить перед сдачей)
+## Внедрение в Авито
+
+Прототип собран так, чтобы имитации заменялись адаптерами без переделки агента, API и интерфейса.
+
+```mermaid
+flowchart LR
+  UI["Интерфейс (React)"] --> NGINX["nginx :5173"]
+  NGINX -->|/api| API["API (chi): DemoUser → SSO, RBAC, rate limit"]
+  EXT["Внешний агент"] -->|"POST /mcp"| API
+  API --> AGENT["Agent: RAG (BM25) + LLM"]
+  AGENT --> TOOLS["Tools (tools.Registry, auth.Can)"]
+  API --> TOOLS
+  AGENT --> KB[("База знаний: KNOWLEDGE_DIR")]
+  TOOLS --> STORE[("Store: память + снимок → PostgreSQL")]
+  TOOLS -.-> HR["HR-система / IDM (в прототипе — имитации)"]
+```
+
+### Что заменить
+
+| Имитация в прототипе | Реальная система Авито | Что меняется в коде |
+|---|---|---|
+| Заголовок `X-Demo-User`, middleware `DemoUser` (`internal/api/middleware.go`), учётки `auth.DemoUsers` | SSO / JWT | Новый middleware кладёт в контекст тот же `auth.User` (id, роль, команда); проверки `auth.Can` и владельца не меняются |
+| Отгул: `internal/tools/absence.go`, `absence_policy.go`, подтверждение и согласование в `internal/api/actions.go` | HR-система (отсутствия) | Адаптер за тем же интерфейсом `tools.Tool` в `tools.Registry`; поток «черновик → подтверждение → согласование» сохраняется |
+| Доступы: `internal/tools/access.go` | IDM / система заявок на доступ | Адаптер за `tools.Tool`; шаг чек-листа «Получить доступы» закрывается по статусу заявки, как сейчас |
+| `data/knowledge/*.md` с разметкой `team` и `audience` | Confluence | Выгрузка по расписанию в `KNOWLEDGE_DIR` с теми же полями `team` и `audience`; без `audience` фрагмент не виден никому |
+| Хранилище в памяти со снимком (`internal/store`, `STATE_FILE`) | PostgreSQL | Новая реализация Store по `specs/contracts/schema.sql` (роли, статусы и id совпадают с прототипом) |
+| mock-LLM (`LLM_MOCK=true`) | LLM во внутреннем контуре | `LLM_MOCK=false`, `LLM_BASE_URL`, `LLM_MODEL`, `LLM_API_KEY`; резервная модель и `degraded` уже есть |
+| MCP внутри бэкенда (`POST /mcp`) | Корпоративные агенты и ассистенты | Подключаются к тому же реестру инструментов с теми же правами, контракт — `specs/contracts/mcp-tools.json` |
+
+### План пилота
+1. **Одна команда, 2–4 недели, 5–10 стажёров** и их наставники и руководитель.
+2. Неделя 0: SSO вместо `X-Demo-User`, выгрузка базы знаний команды из Confluence, реальная LLM во внутреннем контуре (mock остаётся резервом).
+3. Недели 1–2: отгулы и доступы идут черновиками и подтверждаются вручную; адаптеры HR и IDM включаются после проверки на тестовом контуре.
+4. Еженедельно наставник разбирает «Чего нет в базе знаний» и дописывает статьи — база растёт из реальных вопросов.
+
+### Метрики эффекта и откуда их брать
+| Метрика | Источник в прототипе |
+|---|---|
+| Доля вопросов, закрытых без наставника | `buddy_agent_responses_total` по `type`: `answer` и `action` против `refusal` (`GET /metrics`) |
+| Пробелы базы знаний | `buddy_knowledge_gaps_total`; список вопросов — `GET /api/v1/team/knowledge-gaps` |
+| Скорость получения доступов | история заявки `REQ-…` (`history`: подтверждение → согласование) и статус шага «Получить доступы» в `GET /api/v1/team/progress` |
+| Прогресс адаптации команды | `GET /api/v1/team/summary`: `avg_percent_done`, `steps_waiting`, `actions`, `unanswered_topics` |
+| Надёжность LLM | `buddy_llm_fallback_total`, `buddy_agent_degraded_total`, `buddy_agent_errors_total` |
+
+## Команда и владение
+
+Зоны ответственности закреплены за каталогами:
+
+| Зона | Каталоги |
+|---|---|
+| Агент и поиск по базе | `internal/agent`, `internal/rag`, `internal/llm`, `data/knowledge`, `data/golden` |
+| API, безопасность и права | `internal/api`, `internal/auth`, `internal/store`, `internal/tools` |
+| Интерфейс | `frontend/` |
+| SDD и контракты | `specs/` |
+| Инфраструктура и CI | `Dockerfile`, `docker-compose.yml`, `frontend/Dockerfile`, `frontend/nginx.conf`, `.github/workflows` |
+
+Как принимались решения: сначала договорённость в `specs/contracts/` (openapi, mcp-tools), затем код;
+расхождение контракта MCP с кодом ловит тест `internal/tools/spec_sync_test.go`, связь «сценарий → тест» —
+`specs/traceability.md`. План первых часов хакатона — `docs/history/KICKOFF.md` (исторический).
+
+## Видео и демо
+Сценарий видео по таймкодам и подготовка к записи — `docs/DEMO.md`; ответы на частые вопросы — `docs/FAQ.md`.

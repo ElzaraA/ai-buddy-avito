@@ -118,7 +118,8 @@ func Build(cfg config.Config, knowledgeDir string) (*App, error) {
 	}
 	h := &Handlers{
 		Agent: ag, Store: st, Chat: chat, Metrics: m,
-		Limiter: NewRateLimiter(cfg.RateLimitPerMin, time.Minute),
+		Limiter:      NewRateLimiter(cfg.RateLimitPerMin, time.Minute),
+		WriteLimiter: NewRateLimiter(cfg.RateLimitPerMin, time.Minute),
 	}
 	return &App{Handler: NewRouterWithOrigins(h, origins), Persister: persister, Metrics: m, Store: st}, nil
 }

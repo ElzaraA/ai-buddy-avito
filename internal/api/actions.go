@@ -19,24 +19,8 @@ type actionReq struct {
 	Resource string `json:"resource"`
 }
 
-// validAbsenceDates: формат YYYY-MM-DD, конец не раньше начала, начало не в прошлом, не дольше 30 дней.
-func validAbsenceDates(from, to string, now time.Time) (string, bool) {
-	f, err1 := time.Parse("2006-01-02", from)
-	t, err2 := time.Parse("2006-01-02", to)
-	switch {
-	case err1 != nil || err2 != nil:
-		return "date_from/date_to must be YYYY-MM-DD", false
-	case t.Before(f):
-		return "date_to must be >= date_from", false
-	case from < now.Format("2006-01-02"):
-		return "date_from is in the past", false
-	case t.Sub(f) > 30*24*time.Hour:
-		return "absence longer than 30 days is not supported", false
-	}
-	return "", true
-}
-
 // CreateAction создаёт черновик действия вручную (из UI). Подтверждение — отдельным запросом.
+// Правила проверки общие с чатом и MCP: store.ValidateAction.
 func (h *Handlers) CreateAction(w http.ResponseWriter, r *http.Request) {
 	u, _ := auth.FromCtx(r.Context())
 	var body actionReq
@@ -44,34 +28,36 @@ func (h *Handlers) CreateAction(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "bad_request", "invalid json")
 		return
 	}
-	if utf8.RuneCountInString(body.Reason) > 500 || utf8.RuneCountInString(body.Resource) > 50 {
+	if utf8.RuneCountInString(body.Reason) > store.MaxReasonRunes || utf8.RuneCountInString(body.Resource) > 50 {
 		writeError(w, http.StatusBadRequest, "bad_request", "reason or resource too long")
 		return
 	}
+	a := store.Absence{Type: body.Type, UserID: u.ID, TeamID: u.TeamID, Reason: body.Reason}
 	switch body.Type {
 	case store.ActionAbsence:
-		if msg, ok := validAbsenceDates(body.DateFrom, body.DateTo, time.Now()); !ok {
-			writeError(w, http.StatusBadRequest, "bad_request", msg)
-			return
-		}
-		a := h.Store.CreateAbsence(store.Absence{
-			ID: h.Store.NextID("ABS"), Type: store.ActionAbsence, UserID: u.ID, TeamID: u.TeamID,
-			DateFrom: body.DateFrom, DateTo: body.DateTo, Reason: body.Reason, Status: store.StatusDraft,
-		})
-		writeJSON(w, http.StatusCreated, a)
+		a.DateFrom, a.DateTo = body.DateFrom, body.DateTo
 	case store.ActionAccess:
-		if body.Resource == "" {
-			writeError(w, http.StatusBadRequest, "bad_request", "resource required")
-			return
-		}
-		a := h.Store.CreateAbsence(store.Absence{
-			ID: h.Store.NextID("REQ"), Type: store.ActionAccess, Resource: body.Resource,
-			UserID: u.ID, TeamID: u.TeamID, Reason: body.Reason, Status: store.StatusDraft,
-		})
-		writeJSON(w, http.StatusCreated, a)
-	default:
-		writeError(w, http.StatusBadRequest, "bad_request", "type must be absence or access")
+		a.Resource = store.NormalizeResource(body.Resource)
 	}
+	if err := store.ValidateAction(a, time.Now()); err != nil {
+		writeError(w, http.StatusBadRequest, "bad_request", err.Error())
+		return
+	}
+	a.ID = h.Store.NextID(idPrefix(a.Type))
+	created, err := h.Store.CreateDraft(a)
+	if err != nil {
+		writeError(w, http.StatusTooManyRequests, "too_many_drafts", "Слишком много неподтверждённых черновиков: подтвердите или отмените старые")
+		return
+	}
+	writeJSON(w, http.StatusCreated, created)
+}
+
+// idPrefix — префикс номера: ABS-… для отгула, REQ-… для доступа.
+func idPrefix(actionType string) string {
+	if actionType == store.ActionAccess {
+		return "REQ"
+	}
+	return "ABS"
 }
 
 func (h *Handlers) ListActions(w http.ResponseWriter, r *http.Request) {
@@ -136,6 +122,13 @@ func (h *Handlers) ConfirmAction(w http.ResponseWriter, r *http.Request) {
 	if !auth.Can(u, permissionFor(a.Type)) {
 		writeError(w, http.StatusForbidden, "forbidden", "your role cannot confirm this action")
 		return
+	}
+	// Повторная проверка: черновик мог устареть (дата прошла) или прийти в обход POST /actions.
+	if a.Status == store.StatusDraft {
+		if err := store.ValidateAction(a, time.Now()); err != nil {
+			writeError(w, http.StatusBadRequest, "bad_request", "draft is stale or invalid: "+err.Error())
+			return
+		}
 	}
 	upd, ok := h.Store.TransitionBy(a.ID, []string{store.StatusDraft}, store.StatusPending, u.ID, "")
 	if !ok {

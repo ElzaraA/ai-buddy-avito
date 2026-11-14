@@ -86,8 +86,25 @@ func TestPastDateAndLLMDates(t *testing.T) {
 	// Без даты подсказка содержит пример из будущего, а не зашитую дату.
 	a, _ = agentWith(`{"type":"tool_call","tool":"absence_create_request","args":{}}`, nil)
 	resp, _ = a.Ask(context.Background(), intern, "отгул")
-	if !strings.Contains(resp.Text, "2026-11-18") {
-		t.Fatalf("example date must be now+7d: %s", resp.Text)
+	if !strings.Contains(resp.Text, "«18 ноября»") {
+		t.Fatalf("example date must be now+7d in human form: %s", resp.Text)
+	}
+	// Несуществующая дата объясняется, а не молча отбрасывается (AI-3).
+	a, _ = agentWith(`{"type":"tool_call","tool":"absence_create_request","args":{}}`, nil)
+	resp, _ = a.Ask(context.Background(), intern, "Хочу отпуск 2026-02-30")
+	if resp.Args["date_from"] != "" || !strings.Contains(resp.Text, "2026-02-30 не существует") {
+		t.Fatalf("invalid date must be explained: %+v", resp)
+	}
+	// Отгул длиннее 30 дней не превращается в черновик (SEC-1).
+	a, _ = agentWith(`{"type":"tool_call","tool":"absence_create_request","args":{"date_from":"2026-12-01","date_to":"2031-12-31"}}`, nil)
+	resp, _ = a.Ask(context.Background(), intern, "Хочу отгул 2026-12-01 2031-12-31")
+	if resp.Args["date_from"] != "" || !strings.Contains(resp.Text, "30 дней") {
+		t.Fatalf("long absence must be re-asked: %+v", resp)
+	}
+	// Ресурс не из whitelist — отказ, а не черновик.
+	a, _ = agentWith(`{"type":"tool_call","tool":"access_request","args":{"resource":"<img src=x onerror=alert(1)>"}}`, nil)
+	if resp, _ = a.Ask(context.Background(), intern, "x"); resp.Type != "refusal" {
+		t.Fatalf("unknown resource must be refused: %+v", resp)
 	}
 }
 

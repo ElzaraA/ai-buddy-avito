@@ -99,7 +99,14 @@ func (s *MessageStore) MessagesBySession(sessionID string) []Message {
 	return out
 }
 
-// PendingCount — сколько ответов помощника пользователь сейчас ждёт в сессии (ограничение параллельных запусков).
+// CountBySession — сколько сообщений в диалоге (ограничение роста одной сессии).
+func (s *MessageStore) CountBySession(sessionID string) int {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	return len(s.bySess[sessionID])
+}
+
+// PendingCount —сколько ответов помощника пользователь сейчас ждёт в сессии (ограничение параллельных запусков).
 func (s *MessageStore) PendingCount(sessionID string) int {
 	s.mu.RLock()
 	defer s.mu.RUnlock()

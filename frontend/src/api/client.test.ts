@@ -1,4 +1,4 @@
-import { api, ApiError, getDemoUser, setDemoUser } from './client';
+import { api, ApiError, getDemoUser, NETWORK_ERROR_TEXT, setDemoUser, userMessage } from './client';
 import { mockFetch } from '../test/utils';
 
 afterEach(() => {
@@ -33,7 +33,45 @@ describe('api client', () => {
         body: { error: { code: 'forbidden', message: 'step belongs to another user' } },
       },
     ]);
-    await expect(api.completeStep('c9')).rejects.toMatchObject({ status: 403, code: 'forbidden' });
+    await expect(api.completeStep('c9')).rejects.toMatchObject({
+      status: 403,
+      code: 'forbidden',
+      message: 'Недостаточно прав для этого действия',
+      detail: 'step belongs to another user',
+    });
+  });
+
+  it('пользователю — русский текст: словарь по коду, русское сообщение бэка как есть', () => {
+    expect(userMessage(409, 'conflict', 'action is not pending')).toBe('Заявка уже обработана, список обновлён');
+    expect(userMessage(404, 'not_found', 'action not found')).toBe('Не найдено, обновите страницу');
+    expect(userMessage(429, 'rate_limited', 'Слишком много запросов, попробуйте через 3 с')).toBe(
+      'Слишком много запросов, попробуйте через 3 с',
+    );
+    expect(userMessage(500, 'sse_unsupported', 'flusher not available')).toBe('Ошибка сервера (500)');
+  });
+
+  it('сервер недоступен (fetch бросает TypeError) — «Нет связи с сервером»', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => {
+        throw new TypeError('Failed to fetch');
+      }),
+    );
+    const err = await api.me().catch((e) => e);
+    expect(err).toBeInstanceOf(ApiError);
+    expect(err).toMatchObject({ status: 0, code: 'network', message: NETWORK_ERROR_TEXT, detail: 'Failed to fetch' });
+  });
+
+  it('teamSummary ходит в /team/summary и заполняет значения по умолчанию', async () => {
+    mockFetch([{ match: '/api/v1/team/summary', body: { interns: 2, avg_percent_done: 50, actions: { pending: 1 } } }]);
+    expect(await api.teamSummary()).toEqual({
+      interns: 2,
+      avg_percent_done: 50,
+      steps_waiting: 0,
+      actions: { pending: 1 },
+      unanswered_topics: 0,
+      unanswered_requests: 0,
+    });
   });
 
   it('ошибка без JSON-тела — общий текст', async () => {

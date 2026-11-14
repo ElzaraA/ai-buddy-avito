@@ -1,4 +1,4 @@
-import { fieldLabel, fieldValue, formatDate, stageLabel, statusLabel } from './format';
+import { fieldLabel, fieldValue, formatDate, hasFieldLabel, stageLabel, statusLabel } from './format';
 
 describe('format', () => {
   it('formatDate переводит ISO в дд.мм.гггг', () => {
@@ -22,5 +22,14 @@ describe('format', () => {
     expect(fieldValue('created_at', '2026-11-10T19:17:28+03:00')).toBe('10.11.2026 19:17');
     expect(fieldValue('created_at', 'нет даты')).toBe('нет даты');
     expect(fieldValue('resource', 'jira')).toBe('jira');
+    expect(fieldValue('dateFrom', '2026-11-20')).toBe('20.11.2026');
+    expect(fieldValue('date_to', '2026-11-21')).toBe('21.11.2026');
+  });
+
+  it('hasFieldLabel: policy подписан, служебные флаги — нет', () => {
+    expect(fieldLabel('policy')).toBe('Порядок');
+    expect(hasFieldLabel('policy')).toBe(true);
+    expect(hasFieldLabel('suggest_notify_buddy')).toBe(false);
+    expect(hasFieldLabel('toString')).toBe(false);
   });
 });

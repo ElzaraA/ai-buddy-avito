@@ -24,6 +24,9 @@ var heartbeatEvery = 15 * time.Second
 // maxPendingPerSession — сколько ответов помощника можно ждать одновременно в одном диалоге.
 const maxPendingPerSession = 3
 
+// maxMessagesPerSession — потолок сообщений в одном диалоге (вопрос + ответ = 2), защита памяти и файла состояния.
+var maxMessagesPerSession = 200
+
 type ChatHandlers struct {
 	Agent   *agent.Agent
 	Store   *store.Store
@@ -108,7 +111,7 @@ func (h *ChatHandlers) withDialogContext(sessionID, q string) string {
 	if strings.Contains(strings.ToLower(q), "отгул") {
 		return q
 	}
-	if from, _ := agent.ParseDates(q); from != "" {
+	if from, _ := agent.ParseDatesAt(q, time.Now()); from != "" {
 		return "Хочу отгул " + q
 	}
 	if _, ok := agent.ParseWeekday(q, time.Now()); ok {
@@ -129,6 +132,10 @@ func (h *ChatHandlers) SendMessage(w http.ResponseWriter, r *http.Request) {
 	}
 	text := strings.TrimSpace(body.Q())
 	if !validQuestion(w, text) {
+		return
+	}
+	if h.Msgs.CountBySession(sessionID) >= maxMessagesPerSession {
+		writeError(w, http.StatusTooManyRequests, "session_full", "Диалог слишком длинный — начните новый")
 		return
 	}
 	if h.Msgs.PendingCount(sessionID) >= maxPendingPerSession {

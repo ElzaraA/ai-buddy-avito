@@ -19,6 +19,8 @@ export const ChecklistItemSchema = z.object({
   owner: z.string().optional(),
   /** todo | waiting | done (бэк v2); у старого бэка поля нет */
   status: z.string().optional(),
+  /** access — шаг закрывается сам после согласования заявки на доступ */
+  kind: z.string().optional(),
   related_action_id: z.string().optional(),
 });
 export type ChecklistItem = z.infer<typeof ChecklistItemSchema>;
@@ -122,7 +124,22 @@ export const InternProgressSchema = z.object({
 export type InternProgress = z.infer<typeof InternProgressSchema>;
 export const TeamProgressSchema = z.array(InternProgressSchema).nullable().transform((v) => v ?? []);
 
-export const KnowledgeGapSchema = z.object({ question: z.string(), count: z.number() });
+/** GET /api/v1/team/summary — «метрики пользы» для руководителя. */
+export const TeamSummarySchema = z.object({
+  interns: z.number().default(0),
+  avg_percent_done: z.number().default(0),
+  steps_waiting: z.number().default(0),
+  actions: z
+    .record(z.number())
+    .nullable()
+    .optional()
+    .transform((v) => v ?? {}),
+  unanswered_topics: z.number().default(0),
+  unanswered_requests: z.number().default(0),
+});
+export type TeamSummary = z.infer<typeof TeamSummarySchema>;
+
+export const KnowledgeGapSchema =z.object({ question: z.string(), count: z.number() });
 export const KnowledgeGapsSchema = z.array(KnowledgeGapSchema).nullable().transform((v) => v ?? []);
 
 export const ApiErrorSchema = z.object({

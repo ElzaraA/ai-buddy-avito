@@ -105,7 +105,11 @@ func TestProgressAndSteps(t *testing.T) {
 	if res, _ := call(t, "PATCH", srv.URL+"/api/v1/onboarding/steps/c2-intern-1", "intern.backend", "{bad"); res.StatusCode != 400 {
 		t.Fatalf("bad json: %d", res.StatusCode)
 	}
-	res, body = call(t, "PATCH", srv.URL+"/api/v1/onboarding/steps/c2-intern-1", "intern.backend", map[string]string{"status": "done"})
+	// Шаг доступов вручную не закрывается — только одобрением заявки (BR-6).
+	if res, body := call(t, "PATCH", srv.URL+"/api/v1/onboarding/steps/c2-intern-1", "intern.backend", map[string]string{"status": "done"}); res.StatusCode != 409 {
+		t.Fatalf("access step: want 409, got %d %s", res.StatusCode, body)
+	}
+	res, body = call(t, "PATCH", srv.URL+"/api/v1/onboarding/steps/c3-intern-1", "intern.backend", map[string]string{"status": "done"})
 	if res.StatusCode != 200 || !strings.Contains(string(body), `"percent_done":50`) {
 		t.Fatalf("patch: %d %s", res.StatusCode, body)
 	}

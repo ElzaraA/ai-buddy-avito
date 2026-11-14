@@ -164,6 +164,10 @@ func TestAccessRequestDrivesChecklistStep(t *testing.T) {
 	if st, id, _ := stepStatus(t, srv, "intern.backend", step); st != "waiting" || id != a.ID {
 		t.Fatalf("after confirm: %s %s", st, id)
 	}
+	// Стажёр не закрывает ждущий шаг в обход руководителя.
+	if res, _ := call(t, "PATCH", srv.URL+"/api/v1/onboarding/steps/"+step, "intern.backend", nil); res.StatusCode != 409 {
+		t.Fatalf("manual close of waiting step: want 409, got %d", res.StatusCode)
+	}
 	post(t, srv, "/api/v1/actions/"+a.ID+"/reject", "lead.backend", nil)
 	if st, id, _ := stepStatus(t, srv, "intern.backend", step); st != "todo" || id != "" {
 		t.Fatalf("after reject: %s %s", st, id)

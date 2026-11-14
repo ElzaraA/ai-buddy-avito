@@ -18,6 +18,14 @@ export function percentDone(items: ChecklistItem[]) {
   return Math.round((items.filter((i) => i.done).length / items.length) * 100);
 }
 
+/**
+ * Шаг закрывается сам, когда руководитель согласует заявку: ручная отметка «готово»
+ * обходила бы согласование, поэтому кнопку для таких шагов не показываем.
+ */
+export function closesByApproval(it: ChecklistItem) {
+  return it.status === 'waiting' || it.kind === 'access';
+}
+
 export function ProgressPanel() {
   const user = useChatStore((s) => s.user);
   const qc = useQueryClient();
@@ -77,11 +85,21 @@ export function ProgressPanel() {
                 </span>
                 <span className="step__title">{it.title}</span>
                 {!it.done && it.status === 'waiting' && (
-                  <span className="badge" title="Шаг ждёт обработки заявки">
-                    ждёт {it.related_action_id ?? 'заявку'}
+                  <span
+                    className="badge"
+                    title={it.related_action_id ? `Заявка ${it.related_action_id}` : 'Шаг ждёт обработки заявки'}
+                  >
+                    ждёт согласования
                   </span>
                 )}
-                {!it.done && (
+                {!it.done && closesByApproval(it) && (
+                  <span className="muted step__hint">
+                    {it.status === 'waiting'
+                      ? 'закроется после согласования руководителем'
+                      : 'запросите доступ в чате — шаг закроется после согласования'}
+                  </span>
+                )}
+                {!it.done && !closesByApproval(it) && (
                   <button
                     className="link"
                     onClick={() => complete.mutate(it.id)}

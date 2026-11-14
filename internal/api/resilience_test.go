@@ -92,14 +92,14 @@ func TestFallbackWhenLLMDown(t *testing.T) {
 // Без резервной модели: синхронно — 502 без внутренних деталей, в чате — событие error и message_done failed.
 func TestLLMDownWithoutFallback(t *testing.T) {
 	srv, m := customServer(t, &scriptedLLM{err: errors.New(`Post "https://api.openai.com/v1": secret-key-123`)}, nil, 0)
-	res, raw := call(t, "POST", srv.URL+"/api/ask", "intern.backend", map[string]string{"question": "Привет"})
+	res, raw := call(t, "POST", srv.URL+"/api/ask", "intern.backend", map[string]string{"question": "Где смотреть логи?"})
 	if res.StatusCode != http.StatusBadGateway || strings.Contains(string(raw), "openai") || strings.Contains(string(raw), "secret") {
 		t.Fatalf("must hide internals: %d %s", res.StatusCode, raw)
 	}
 
 	sid := createSession(t, srv, "intern.backend")
 	stream := openSSE(t, srv.URL+"/api/v1/chat/sessions/"+sid+"/events")
-	msg := send(t, srv, sid, "intern.backend", "Привет")
+	msg := send(t, srv, sid, "intern.backend", "Где смотреть логи?")
 	sawError := false
 	deadline := time.After(3 * time.Second)
 	for {
@@ -131,7 +131,7 @@ func TestAgentPanicIsContained(t *testing.T) {
 	srv, _ := customServer(t, &scriptedLLM{panicky: true}, nil, 0)
 	sid := createSession(t, srv, "intern.backend")
 	stream := openSSE(t, srv.URL+"/api/v1/chat/sessions/"+sid+"/events")
-	ev := stream.waitDone(t, send(t, srv, sid, "intern.backend", "Привет"))
+	ev := stream.waitDone(t, send(t, srv, sid, "intern.backend", "Где смотреть логи?"))
 	if ev["status"] != "failed" {
 		t.Fatalf("want failed, got %v", ev)
 	}

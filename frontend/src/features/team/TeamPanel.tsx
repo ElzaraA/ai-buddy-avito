@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { api } from '../../api/client';
+import { api, ApiError } from '../../api/client';
 import { useChatStore } from '../../store/chat';
 import { actionTitle } from '../progress/MyActions';
 
@@ -26,13 +26,23 @@ export function TeamPanel({ role }: Props) {
   const pending = useQuery({ queryKey: ['team-pending', user], queryFn: api.teamPending, ...opts });
   const progress = useQuery({ queryKey: ['team-progress', user], queryFn: api.teamProgress, ...opts });
   const gaps = useQuery({ queryKey: ['team-gaps', user], queryFn: api.knowledgeGaps, ...opts });
+  // «метрики пользы»: необязательны — если сводка не загрузилась, кабинет работает без плиток
+  const summary = useQuery({ queryKey: ['team-summary', user], queryFn: api.teamSummary, ...opts });
 
+  const refresh = () => {
+    qc.invalidateQueries({ queryKey: ['team-pending', user] });
+    qc.invalidateQueries({ queryKey: ['team-progress', user] });
+    qc.invalidateQueries({ queryKey: ['team-summary', user] });
+  };
   const decide = useMutation({
     mutationFn: (v: { id: string; decision: 'approve' | 'reject' }) => api.decideAction(v.id, v.decision, comment.trim()),
     onSuccess: () => {
       setComment('');
-      qc.invalidateQueries({ queryKey: ['team-pending', user] });
-      qc.invalidateQueries({ queryKey: ['team-progress', user] });
+      refresh();
+    },
+    // 409: заявку уже отменили или решили — перечитываем список, чтобы она исчезла
+    onError: (e) => {
+      if (e instanceof ApiError && e.status === 409) refresh();
     },
   });
 
@@ -60,6 +70,22 @@ export function TeamPanel({ role }: Props) {
         <h2>Моя команда</h2>
         <span className="muted">{canDecide ? 'руководитель: согласование заявок' : 'наставник: прогресс стажёров'}</span>
       </header>
+
+      {summary.data && (
+        <div className="tiles" aria-label="Метрики команды">
+          {[
+            { label: 'Стажёров', value: String(summary.data.interns) },
+            { label: 'Средний прогресс', value: `${Math.round(summary.data.avg_percent_done)}%` },
+            { label: 'Заявок ждут решения', value: String(summary.data.actions.pending ?? 0) },
+            { label: 'Вопросов без ответа', value: String(summary.data.unanswered_topics) },
+          ].map((t) => (
+            <div key={t.label} className="tile">
+              <div className="tile__value">{t.value}</div>
+              <div className="tile__label">{t.label}</div>
+            </div>
+          ))}
+        </div>
+      )}
 
       <div className="stage">
         <h3>Заявки на согласование</h3>

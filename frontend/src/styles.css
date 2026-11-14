@@ -120,3 +120,9 @@ button.link { background: none; color: var(--accent-dark); padding: 0 4px; font-
 .intern__head { display: flex; justify-content: space-between; margin-bottom: 4px; }
 .degraded { display: flex; flex-direction: column; gap: 4px; max-width: 85%; }
 .degraded .card, .degraded .bubble { max-width: 100%; }
+.step .link + .link { margin-left: 0; }
+.step__hint { margin-left: auto; font-size: 12px; }
+.tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); gap: 8px; margin: 12px 0 4px; }
+.tile { border: 1px solid var(--border); border-radius: 10px; padding: 8px 10px; }
+.tile__value { font-size: 20px; font-weight: 600; }
+.tile__label { font-size: 12px; color: var(--muted); }

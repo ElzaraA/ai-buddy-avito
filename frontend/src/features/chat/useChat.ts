@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
-import { api, setDemoUser } from '../../api/client';
+import { api, ApiError, setDemoUser } from '../../api/client';
 import { MessageDoneSchema, SseErrorSchema } from '../../api/schemas';
 import { useChatStore } from '../../store/chat';
 
@@ -13,7 +13,7 @@ export const AGENT_TIMEOUT_MS = 65_000;
  */
 export function useChat() {
   const qc = useQueryClient();
-  const { user, sessionId, setSession, addUser, addPending, resolve, fail } = useChatStore();
+  const { user, setSession, addUser, addPending, resolve, fail } = useChatStore();
   const sourceRef = useRef<EventSource | null>(null);
   const timers = useRef(new Map<string, ReturnType<typeof setTimeout>>());
   const [connectError, setConnectError] = useState<string | null>(null);
@@ -58,13 +58,30 @@ export function useChat() {
     [fail, qc, resolve],
   );
 
-  const ensureSession = useCallback(async () => {
-    if (sessionId) return sessionId;
-    const s = await api.createSession();
-    setSession(s.id);
-    await openStream(s.id);
-    return s.id;
-  }, [openStream, sessionId, setSession]);
+  // Создание сессии в полёте: параллельные отправки (двойной клик по подсказке) ждут один и тот же
+  // промис, а не создают вторую сессию, закрывая поток первой.
+  const creating = useRef<{ user: string; promise: Promise<string> } | null>(null);
+
+  const ensureSession = useCallback((): Promise<string> => {
+    if (creating.current?.user === user) return creating.current.promise;
+    const current = useChatStore.getState().sessionId;
+    if (current) return Promise.resolve(current);
+    const promise = api.createSession().then(async (s) => {
+      // пока создавалась сессия, сменили учётку — не привязываем чужую сессию к новому пользователю
+      if (useChatStore.getState().user !== user) throw new Error('Учётка сменилась, отправьте сообщение ещё раз');
+      setSession(s.id);
+      await openStream(s.id);
+      return s.id;
+    });
+    const settle = () => {
+      if (creating.current?.promise === promise) creating.current = null;
+    };
+    promise.then(settle, settle);
+    creating.current = { user, promise };
+    return promise;
+  }, [openStream, setSession, user]);
+
+  const [sending, setSending] = useState(0);
 
   const send = useCallback(
     async (text: string) => {
@@ -72,9 +89,19 @@ export function useChat() {
       if (!question) return;
       setConnectError(null);
       setDemoUser(user);
+      setSending((n) => n + 1);
       try {
-        const id = await ensureSession();
-        const res = await api.sendMessage(id, question);
+        let id = await ensureSession();
+        let res;
+        try {
+          res = await api.sendMessage(id, question);
+        } catch (e) {
+          // 429 session_full: диалог упёрся в лимит сообщений — продолжаем в новой сессии
+          if (!(e instanceof ApiError && e.code === 'session_full')) throw e;
+          setSession(null);
+          id = await ensureSession();
+          res = await api.sendMessage(id, question);
+        }
         addUser(res.user_message_id, question);
         addPending(res.assistant_message_id);
         timers.current.set(
@@ -86,15 +113,18 @@ export function useChat() {
         );
       } catch (e) {
         setConnectError(e instanceof Error ? e.message : 'Не удалось отправить сообщение');
+      } finally {
+        setSending((n) => n - 1);
       }
     },
-    [addPending, addUser, ensureSession, fail, user],
+    [addPending, addUser, ensureSession, fail, setSession, user],
   );
 
   // смена пользователя или размонтирование — закрываем поток и таймеры
   useEffect(() => {
     const t = timers.current;
     return () => {
+      creating.current = null;
       sourceRef.current?.close();
       sourceRef.current = null;
       t.forEach(clearTimeout);
@@ -102,5 +132,5 @@ export function useChat() {
     };
   }, [user]);
 
-  return { send, connectError };
+  return { send, connectError, sending: sending > 0 };
 }

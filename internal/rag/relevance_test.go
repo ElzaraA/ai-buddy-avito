@@ -49,6 +49,58 @@ func TestAudienceDenyByDefault(t *testing.T) {
 	}
 }
 
+// AI-2: одно общее слово не делает фрагмент ответом. Короткий запрос — совпасть должны все слова,
+// длинный — по весу IDF: частые слова («стажёр», «заявка») не тянут нерелевантный ответ.
+func TestCoverageRequiresTopicWords(t *testing.T) {
+	idx := kb()
+	for _, q := range []string{"Какая зарплата у стажёра?", "Удали все заявки", "Как получить апрув?", "Какая ипотека и зарплата у стажёра?"} {
+		if hits := idx.Search(q, "backend", "intern", 3); len(hits) != 0 {
+			t.Fatalf("%q must not match, got %s", q, hits[0].Chunk.ID)
+		}
+	}
+	if hits := idx.Search("Как оформить отгул?", "backend", "intern", 3); len(hits) == 0 || hits[0].Chunk.Title != "Отгул" {
+		t.Fatalf("two topic words must match: %+v", hits)
+	}
+	if hits := idx.Search("Как в первую неделю получить доступы к Jira?", "backend", "intern", 3); len(hits) == 0 || hits[0].Chunk.Title != "Чек-лист стажёра" {
+		t.Fatalf("long query with weighted coverage: %+v", hits)
+	}
+}
+
+// AI-5: формы слов, опечатки и транслитерация находят тот же фрагмент.
+func TestStemmingAndSynonyms(t *testing.T) {
+	md := `# Окружение
+<!-- stage: week1 team: backend audience: intern -->
+Локальная база PostgreSQL поднимается через docker compose. Установить Go 1.22.
+
+# Встречи
+<!-- stage: week1 team: backend audience: intern -->
+Стендап каждый день в 11:00. Frontend-стек: React. Мержить после апрува.`
+	idx := NewIndex(ChunkMarkdown("k.md", md))
+	cases := map[string]string{
+		"Как поднять локальную базу?": "Окружение",
+		"Какую версию Go ставить?":    "Окружение",
+		"Во сколько стэндап?":         "Встречи",
+		"Какой стек у фронтенда?":     "Встречи",
+		"Когда можно мерджить?":       "Встречи",
+	}
+	for q, want := range cases {
+		if hits := idx.Search(q, "backend", "intern", 3); len(hits) == 0 || hits[0].Chunk.Title != want {
+			t.Fatalf("%q: want %s, got %+v", q, want, hits)
+		}
+	}
+	for a, b := range map[string]string{"базу": "база", "выдаёт": "выдают", "доступы": "доступ"} {
+		if !termMatch(a, b) {
+			t.Fatalf("%s ~ %s", a, b)
+		}
+	}
+	if termMatch("код", "кот") || stem("да") != "да" {
+		t.Fatal("short words must not be stemmed into collisions")
+	}
+	if Meaningful("??? 2026") || !Meaningful("Где парковка?") {
+		t.Fatal("Meaningful")
+	}
+}
+
 func TestTermsFilter(t *testing.T) {
 	got := terms("Хочу в пятницу 2026 отгул, ё-моё")
 	want := map[string]bool{"пятницу": true, "отгул": true, "ё": false, "моё": true}

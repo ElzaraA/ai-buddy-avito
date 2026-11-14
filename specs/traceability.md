@@ -14,7 +14,7 @@
 | S2-403 | чужой шаг чек-листа — 403 | `internal/api/actions_api_test.go: TestProgressAndSteps`, `actions_test.go: TestStepUpdate` |
 | S3-answer | ответ по базе с источником | `TestGolden/S3-answer-stack`, `TestGolden/S3-answer-logs`, `TestChatS3AnswerAndRefusal` |
 | S3-refusal | вне базы — отказ с именем наставника | `TestGolden/S3-refusal-*`, `internal/rag/relevance_test.go: TestStopwordsDoNotMatch` |
-| INV-1 | нет источника — нет ответа (даже если LLM ответила) | `llm_contract_test.go: TestLLMOutputs/hallucination_without_sources` |
+| INV-1 | нет источника — нет ответа (даже если LLM ответила); текст модели в отказе — только короткая отсылка к наставнику без цифр | `llm_contract_test.go: TestLLMOutputs/hallucination_without_sources`, `internal/agent/hardening_test.go: TestRefusalTextWithoutSources` |
 | INV-2 | право проверяется в инструменте и при подтверждении | `internal/tools/perm_test.go: TestToolsForbidden`, `TestToolPermissionDenied`, `TestActionsOwnershipAndRoles` |
 | INV-3 | deny-by-default по audience, mentors_only, фильтр команды | `relevance_test.go: TestAudienceDenyByDefault`, `TestGolden/S6-*`, `TestGolden/S8-*` |
 | INV-4 | мутирующий tool_call → только черновик, хранилище не меняется | `llm_contract_test.go: TestToolCallDoesNotMutate`, `TestToolMeta` |
@@ -40,3 +40,9 @@
 | OBS | /metrics, метки по шаблону маршрута, X-Request-Id | `TestMetricsAndRequestID`, `internal/metrics/metrics_test.go` |
 | STATE | снимок на диск: round-trip, повреждённый файл, сохранение при остановке, перезапуск сервера | `internal/store/persist_test.go`, `cmd/server/main_test.go: TestStateSurvivesRestart` |
 | DATES | прошедшая дата не оформляется; мусорные даты от LLM игнорируются; перевод строки не ломает промпт | `resilience_test.go: TestPastDateAndLLMDates`, `TestPromptInjectionViaNewline`, `TestPastAndLongAbsenceRejected` |
+| DATES-human | «20 ноября», «20.11», «с 20 по 22 ноября», «послезавтра», «сегодня»; несуществующая дата отклоняется | `internal/agent/hardening_test.go: TestParseDatesAt`, `TestAbsenceDraftHumanDates`, `TestGolden/AI3-*` |
+| SEC-validate | единая валидация черновика: формат и диапазон дат, белый список ресурсов, длина причины; повторная проверка при confirm | `internal/store/actions_test.go: TestValidateAction`, `internal/api/hardening_test.go: TestMCPDraftValidation`, `TestConfirmRevalidatesDraft`, `TestCreateActionResourceWhitelist`, `TestSaveDraftRejectsInvalid` |
+| SEC-quota | лимит записи, не более 50 открытых черновиков, не более 200 сообщений в сессии | `TestWriteRateLimit`, `TestDraftQuota`, `TestSessionMessageCap`, `store/actions_test.go: TestCreateDraftLimit` |
+| S2-lock | шаг kind=access / status=waiting вручную не закрывается (409), только согласованием | `store/actions_test.go: TestAccessStepIsLocked`, `TestProgressAndSteps`, `TestAccessRequestDrivesChecklistStep` |
+| SMALLTALK | «привет/спасибо/ок» — вежливый ответ без LLM и без записи в вопросы без ответа | `hardening_test.go: TestSmallTalkAndGaps`, `internal/api/hardening_test.go: TestSmallTalkIsNotAGap` |
+| RAG-ru | стемминг, синонимы и транслитерация; вопросы про доступ — ответ, не черновик | `relevance_test.go: TestStemmingAndSynonyms`, `TestCoverageRequiresTopicWords`, `internal/llm/mock_test.go: TestMockAccessQuestionsAreAnswers` |

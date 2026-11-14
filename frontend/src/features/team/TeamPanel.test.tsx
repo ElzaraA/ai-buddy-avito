@@ -53,6 +53,40 @@ describe('TeamPanel', () => {
     await waitFor(() => expect(screen.getByLabelText('Комментарий к решению')).toHaveValue(''));
   });
 
+  it('«метрики пользы»: плитки сводки по команде из /team/summary', async () => {
+    mockFetch([
+      ...base,
+      { match: '/api/v1/team/actions?status=pending', body: [absence] },
+      {
+        match: '/api/v1/team/summary',
+        body: {
+          interns: 2,
+          avg_percent_done: 62.5,
+          steps_waiting: 1,
+          actions: { pending: 3, approved: 1 },
+          unanswered_topics: 4,
+          unanswered_requests: 7,
+        },
+      },
+    ]);
+    renderWithQuery(<TeamPanel role="lead" />);
+    const tiles = await screen.findByLabelText('Метрики команды');
+    expect(tiles).toHaveTextContent('2Стажёров');
+    expect(tiles).toHaveTextContent('63%Средний прогресс');
+    expect(tiles).toHaveTextContent('3Заявок ждут решения');
+    expect(tiles).toHaveTextContent('4Вопросов без ответа');
+  });
+
+  it('сводка без заявок и с null вместо actions — ноль, а не ошибка', async () => {
+    mockFetch([
+      ...base,
+      { match: '/api/v1/team/actions?status=pending', body: [] },
+      { match: '/api/v1/team/summary', body: { interns: 0, avg_percent_done: 0, actions: null, unanswered_topics: 0 } },
+    ]);
+    renderWithQuery(<TeamPanel role="buddy" />);
+    expect(await screen.findByLabelText('Метрики команды')).toHaveTextContent('0Заявок ждут решения');
+  });
+
   it('руководитель отклоняет заявку', async () => {
     const spy = mockFetch([
       ...base,
@@ -88,14 +122,21 @@ describe('TeamPanel', () => {
   });
 
   it('ошибка согласования показывается, ошибка загрузки — с кнопкой «Повторить»', async () => {
-    mockFetch([
+    const spyFirst = mockFetch([
       ...base,
       { match: '/api/v1/team/actions?status=pending', body: [absence] },
       { method: 'POST', match: '/api/v1/actions/ABS-000001/approve', status: 409, body: { error: { code: 'conflict', message: 'action is not pending' } } },
     ]);
     const first = renderWithQuery(<TeamPanel role="lead" />);
-    await userEvent.click(await screen.findByRole('button', { name: 'Согласовать ABS-000001' }));
-    expect(await screen.findByRole('alert')).toHaveTextContent('action is not pending');
+    const pendingCalls = () => spyFirst.mock.calls.filter(([u]) => String(u).endsWith('/team/actions?status=pending')).length;
+    const approveBtn = await screen.findByRole('button', { name: 'Согласовать ABS-000001' });
+    const pendingBefore = pendingCalls();
+    await userEvent.click(approveBtn);
+    // вместо технического 'action is not pending' — понятный текст, и список перечитывается
+    const alert = await screen.findByRole('alert');
+    expect(alert).toHaveTextContent('Заявка уже обработана, список обновлён');
+    expect(alert).not.toHaveTextContent('action is not pending');
+    await waitFor(() => expect(pendingCalls()).toBeGreaterThan(pendingBefore));
     first.unmount();
 
     const spy = mockFetch([]); // всё отвечает 404 — например, стажёр без прав

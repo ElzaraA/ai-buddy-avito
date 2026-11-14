@@ -23,6 +23,8 @@ type Handlers struct {
 	Chat    *ChatHandlers
 	Metrics *metrics.Registry // может быть nil (в unit-тестах)
 	Limiter *RateLimiter      // может быть nil — без ограничения
+	// WriteLimiter — отдельный лимит на создание черновиков, сессий и вызовы MCP (nil — без ограничения).
+	WriteLimiter *RateLimiter
 }
 
 type askReq struct {
@@ -161,13 +163,18 @@ func (h *Handlers) OnboardingStepUpdate(w http.ResponseWriter, r *http.Request) 
 		writeError(w, http.StatusBadRequest, "bad_request", "only status=done is supported")
 		return
 	}
-	found, owned := h.Store.MarkDoneOwned(u.ID, id)
+	found, owned, locked := h.Store.MarkDoneOwned(u.ID, id)
 	if !found {
 		writeError(w, http.StatusNotFound, "not_found", "step not found")
 		return
 	}
 	if !owned {
 		writeError(w, http.StatusForbidden, "forbidden", "step belongs to another user")
+		return
+	}
+	if locked {
+		// Действие выполнено, когда его подтвердил руководитель: такой шаг закрывает только approve заявки.
+		writeError(w, http.StatusConflict, "conflict", "Шаг закроется сам, когда руководитель одобрит заявку на доступ")
 		return
 	}
 	h.Metrics.Inc("buddy_steps_done_total", "Шаги чек-листа, отмеченные выполненными")

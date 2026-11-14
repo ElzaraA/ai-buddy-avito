@@ -41,6 +41,17 @@ export function DraftCard({ action = 'absence', args, text }: Props) {
     },
   });
 
+  // черновик уже сохранён на сервере — отменяем и там, иначе он останется висеть в «Ждут подтверждения»
+  const cancel = useMutation({
+    mutationFn: () => api.cancelAction(actionId),
+    onSuccess: () => {
+      setCancelled(true);
+      qc.invalidateQueries({ queryKey: ['actions'] });
+    },
+  });
+  const onCancel = () => (actionId ? cancel.mutate() : setCancelled(true));
+  const busy = confirm.isPending || cancel.isPending;
+
   if (confirm.data) {
     const a = confirm.data;
     return (
@@ -87,11 +98,16 @@ export function DraftCard({ action = 'absence', args, text }: Props) {
               Не удалось отправить: {(confirm.error as Error).message}
             </div>
           )}
+          {cancel.isError && (
+            <div className="error" role="alert">
+              Не удалось отменить: {(cancel.error as Error).message}
+            </div>
+          )}
           <div className="card__actions">
-            <button onClick={() => confirm.mutate()} disabled={confirm.isPending}>
+            <button onClick={() => confirm.mutate()} disabled={busy}>
               {confirm.isPending ? 'Отправляю…' : 'Отправить заявку'}
             </button>
-            <button className="secondary" onClick={() => setCancelled(true)} disabled={confirm.isPending}>
+            <button className="secondary" onClick={onCancel} disabled={busy}>
               Отменить
             </button>
           </div>

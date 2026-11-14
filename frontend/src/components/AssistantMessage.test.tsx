@@ -47,6 +47,33 @@ describe('AssistantMessage', () => {
     expect(screen.queryByText('items')).not.toBeInTheDocument();
   });
 
+  it('action absence_get_policy: порядок с русской подписью, без сырых ключей', () => {
+    renderWithQuery(
+      <AssistantMessage
+        response={{
+          type: 'action',
+          result: {
+            ok: true,
+            message: 'Порядок оформления отгула',
+            data: {
+              policy: 'Согласовать с руководителем, затем создать заявку в системе отсутствий.',
+              manager_name: 'Мария Сидорова',
+              buddy_name: 'Иван Петров',
+              suggest_notify_buddy: true,
+              internal_flag: 'x',
+            },
+          },
+        }}
+      />,
+    );
+    expect(screen.getByText('Порядок')).toBeInTheDocument();
+    expect(screen.getByText(/Согласовать с руководителем/)).toBeInTheDocument();
+    expect(screen.getByText('Руководитель')).toBeInTheDocument();
+    expect(screen.queryByText('policy')).not.toBeInTheDocument();
+    expect(screen.queryByText('internal_flag')).not.toBeInTheDocument();
+    expect(screen.queryByText('suggest_notify_buddy')).not.toBeInTheDocument();
+  });
+
   it('action: неуспех и пустой результат', () => {
     renderWithQuery(<AssistantMessage response={{ type: 'action', result: { ok: false, message: '' } }} />);
     expect(screen.getByText(/Действие выполнено/)).toBeInTheDocument();

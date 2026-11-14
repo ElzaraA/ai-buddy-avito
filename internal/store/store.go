@@ -113,6 +113,16 @@ func (s *Store) NextID(prefix string) string {
 func (s *Store) NextAbsenceID() string { return s.NextID("ABS") }
 
 func (s *Store) CreateAbsence(a Absence) Absence {
+	a = s.prepare(a)
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.absences[a.ID] = a
+	s.touch()
+	return cloneAction(a)
+}
+
+// prepare заполняет значения по умолчанию: тип, время создания и первую запись истории.
+func (s *Store) prepare(a Absence) Absence {
 	if a.Type == "" {
 		a.Type = ActionAbsence
 	}
@@ -125,11 +135,7 @@ func (s *Store) CreateAbsence(a Absence) Absence {
 	if len(a.History) == 0 && a.Status != "" {
 		a.History = []Event{{At: a.CreatedAt, By: a.UserID, Status: a.Status}}
 	}
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	s.absences[a.ID] = a
-	s.touch()
-	return cloneAction(a)
+	return a
 }
 
 func cloneAction(a Absence) Absence {
@@ -250,28 +256,37 @@ func (s *Store) Checklist(userID string) []ChecklistItem {
 	return out
 }
 
-func (s *Store) MarkDoneOwned(userID, itemID string) (found, owned bool) {
+// MarkDoneOwned отмечает шаг владельца выполненным. Шаг, связанный с заявками на доступ
+// (kind=access) или ждущий решения по заявке (waiting), вручную не закрывается (locked):
+// он становится done только после одобрения заявки руководителем.
+func (s *Store) MarkDoneOwned(userID, itemID string) (found, owned, locked bool) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	for uid, items := range s.checklist {
 		for i := range items {
 			if items[i].ID == itemID {
 				if uid != userID {
-					return true, false
+					return true, false, false
+				}
+				if items[i].Done {
+					return true, true, false
+				}
+				if items[i].Status == StepWaiting || items[i].Kind == ActionAccess {
+					return true, true, true
 				}
 				items[i].Done = true
 				items[i].Status = StepDone
 				s.touch()
-				return true, true
+				return true, true, false
 			}
 		}
 	}
-	return false, false
+	return false, false, false
 }
 
 func (s *Store) MarkDone(userID, itemID string) bool {
-	_, owned := s.MarkDoneOwned(userID, itemID)
-	return owned
+	_, owned, locked := s.MarkDoneOwned(userID, itemID)
+	return owned && !locked
 }
 
 // LinkStep связывает первый незавершённый шаг пользователя вида kind с заявкой и ставит ему статус.

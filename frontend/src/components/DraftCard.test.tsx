@@ -67,6 +67,26 @@ describe('DraftCard', () => {
     expect(screen.getByText('Черновик отменён.')).toBeInTheDocument();
   });
 
+  it('сохранённый черновик (action_id) при отмене отменяется и на сервере', async () => {
+    const spy = mockFetch([
+      { method: 'POST', match: '/api/v1/actions/ABS-000001/cancel', body: absence('cancelled', '2026-11-20') },
+    ]);
+    renderWithQuery(<DraftCard args={{ action_id: 'ABS-000001', date_from: '2026-11-20' }} />);
+    await userEvent.click(screen.getByRole('button', { name: 'Отменить' }));
+    expect(await screen.findByText('Черновик отменён.')).toBeInTheDocument();
+    expect(String(spy.mock.calls[0][0])).toContain('/ABS-000001/cancel');
+  });
+
+  it('ошибка отмены сохранённого черновика видна пользователю', async () => {
+    mockFetch([
+      { method: 'POST', match: '/api/v1/actions/ABS-000001/cancel', status: 409, body: { error: { code: 'conflict', message: 'action is already decided' } } },
+    ]);
+    renderWithQuery(<DraftCard args={{ action_id: 'ABS-000001', date_from: '2026-11-20' }} />);
+    await userEvent.click(screen.getByRole('button', { name: 'Отменить' }));
+    expect(await screen.findByRole('alert')).toHaveTextContent('Не удалось отменить: Заявка уже обработана');
+    expect(screen.queryByText('Черновик отменён.')).not.toBeInTheDocument();
+  });
+
   it('черновик уже сохранён бэком (action_id): только confirm, без второго POST /actions', async () => {
     const spy = mockFetch([
       { method: 'POST', match: '/api/v1/actions/ABS-000001/confirm', body: absence('pending', '2026-11-20') },

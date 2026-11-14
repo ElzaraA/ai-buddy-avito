@@ -4,7 +4,7 @@
 
 <!-- stage: week1 team: backend audience: intern,buddy,lead -->
 
-Backend: Go, PostgreSQL, Redis. Frontend: React, TypeScript.
+Стек команды. Backend: Go, PostgreSQL, Redis. Frontend: React, TypeScript.
 Логи и метрики: Grafana. Задачи: Jira. Код: Git.
 
 ## Frontend

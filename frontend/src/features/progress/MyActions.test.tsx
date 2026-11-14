@@ -35,16 +35,43 @@ describe('MyActions helpers', () => {
 });
 
 describe('MyActions', () => {
-  it('показывает отправленные заявки со статусом и комментарием; черновики скрыты', async () => {
+  it('показывает отправленные заявки со статусом и комментарием; черновики — отдельным блоком', async () => {
     mockFetch([{ match: '/api/v1/actions', body: [pending, approved, draft] }]);
     renderWithQuery(<MyActions />);
     expect(await screen.findByText('Мои заявки')).toBeInTheDocument();
     expect(screen.getByText('ждёт согласования')).toBeInTheDocument();
     expect(screen.getByText('согласована')).toBeInTheDocument();
     expect(screen.getByText(/«Выдали»/)).toBeInTheDocument();
-    expect(screen.queryByText(/ABS-000003/)).not.toBeInTheDocument();
-    // отменить можно только ожидающую заявку
-    expect(screen.getAllByRole('button')).toHaveLength(1);
+    const drafts = screen.getByLabelText('Ждут вашего подтверждения');
+    expect(drafts).toHaveTextContent('ABS-000003');
+    expect(drafts).toHaveTextContent(/внешним агентом/);
+    expect(screen.getByLabelText('Мои заявки')).not.toHaveTextContent('ABS-000003');
+    // отменить можно только ожидающую заявку; у черновика — «отправить» и «отменить»
+    expect(screen.getAllByRole('button')).toHaveLength(3);
+  });
+
+  it('черновик от внешнего агента (MCP) подтверждается в интерфейсе', async () => {
+    const spy = mockFetch([
+      { match: '/api/v1/actions', body: [draft] },
+      { method: 'POST', match: '/api/v1/actions/ABS-000003/confirm', body: { ...draft, status: 'pending' } },
+    ]);
+    renderWithQuery(<MyActions />);
+    await userEvent.click(await screen.findByRole('button', { name: 'Отправить заявку ABS-000003' }));
+    await waitFor(() => {
+      const urls = spy.mock.calls.map(([u]) => String(u));
+      expect(urls.some((u) => u.endsWith('/ABS-000003/confirm'))).toBe(true);
+      expect(urls.filter((u) => u.endsWith('/api/v1/actions')).length).toBeGreaterThan(1);
+    });
+  });
+
+  it('черновик можно удалить: вызывается cancel на сервере', async () => {
+    const spy = mockFetch([
+      { match: '/api/v1/actions', body: [draft] },
+      { method: 'POST', match: '/api/v1/actions/ABS-000003/cancel', body: { ...draft, status: 'cancelled' } },
+    ]);
+    renderWithQuery(<MyActions />);
+    await userEvent.click(await screen.findByRole('button', { name: 'Удалить черновик ABS-000003' }));
+    await waitFor(() => expect(spy.mock.calls.some(([u]) => String(u).endsWith('/ABS-000003/cancel'))).toBe(true));
   });
 
   it('отмена заявки вызывает cancel и перечитывает список', async () => {
@@ -61,14 +88,19 @@ describe('MyActions', () => {
     });
   });
 
-  it('ошибка отмены показывается; без заявок блок не рисуется', async () => {
-    mockFetch([
+  it('ошибка отмены (409) — понятный текст и перечитывание списка; без заявок блок не рисуется', async () => {
+    const spy = mockFetch([
       { match: '/api/v1/actions', body: [pending] },
       { method: 'POST', match: '/api/v1/actions/ABS-000002/cancel', status: 409, body: { error: { code: 'conflict', message: 'action is already decided' } } },
     ]);
     const first = renderWithQuery(<MyActions />);
     await userEvent.click(await screen.findByRole('button', { name: 'Отменить заявку ABS-000002' }));
-    expect(await screen.findByRole('alert')).toHaveTextContent('action is already decided');
+    const alert = await screen.findByRole('alert');
+    expect(alert).toHaveTextContent('Заявка уже обработана, список обновлён');
+    expect(alert).not.toHaveTextContent('action is already decided');
+    await waitFor(() =>
+      expect(spy.mock.calls.filter(([u]) => String(u).endsWith('/api/v1/actions')).length).toBeGreaterThan(1),
+    );
     first.unmount();
 
     mockFetch([{ match: '/api/v1/actions', body: null }]);

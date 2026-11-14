@@ -26,10 +26,20 @@ const FIELD_LABELS: Record<string, string> = {
   next_step: 'Следующий шаг',
   manager_name: 'Руководитель',
   buddy_name: 'Наставник',
+  policy: 'Порядок',
+  dateFrom: 'С',
+  dateTo: 'По',
+  date_from: 'С',
+  date_to: 'По',
 };
 
 export function fieldLabel(key: string) {
   return FIELD_LABELS[key] ?? key;
+}
+
+/** Есть ли у поля человекочитаемая подпись: поля без подписи в карточке не показываем. */
+export function hasFieldLabel(key: string) {
+  return Object.prototype.hasOwnProperty.call(FIELD_LABELS, key);
 }
 
 const STATUS_LABELS: Record<string, string> = {
@@ -50,6 +60,7 @@ export function statusLabel(s: string) {
 export function fieldValue(key: string, value: unknown): string {
   const v = String(value);
   if (key === 'status') return statusLabel(v);
+  if (/^date_?(from|to)$/i.test(key)) return formatDate(v);
   if (key === 'created_at') {
     const m = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})/.exec(v);
     return m ? `${m[3]}.${m[2]}.${m[1]} ${m[4]}:${m[5]}` : v;

@@ -13,7 +13,7 @@ export const SUGGESTIONS = [
 
 export function ChatPanel() {
   const messages = useChatStore((s) => s.messages);
-  const { send, connectError } = useChat();
+  const { send, connectError, sending } = useChat();
   const [text, setText] = useState('');
   const endRef = useRef<HTMLDivElement>(null);
 
@@ -41,11 +41,22 @@ export function ChatPanel() {
             <p>Привет! Я помогу освоиться в команде. Например:</p>
             <div className="suggestions">
               {SUGGESTIONS.map((s) => (
-                <button key={s} className="chip chip--button" onClick={() => void send(s)}>
+                <button
+                  key={s}
+                  className="chip chip--button"
+                  onClick={() => void send(s)}
+                  // повторный клик, пока уходит первый вопрос, не отправляет его второй раз
+                  disabled={sending}
+                >
                   {s}
                 </button>
               ))}
             </div>
+            {sending && (
+              <p className="muted" role="status">
+                Отправляю вопрос…
+              </p>
+            )}
           </div>
         )}
 

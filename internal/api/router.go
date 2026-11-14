@@ -44,7 +44,7 @@ func NewRouterWithOrigins(h *Handlers, origins []string) *chi.Mux {
 
 			// Действия: черновик → подтверждение → решение руководителя
 			r.Get("/actions", h.ListActions)
-			r.Post("/actions", h.CreateAction)
+			r.With(h.WriteLimiter.Middleware).Post("/actions", h.CreateAction)
 			r.Get("/actions/{id}", h.GetAction)
 			r.Post("/actions/{id}/confirm", h.ConfirmAction)
 			r.Post("/actions/{id}/cancel", h.CancelAction)
@@ -58,7 +58,7 @@ func NewRouterWithOrigins(h *Handlers, origins []string) *chi.Mux {
 			r.Get("/team/summary", h.TeamSummary)
 
 			if h.Chat != nil {
-				r.Post("/chat/sessions", h.Chat.CreateSession)
+				r.With(h.WriteLimiter.Middleware).Post("/chat/sessions", h.Chat.CreateSession)
 				r.Get("/chat/sessions/{id}/messages", h.Chat.ListMessages)
 				r.With(h.Limiter.Middleware).Post("/chat/sessions/{id}/messages", h.Chat.SendMessage)
 				r.Get("/chat/sessions/{id}/events", h.Chat.Events)
@@ -70,7 +70,7 @@ func NewRouterWithOrigins(h *Handlers, origins []string) *chi.Mux {
 		r.With(h.Limiter.Middleware).Post("/api/ask", h.Ask)
 
 		// MCP-сервер имитаций корпоративных сервисов (JSON-RPC 2.0).
-		r.Post("/mcp", h.MCP)
+		r.With(h.WriteLimiter.Middleware).Post("/mcp", h.MCP)
 	})
 	return r
 }

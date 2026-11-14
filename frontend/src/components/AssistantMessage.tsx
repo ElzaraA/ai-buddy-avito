@@ -1,6 +1,6 @@
 import type { AgentResponse } from '../api/schemas';
 import { DraftCard } from './DraftCard';
-import { fieldLabel, fieldValue } from './format';
+import { fieldLabel, fieldValue, hasFieldLabel } from './format';
 
 /** Отрисовка ответа агента по типу: answer / action / draft / refusal. */
 export function AssistantMessage({ response }: { response: AgentResponse }) {
@@ -25,8 +25,9 @@ function Body({ response }: { response: AgentResponse }) {
       const r = response.result;
       const data = r?.data ?? {};
       // чек-лист показываем на панели прогресса, в чате — коротко
+      // служебные поля без русской подписи (например, флаги) пользователю не показываем
       const scalar = Object.entries(data).filter(
-        ([, v]) => typeof v === 'string' || typeof v === 'number',
+        ([k, v]) => (typeof v === 'string' || typeof v === 'number') && hasFieldLabel(k),
       );
       return (
         <div className={`card ${r?.ok ? 'card--success' : 'card--error'}`} role="status">

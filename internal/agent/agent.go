@@ -97,6 +97,11 @@ func (a *Agent) AskWithHistory(ctx context.Context, user auth.User, question str
 	ctx, cancel := context.WithTimeout(ctx, 60*time.Second)
 	defer cancel()
 
+	// Приветствие, «спасибо», «ок», «отмени» — не вопрос к базе знаний: отвечаем сразу, без LLM и без отказа.
+	if reply := smallTalk(question); reply != "" {
+		return Response{Type: "answer", Text: reply, Buddy: BuddyName}, nil
+	}
+
 	hits := a.Index.Search(question, user.TeamID, string(user.Role), 4)
 	srcs := make([]Source, 0, len(hits))
 	for _, h := range hits {
@@ -160,17 +165,19 @@ func (a *Agent) interpret(ctx context.Context, user auth.User, question, raw str
 
 	case "refusal":
 		text := out.Text
-		if text == "" {
+		// Инвариант 1 действует и для отказа: без источников текст модели не показываем дословно,
+		// иначе выдуманный факт («Зарплата стажёра 120 000 ₽») просочится под видом отказа.
+		if text == "" || (len(srcs) == 0 && !safeRefusal(text)) {
 			text = RefusalText
 		}
 		r := refusal(text)
-		r.NoSource = len(srcs) == 0
+		r.NoSource = len(srcs) == 0 && isKnowledgeGap(question)
 		return r
 	}
 	// Инвариант 1: нет источника — нет ответа (защита от галлюцинаций реальной LLM).
 	if len(srcs) == 0 || strings.TrimSpace(out.Text) == "" {
 		r := refusal(RefusalText)
-		r.NoSource = true
+		r.NoSource = isKnowledgeGap(question)
 		return r
 	}
 	return Response{Type: "answer", Text: out.Text, Sources: srcs}
@@ -195,11 +202,14 @@ func (a *Agent) DraftFor(question, tool string, args map[string]string) Response
 func (a *Agent) draftFor(question, tool string, args map[string]string, srcs []Source) Response {
 	switch tool {
 	case "absence_create_request":
-		return a.absenceDraft(question, args, srcs)
+		return a.absenceDraft(question, args, titled(srcs, "отгул"))
 	case "access_request":
 		res := strings.ToLower(strings.TrimSpace(args["resource"]))
 		if res == "" {
 			res = "jira"
+		}
+		if !store.ValidResource(res) {
+			return refusal("Могу запросить доступ только к Jira, GitLab, Grafana или Git. По другим системам подскажет наставник " + BuddyName + ".")
 		}
 		reason := args["reason"]
 		if reason == "" {
@@ -210,12 +220,24 @@ func (a *Agent) draftFor(question, tool string, args map[string]string, srcs []S
 			Action:  store.ActionAccess,
 			Args:    map[string]string{"resource": res, "reason": reason},
 			Text:    "Подготовил заявку на доступ к " + displayResource(res) + ". Проверьте и подтвердите отправку — без подтверждения заявка не уйдёт.",
-			Sources: srcs,
+			Sources: titled(srcs, "доступ"),
 			Buddy:   BuddyName,
 			Manager: ManagerName,
 		}
 	}
 	return refusal("Не знаю такого действия. Обратитесь к наставнику " + buddyDative + ".")
+}
+
+// titled оставляет у черновика только источники по его теме: «Хочу отгул послезавтра»
+// не должен прикладывать код-ревью только потому, что «после» совпало с «после апрува».
+func titled(srcs []Source, topic string) []Source {
+	var out []Source
+	for _, s := range srcs {
+		if strings.Contains(strings.ToLower(s.Title), topic) {
+			out = append(out, s)
+		}
+	}
+	return out
 }
 
 func displayResource(r string) string {
@@ -241,7 +263,7 @@ func (a *Agent) absenceDraft(question string, args map[string]string, srcs []Sou
 	if f, t := ParseDates(from + " " + to); f != "" {
 		from, to = f, t
 	} else {
-		from, to = ParseDates(question)
+		from, to = ParseDatesAt(question, a.now())
 	}
 	if from == "" {
 		if d, ok := ParseWeekday(question, a.now()); ok {
@@ -257,13 +279,22 @@ func (a *Agent) absenceDraft(question string, args map[string]string, srcs []Sou
 	}
 	if from == "" {
 		base.Args = map[string]string{"reason": "personal"}
-		example := a.now().AddDate(0, 0, 7).Format("2006-01-02")
-		base.Text = "На какую дату оформить отгул? Напишите, например, «" + example + "» или «в пятницу». Согласует руководитель — " + ManagerName + "."
+		example := HumanDate(a.now().AddDate(0, 0, 7))
+		base.Text = "На какую дату оформить отгул? Напишите, например, «" + example + "», «20.11» или «в пятницу». Согласует руководитель — " + ManagerName + "."
+		if bad := InvalidISODate(question); bad != "" {
+			base.Text = "Даты " + bad + " не существует. " + base.Text
+		}
 		return base
 	}
 	if from < a.now().Format("2006-01-02") {
 		base.Args = map[string]string{"reason": "personal"}
 		base.Text = "Дата " + from + " уже прошла. На какую будущую дату оформить отгул?"
+		return base
+	}
+	// Те же правила, что у POST /actions: отгул не длиннее 30 дней.
+	if err := store.ValidateAbsenceDates(from, to, a.now()); err != nil {
+		base.Args = map[string]string{"reason": "personal"}
+		base.Text = "Отгул можно оформить не больше чем на 30 дней подряд. Для более долгого отсутствия обратитесь к руководителю — " + ManagerName + ". На какие даты оформить отгул?"
 		return base
 	}
 	base.Args = map[string]string{
