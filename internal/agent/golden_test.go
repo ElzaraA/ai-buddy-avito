@@ -69,8 +69,8 @@ func TestGolden(t *testing.T) {
 			if c.ExpectType != "" && resp.Type != c.ExpectType {
 				t.Fatalf("want type %s, got %s (text=%q)", c.ExpectType, resp.Type, resp.Text)
 			}
-			if c.ExpectTool != "" && (resp.Result == nil || !resp.Result.OK) {
-				t.Fatalf("tool %s: result %+v", c.ExpectTool, resp.Result)
+			if c.ExpectTool != "" && (resp.Tool != c.ExpectTool || resp.Result == nil || !resp.Result.OK) {
+				t.Fatalf("want tool %s, got %q with result %+v", c.ExpectTool, resp.Tool, resp.Result)
 			}
 			if c.ExpectAction != "" && resp.Action != c.ExpectAction {
 				t.Fatalf("want action %s, got %s", c.ExpectAction, resp.Action)

@@ -114,6 +114,7 @@ button.link { background: none; color: var(--accent-dark); padding: 0 4px; font-
 /* Кабинет наставника и руководителя */
 .request { display: flex; flex-direction: column; gap: 6px; padding: 10px 0; border-bottom: 1px solid var(--border); font-size: 14px; }
 .request .card__actions { margin-top: 0; }
+.request .comment { margin-top: 0; }
 .request button { padding: 6px 12px; font-size: 13px; }
 .comment { width: 100%; margin-top: 10px; font: inherit; font-size: 13px; padding: 8px 10px; border-radius: 8px; border: 1px solid var(--border); }
 .intern { padding: 8px 0; font-size: 14px; }

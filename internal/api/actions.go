@@ -107,8 +107,10 @@ func (h *Handlers) GetAction(w http.ResponseWriter, r *http.Request) {
 }
 
 // finish записывает переход в метрики, синхронизирует чек-лист и отвечает клиенту.
+// Решение по заявке сохраняется на диск сразу (если включён STATE_FILE), а не по тику Persister.
 func (h *Handlers) finish(w http.ResponseWriter, a store.Absence) {
 	syncStep(h.Store, a)
+	h.Store.RequestSave()
 	h.Metrics.Inc("buddy_actions_total", "Действия пользователей по типу и статусу", "type", a.Type, "status", a.Status)
 	writeJSON(w, http.StatusOK, a)
 }

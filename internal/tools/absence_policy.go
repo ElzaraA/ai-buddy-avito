@@ -16,14 +16,16 @@ func (t *AbsenceGetPolicy) Run(ctx context.Context, u auth.User, _ map[string]st
 	if !auth.Can(u, t.RequiredPermission()) {
 		return Result{}, ErrForbidden
 	}
+	// Имена — по команде пользователя; наставнику и руководителю не советуем предупреждать наставника.
+	c := auth.TeamContacts(u.TeamID)
 	return Result{
 		OK:      true,
 		Message: "Порядок оформления отгула",
 		Data: map[string]any{
 			"policy":               "Согласовать с руководителем, затем создать заявку в системе отсутствий.",
-			"manager_name":         "Мария Сидорова",
-			"buddy_name":           "Иван Петров",
-			"suggest_notify_buddy": true,
+			"manager_name":         c.Manager,
+			"buddy_name":           c.Buddy,
+			"suggest_notify_buddy": u.Role == auth.RoleIntern,
 		},
 	}, nil
 }

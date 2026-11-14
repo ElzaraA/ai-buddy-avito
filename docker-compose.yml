@@ -1,8 +1,9 @@
 services:
   api:
     build: .
+    # Только 127.0.0.1: в общей сети (демо-ноутбук, конференц-Wi-Fi) API снаружи недоступен
     ports:
-      - "8080:8080"
+      - "127.0.0.1:8080:8080"
     environment:
       - LLM_MOCK=${LLM_MOCK:-true}
       - LLM_API_KEY=${LLM_API_KEY:-}
@@ -22,7 +23,7 @@ services:
   frontend:
     build: ./frontend
     ports:
-      - "5173:80"
+      - "127.0.0.1:5173:80"
     depends_on:
       api:
         condition: service_healthy

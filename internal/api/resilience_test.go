@@ -1,14 +1,15 @@
 package api
 
 import (
+	"bufio"
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"sync"
-	"sync/atomic"
 	"testing"
 	"time"
 
@@ -276,30 +277,117 @@ func TestHundredParallelChats(t *testing.T) {
 		"Сколько платят в Авито?":         "refusal",
 		"Запроси доступ в GitLab":         "draft",
 	}
+	// t.Fatal/FailNow нельзя вызывать из горутин теста: ошибки собираются в канал и выводятся после wg.Wait.
 	var wg sync.WaitGroup
-	var failed atomic.Int32
+	errs := make(chan error, n*len(questions))
 	for i := 0; i < n; i++ {
 		wg.Add(1)
 		go func(i int) {
 			defer wg.Done()
 			user := users[i%len(users)]
-			sid := createSession(t, srv, user)
-			stream := openSSE(t, srv.URL+"/api/v1/chat/sessions/"+sid+"/events?user="+user)
-			for q, want := range questions {
-				if user == "mentor.backend" && want == "draft" {
-					continue
-				}
-				ev := stream.waitDone(t, send(t, srv, sid, user, q))
-				r, _ := ev["result"].(map[string]any)
-				if r["type"] != want {
-					failed.Add(1)
-					t.Errorf("chat %d (%s) %q: want %s, got %v", i, user, q, want, r["type"])
-				}
+			if err := parallelChat(srv, user, questions); err != nil {
+				errs <- fmt.Errorf("chat %d (%s): %w", i, user, err)
 			}
 		}(i)
 	}
 	wg.Wait()
-	if failed.Load() > 0 {
-		t.Fatalf("%d wrong answers under load", failed.Load())
+	close(errs)
+	failed := 0
+	for err := range errs {
+		failed++
+		t.Error(err)
+	}
+	if failed > 0 {
+		t.Fatalf("%d chats failed under load", failed)
+	}
+}
+
+// parallelChat — один диалог нагрузочного теста без t.Fatal: создаёт сессию, открывает SSE,
+// задаёт вопросы и сверяет тип ответа. Возвращает первую ошибку.
+func parallelChat(srv *httptest.Server, user string, questions map[string]string) error {
+	var sess struct {
+		ID string `json:"id"`
+	}
+	if code, err := doJSON("POST", srv.URL+"/api/v1/chat/sessions", user, nil, &sess); err != nil || code != http.StatusCreated || sess.ID == "" {
+		return fmt.Errorf("create session: %d %v", code, err)
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	req, _ := http.NewRequestWithContext(ctx, "GET", srv.URL+"/api/v1/chat/sessions/"+sess.ID+"/events?user="+user, nil)
+	res, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return fmt.Errorf("open SSE: %w", err)
+	}
+	defer res.Body.Close()
+	if res.StatusCode != http.StatusOK {
+		return fmt.Errorf("open SSE: %d", res.StatusCode)
+	}
+	events := make(chan map[string]any, 32)
+	go func() {
+		defer close(events)
+		sc := bufio.NewScanner(res.Body)
+		for sc.Scan() {
+			if line := sc.Text(); strings.HasPrefix(line, "data: ") {
+				var m map[string]any
+				if json.Unmarshal([]byte(strings.TrimPrefix(line, "data: ")), &m) == nil && m["type"] == "message_done" {
+					events <- m
+				}
+			}
+		}
+	}()
+	for q, want := range questions {
+		if user == "mentor.backend" && want == "draft" {
+			continue
+		}
+		var sent map[string]string
+		if code, err := doJSON("POST", srv.URL+"/api/v1/chat/sessions/"+sess.ID+"/messages", user, map[string]string{"question": q}, &sent); err != nil || code != http.StatusAccepted {
+			return fmt.Errorf("send %q: %d %v", q, code, err)
+		}
+		ev, err := waitDoneEvent(events, sent["assistant_message_id"])
+		if err != nil {
+			return fmt.Errorf("%q: %w", q, err)
+		}
+		if r, _ := ev["result"].(map[string]any); r["type"] != want {
+			return fmt.Errorf("%q: want %s, got %v", q, want, r["type"])
+		}
+	}
+	return nil
+}
+
+// doJSON — HTTP-запрос без *testing.T (безопасен в горутинах): декодирует JSON-ответ в out.
+func doJSON(method, url, user string, body, out any) (int, error) {
+	raw, _ := json.Marshal(body)
+	if body == nil {
+		raw = nil
+	}
+	req, err := http.NewRequest(method, url, strings.NewReader(string(raw)))
+	if err != nil {
+		return 0, err
+	}
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("X-Demo-User", user)
+	res, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return 0, err
+	}
+	defer res.Body.Close()
+	return res.StatusCode, json.NewDecoder(res.Body).Decode(out)
+}
+
+// waitDoneEvent ждёт message_done для сообщения msgID (без t.Fatal).
+func waitDoneEvent(events <-chan map[string]any, msgID string) (map[string]any, error) {
+	deadline := time.After(5 * time.Second)
+	for {
+		select {
+		case ev, ok := <-events:
+			if !ok {
+				return nil, errors.New("stream closed")
+			}
+			if ev["message_id"] == msgID {
+				return ev, nil
+			}
+		case <-deadline:
+			return nil, fmt.Errorf("message_done for %s not received", msgID)
+		}
 	}
 }

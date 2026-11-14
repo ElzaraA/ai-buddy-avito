@@ -83,6 +83,7 @@ type Store struct {
 	gaps      map[string]map[string]*Gap // team → нормализованный вопрос → счётчик
 	version   atomic.Int64               // растёт при каждом изменении (для сохранения на диск)
 	now       func() time.Time
+	saveNow   chan struct{} // сигнал Persister'у «сохранить сейчас» (буфер 1)
 }
 
 func New() *Store {
@@ -92,11 +93,25 @@ func New() *Store {
 		seq:       map[string]int64{},
 		gaps:      map[string]map[string]*Gap{},
 		now:       time.Now,
+		saveNow:   make(chan struct{}, 1),
 	}
 }
 
 // Version — счётчик изменений; по нему Persister понимает, что пора сохранять.
 func (s *Store) Version() int64 { return s.version.Load() }
+
+// RequestSave просит Persister сохранить состояние сейчас, не дожидаясь тика (после подтверждения,
+// согласования, отклонения или отмены заявки). Не блокирует: повторные сигналы до сохранения схлопываются.
+// Без Persister (STATE_FILE пуст) сигнал просто остаётся в буфере — поведение не меняется.
+func (s *Store) RequestSave() {
+	select {
+	case s.saveNow <- struct{}{}:
+	default:
+	}
+}
+
+// SaveRequests — канал сигналов «сохранить сейчас» для Persister.
+func (s *Store) SaveRequests() <-chan struct{} { return s.saveNow }
 
 func (s *Store) touch() { s.version.Add(1) }
 

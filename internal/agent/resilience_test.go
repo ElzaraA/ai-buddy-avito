@@ -122,7 +122,7 @@ func TestDraftRequiresPermission(t *testing.T) {
 		}
 	}
 	a, _ := agentWith("", nil)
-	if r := a.DraftFor("", "access_request", map[string]string{"resource": "Grafana"}); r.Action != "access" || r.Args["resource"] != "grafana" {
+	if r := a.DraftFor(intern, "", "access_request", map[string]string{"resource": "Grafana"}); r.Action != "access" || r.Args["resource"] != "grafana" {
 		t.Fatalf("DraftFor: %+v", r)
 	}
 }

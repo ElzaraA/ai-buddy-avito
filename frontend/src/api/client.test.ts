@@ -1,9 +1,28 @@
 import { api, ApiError, getDemoUser, NETWORK_ERROR_TEXT, setDemoUser, userMessage } from './client';
 import { mockFetch } from '../test/utils';
+import { AgentResponseSchema, KnowledgeGapsSchema } from './schemas';
 
 afterEach(() => {
   vi.unstubAllGlobals();
   setDemoUser('intern.backend');
+});
+
+describe('схемы и фактические ответы бэкенда', () => {
+  it('ответ агента с tool и sources[].title и пробел базы с last_at разбираются без потерь', () => {
+    const action = AgentResponseSchema.parse({
+      type: 'action',
+      tool: 'checklist_get',
+      result: { ok: true, message: '' },
+      sources: [{ id: 'checklist.md#week1#2', source: 'checklist.md', stage: 'week1', title: 'Доступы' }],
+      buddy_name: 'Анна Козлова',
+    });
+    expect(action.tool).toBe('checklist_get');
+    expect(action.sources?.[0].title).toBe('Доступы');
+    const gaps = KnowledgeGapsSchema.parse([
+      { question: 'Сколько платят в Авито?', count: 1, last_at: '2026-11-14T10:47:48+03:00' },
+    ]);
+    expect(gaps[0].last_at).toBe('2026-11-14T10:47:48+03:00');
+  });
 });
 
 describe('api client', () => {

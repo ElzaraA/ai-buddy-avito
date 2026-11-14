@@ -124,7 +124,8 @@ func (p *Persister) Save() error {
 	return nil
 }
 
-// Run сохраняет состояние раз в interval, если оно изменилось, и ещё раз — при остановке.
+// Run сохраняет состояние раз в interval, если оно изменилось, сразу — по сигналу Store.RequestSave
+// (подтверждённая заявка не теряется при падении между тиками) и ещё раз — при остановке.
 func (p *Persister) Run(ctx context.Context, interval time.Duration) {
 	t := time.NewTicker(interval)
 	defer t.Stop()
@@ -136,12 +137,18 @@ func (p *Persister) Run(ctx context.Context, interval time.Duration) {
 			}
 			return
 		case <-t.C:
-			if p.version() == p.saved {
-				continue
-			}
-			if err := p.Save(); err != nil {
-				slog.Error("state save failed", "err", err)
-			}
+			p.saveIfChanged()
+		case <-p.Store.SaveRequests():
+			p.saveIfChanged()
 		}
+	}
+}
+
+func (p *Persister) saveIfChanged() {
+	if p.version() == p.saved {
+		return
+	}
+	if err := p.Save(); err != nil {
+		slog.Error("state save failed", "err", err)
 	}
 }

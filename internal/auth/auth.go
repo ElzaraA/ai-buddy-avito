@@ -39,6 +39,53 @@ var DemoUsers = map[string]User{
 	"intern.other":   {ID: "intern-2", Name: "Стажёр другой команды", Role: RoleIntern, TeamID: "frontend"},
 	"lead.backend":   {ID: "lead-1", Name: "Руководитель Backend", Role: RoleLead, TeamID: "backend"},
 	"intern.junior":  {ID: "intern-3", Name: "Второй стажёр Backend", Role: RoleIntern, TeamID: "backend"},
+	"lead.frontend":  {ID: "lead-2", Name: "Руководитель Frontend", Role: RoleLead, TeamID: "frontend"},
+}
+
+// Contacts — наставник и руководитель команды (синтетические имена прототипа) в нужных падежах.
+type Contacts struct {
+	Buddy           string // «Иван Петров»
+	BuddyDative     string // «обратитесь к наставнику Ивану Петрову»
+	BuddyAccusative string // «предупредите наставника Ивана Петрова»
+	Manager         string // «согласует руководитель — Мария Сидорова»
+	// Stems — основы фамилий для поиска имени в тексте в любом падеже («Петров» ловит «Петрову»).
+	Stems []string
+}
+
+// DefaultTeam — команда, контакты которой берутся для неизвестной команды.
+const DefaultTeam = "backend"
+
+var teamContacts = map[string]Contacts{
+	"backend": {
+		Buddy: "Иван Петров", BuddyDative: "Ивану Петрову", BuddyAccusative: "Ивана Петрова",
+		Manager: "Мария Сидорова", Stems: []string{"Петров", "Сидоров"},
+	},
+	"frontend": {
+		Buddy: "Анна Козлова", BuddyDative: "Анне Козловой", BuddyAccusative: "Анну Козлову",
+		Manager: "Дмитрий Орлов", Stems: []string{"Козлов", "Орлов"},
+	},
+}
+
+// TeamContacts — наставник и руководитель команды; для неизвестной команды — контакты DefaultTeam.
+func TeamContacts(teamID string) Contacts {
+	if c, ok := teamContacts[teamID]; ok {
+		return c
+	}
+	return teamContacts[DefaultTeam]
+}
+
+// ForeignContactStems — основы фамилий контактов других команд (чтобы не назвать стажёру чужого наставника).
+func ForeignContactStems(teamID string) []string {
+	own := TeamContacts(teamID)
+	var out []string
+	for _, c := range teamContacts {
+		if c.Buddy == own.Buddy {
+			continue
+		}
+		out = append(out, c.Stems...)
+	}
+	sort.Strings(out)
+	return out
 }
 
 // TeamInterns — стажёры команды (для кабинета наставника и руководителя).

@@ -39,14 +39,15 @@ func saveDraftAt(st *store.Store, u auth.User, resp *agent.Response, now time.Ti
 	default:
 		return
 	}
+	buddy := auth.TeamContacts(u.TeamID).Buddy
 	if err := store.ValidateAction(a, now); err != nil {
-		rejectDraft(resp, draftProblem(a))
+		rejectDraft(resp, draftProblem(a, u), buddy)
 		return
 	}
 	a.ID = st.NextID(idPrefix(a.Type))
 	created, err := st.CreateDraft(a)
 	if err != nil {
-		*resp = agent.Response{Type: "refusal", Buddy: agent.BuddyName,
+		*resp = agent.Response{Type: "refusal", Buddy: buddy,
 			Text: "У вас уже много неподтверждённых черновиков. Подтвердите или отмените старые в разделе «Мои заявки» и повторите запрос."}
 		return
 	}
@@ -56,22 +57,25 @@ func saveDraftAt(st *store.Store, u auth.User, resp *agent.Response, now time.Ti
 // rejectDraft оставляет пользователя без сохранённого черновика и объясняет почему.
 // Отгул остаётся уточняющим черновиком без дат (диалог продолжается следующей датой),
 // доступ превращается в отказ. В обоих случаях action_id нет — MCP вернёт isError.
-func rejectDraft(resp *agent.Response, text string) {
+func rejectDraft(resp *agent.Response, text, buddy string) {
 	if resp.Action == store.ActionAbsence {
 		resp.Args = map[string]string{"reason": "personal"}
 		resp.Text = text
 		return
 	}
-	*resp = agent.Response{Type: "refusal", Text: text, Buddy: agent.BuddyName}
+	*resp = agent.Response{Type: "refusal", Text: text, Buddy: buddy}
 }
 
 // draftProblem — человеческое объяснение, почему черновик не прошёл проверку.
-func draftProblem(a store.Absence) string {
+// Наставнику и руководителю не советуем обратиться к наставнику (к себе или к подчинённому).
+func draftProblem(a store.Absence, u auth.User) string {
 	switch {
 	case utf8.RuneCountInString(a.Reason) > store.MaxReasonRunes:
 		return "Причина заявки слишком длинная — сократите её до 500 символов."
+	case a.Type == store.ActionAccess && u.Role == auth.RoleIntern:
+		return "Заявку можно оформить только на Jira, GitLab, Grafana или Git. По другим системам подскажет наставник " + auth.TeamContacts(u.TeamID).Buddy + "."
 	case a.Type == store.ActionAccess:
-		return "Могу запросить доступ только к Jira, GitLab, Grafana или Git. По другим системам подскажет наставник " + agent.BuddyName + "."
+		return "Заявку можно оформить только на Jira, GitLab, Grafana или Git. По другим системам обратитесь в IT Support."
 	}
 	return "Не могу оформить отгул на эти даты: дата не должна быть в прошлом, окончание — не раньше начала, а отгул — не длиннее 30 дней. Напишите другие даты."
 }

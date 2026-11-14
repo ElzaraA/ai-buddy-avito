@@ -8,8 +8,10 @@ info:
     (frontend/src/api/schemas.ts) по этому же контракту.
 
     Авторизация в прототипе имитирует SSO Авито: пользователь задаётся заголовком `X-Demo-User`
-    (или `?user=` — для EventSource, который не умеет слать заголовки). Без заголовка — `intern.backend`,
-    неизвестный логин — 401. Тестовые логины: intern.backend, intern.other, mentor.backend, lead.backend.
+    (`?user=` действует только для SSE `/chat/sessions/{sessionId}/events`: EventSource не умеет слать заголовки).
+    Без заголовка — `intern.backend`, неизвестный логин — 401. Изменяющий запрос (POST, PATCH, PUT, DELETE) с `Origin` не из `CORS_ORIGINS` отклоняется (403 forbidden);
+    запросы без `Origin` (curl, MCP-клиенты) и GET не затрагиваются.
+    Тестовые логины: intern.backend, intern.junior, intern.other, mentor.backend, lead.backend, lead.frontend.
 
     Ошибки всегда в формате `{"error":{"code","message"}}`.
 servers:
@@ -104,7 +106,7 @@ paths:
         Каждые 15 с — комментарий `: ping`.
       parameters:
         - { name: sessionId, in: path, required: true, schema: { type: string } }
-        - { name: user, in: query, required: false, schema: { type: string }, description: логин вместо X-Demo-User }
+        - { name: user, in: query, required: false, schema: { type: string }, description: 'логин вместо X-Demo-User; действует только на этом маршруте, на остальных игнорируется' }
       responses:
         '200':
           description: text/event-stream; поле data — JSON ChatEvent
@@ -226,7 +228,7 @@ paths:
 
   /team/knowledge-gaps:
     get:
-      summary: Вопросы стажёров команды, на которые в базе знаний нет ответа (обезличенно, частые сверху)
+      summary: Вопросы стажёров команды, на которые в базе знаний нет ответа (без автора, персональные данные маскируются; частые сверху)
       responses:
         '200':
           description: OK
@@ -357,6 +359,7 @@ components:
         id: { type: string, example: 'checklist.md#week1#1' }
         source: { type: string, example: checklist.md }
         stage: { type: string }
+        title: { type: string, description: заголовок раздела базы знаний }
 
     ToolResult:
       type: object
@@ -376,12 +379,13 @@ components:
           type: object
           additionalProperties: { type: string }
           description: |
-            Для draft absence: date_from, date_to, reason, suggest_notify_buddy, action_id (если даты известны).
-            Для draft access: resource, reason, action_id.
+            Для draft absence: date_from, date_to, reason, suggest_notify_buddy (только у стажёров), action_id (если даты известны).
+            Для draft access: resource (jira, gitlab, grafana, git), reason, action_id. На другую систему черновика нет — type=refusal.
+        tool: { type: string, description: 'имя выполненного инструмента для type=action (например checklist_get)' }
         result: { $ref: '#/components/schemas/ToolResult' }
         sources: { type: array, items: { $ref: '#/components/schemas/Source' } }
-        buddy_name: { type: string }
-        manager_name: { type: string }
+        buddy_name: { type: string, description: наставник команды пользователя }
+        manager_name: { type: string, description: руководитель команды пользователя }
         degraded: { type: boolean, description: ответ дан резервной моделью (основная LLM недоступна) }
 
     ChatEvent:

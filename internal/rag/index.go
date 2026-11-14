@@ -184,6 +184,18 @@ func allowed(c Chunk, role string) bool {
 }
 
 func (idx *Index) Search(q string, teamID string, role string, k int) []Hit {
+	return idx.search(q, teamID, func(c Chunk) bool { return allowed(c, role) }, k)
+}
+
+// Restricted сообщает, что релевантный фрагмент своей команды есть, но он адресован другой аудитории
+// (например, «только для наставников»). Это не пробел базы знаний: ответ есть, просто роль не та.
+// Сам фрагмент наружу не отдаётся — только факт его существования.
+func (idx *Index) Restricted(q string, teamID string, role string) bool {
+	hits := idx.search(q, teamID, func(c Chunk) bool { return len(c.Audience) > 0 && !allowed(c, role) }, 1)
+	return len(hits) > 0
+}
+
+func (idx *Index) search(q string, teamID string, visible func(Chunk) bool, k int) []Hit {
 	qt := terms(q)
 	n := float64(len(idx.chunks))
 	avg := 0.0
@@ -226,7 +238,7 @@ func (idx *Index) Search(q string, teamID string, role string, k int) []Hit {
 		if teamID != "" && c.TeamID != "" && c.TeamID != teamID {
 			continue
 		}
-		if !allowed(c, role) {
+		if !visible(c) {
 			continue
 		}
 		score, covered := 0.0, 0.0

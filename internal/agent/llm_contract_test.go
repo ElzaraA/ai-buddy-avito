@@ -55,7 +55,10 @@ func TestLLMOutputs(t *testing.T) {
 		{"read tool", "x", `{"type":"tool_call","tool":"checklist_get","args":{}}`, "action", ""},
 		{"absence via tool_call is draft", "x", `{"type":"tool_call","tool":"absence_create_request","args":{"dateFrom":"2026-11-20","dateTo":"2026-11-21"}}`, "draft", "absence"},
 		{"access via tool_call is draft", "x", `{"type":"tool_call","tool":"access_request","args":{"resource":"GitLab"}}`, "draft", "access"},
-		{"draft access", "x", `{"type":"draft","action":"access","args":{}}`, "draft", "access"},
+		{"draft access", "x", `{"type":"draft","action":"access","args":{"resource":"jira"}}`, "draft", "access"},
+		// R2-3: система не названа или не из списка — не черновик Jira, а честный отказ.
+		{"draft access without resource", "x", `{"type":"draft","action":"access","args":{}}`, "refusal", ""},
+		{"access to unknown system", "x", `{"type":"tool_call","tool":"access_request","args":{"resource":"confluence"}}`, "refusal", ""},
 		{"draft unknown action", "x", `{"type":"draft","action":"transfer_money"}`, "refusal", ""},
 		{"tool runtime error", "x", `{"type":"tool_call","tool":"directory_find_owner","args":{}}`, "action", ""},
 	}

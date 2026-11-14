@@ -36,6 +36,24 @@ func TestAbsenceGetPolicy(t *testing.T) {
 	}
 }
 
+// R2-5/R2-6: имена — по команде пользователя; наставнику не советуем предупреждать наставника.
+func TestAbsenceNamesByTeam(t *testing.T) {
+	fe := auth.User{ID: "intern-2", Role: auth.RoleIntern, TeamID: "frontend"}
+	res, _ := (&AbsenceGetPolicy{}).Run(context.Background(), fe, nil)
+	if res.Data["buddy_name"] != "Анна Козлова" || res.Data["manager_name"] != "Дмитрий Орлов" || res.Data["suggest_notify_buddy"] != true {
+		t.Fatalf("frontend policy: %+v", res.Data)
+	}
+	mentor := auth.User{ID: "mentor-1", Role: auth.RoleBuddy, TeamID: "backend"}
+	res, _ = (&AbsenceGetPolicy{}).Run(context.Background(), mentor, nil)
+	if res.Data["buddy_name"] != "Иван Петров" || res.Data["suggest_notify_buddy"] != false {
+		t.Fatalf("mentor policy: %+v", res.Data)
+	}
+	res, err := (&AbsenceCreateRequest{S: store.New()}).Run(context.Background(), fe, map[string]string{"date_from": "2030-01-15", "date_to": "2030-01-15"})
+	if err != nil || res.Data["manager_name"] != "Дмитрий Орлов" || res.Data["buddy_name"] != "Анна Козлова" {
+		t.Fatalf("frontend absence: %+v %v", res, err)
+	}
+}
+
 func TestTransition(t *testing.T) {
 	s := store.New()
 	a := s.CreateAbsence(store.Absence{ID: "ABS-1", Status: "draft"})

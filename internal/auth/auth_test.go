@@ -63,6 +63,26 @@ func TestTeamInternsAndByID(t *testing.T) {
 	}
 }
 
+// R2-5: у каждой команды свой наставник и руководитель; неизвестная команда — контакты по умолчанию.
+func TestTeamContacts(t *testing.T) {
+	be, fe := TeamContacts("backend"), TeamContacts("frontend")
+	if be.Buddy != "Иван Петров" || be.BuddyDative != "Ивану Петрову" || be.Manager != "Мария Сидорова" {
+		t.Fatalf("backend: %+v", be)
+	}
+	if fe.Buddy != "Анна Козлова" || fe.BuddyDative != "Анне Козловой" || fe.BuddyAccusative != "Анну Козлову" || fe.Manager != "Дмитрий Орлов" {
+		t.Fatalf("frontend: %+v", fe)
+	}
+	if TeamContacts("nobody").Buddy != be.Buddy {
+		t.Fatal("unknown team falls back to default")
+	}
+	if got := ForeignContactStems("frontend"); len(got) != 2 || got[0] != "Петров" {
+		t.Fatalf("foreign stems: %v", got)
+	}
+	if u := DemoUsers["lead.frontend"]; u.ID != "lead-2" || u.Role != RoleLead || u.TeamID != "frontend" {
+		t.Fatalf("lead.frontend: %+v", u)
+	}
+}
+
 func TestContext(t *testing.T) {
 	u := User{ID: "1", Role: RoleIntern}
 	ctx := WithUser(context.Background(), u)

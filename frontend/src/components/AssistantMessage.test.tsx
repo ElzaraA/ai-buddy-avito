@@ -1,5 +1,5 @@
 import { screen } from '@testing-library/react';
-import { AssistantMessage } from './AssistantMessage';
+import { AssistantMessage, mentionsBuddy } from './AssistantMessage';
 import { renderWithQuery } from '../test/utils';
 
 describe('AssistantMessage', () => {
@@ -25,7 +25,28 @@ describe('AssistantMessage', () => {
   it('refusal: предлагает обратиться к наставнику', () => {
     renderWithQuery(<AssistantMessage response={{ type: 'refusal', buddy_name: 'Иван Петров' }} />);
     expect(screen.getByText('Не могу помочь с этим вопросом.')).toBeInTheDocument();
-    expect(screen.getByText(/Иван Петров/)).toBeInTheDocument();
+    expect(screen.getByText('Наставник: Иван Петров')).toBeInTheDocument();
+  });
+
+  it('refusal: имя наставника уже в тексте — вторую строку не дублирует', () => {
+    renderWithQuery(
+      <AssistantMessage
+        response={{
+          type: 'refusal',
+          text: 'Не нашёл ответа в доступных источниках. Лучше написать наставнику — Ивану Петрову.',
+          buddy_name: 'Иван Петров',
+        }}
+      />,
+    );
+    expect(screen.getByText(/Ивану Петрову/)).toBeInTheDocument();
+    expect(screen.queryByText(/^Наставник:/)).not.toBeInTheDocument();
+  });
+
+  it('mentionsBuddy: узнаёт фамилию в любом падеже', () => {
+    expect(mentionsBuddy('Обратитесь к Анне Козловой', 'Анна Козлова')).toBe(true);
+    expect(mentionsBuddy('Обратитесь к HR BP', 'Анна Козлова')).toBe(false);
+    expect(mentionsBuddy(undefined, 'Иван Петров')).toBe(false);
+    expect(mentionsBuddy('текст', '')).toBe(false);
   });
 
   it('action: карточка результата со скалярными полями, без вложенных списков', () => {

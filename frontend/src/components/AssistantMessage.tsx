@@ -2,6 +2,13 @@ import type { AgentResponse } from '../api/schemas';
 import { DraftCard } from './DraftCard';
 import { fieldLabel, fieldValue, hasFieldLabel } from './format';
 
+/** Упоминает ли текст отказа наставника (по фамилии — она одинакова во всех падежах кроме окончания). */
+export function mentionsBuddy(text: string | undefined, buddy: string): boolean {
+  const surname = buddy.trim().split(/\s+/).pop() ?? '';
+  const stem = surname.length > 3 ? surname.slice(0, -1) : surname;
+  return Boolean(text && stem && text.includes(stem));
+}
+
 /** Отрисовка ответа агента по типу: answer / action / draft / refusal. */
 export function AssistantMessage({ response }: { response: AgentResponse }) {
   if (!response.degraded) return <Body response={response} />;
@@ -51,8 +58,9 @@ function Body({ response }: { response: AgentResponse }) {
       return (
         <div className="bubble bubble--refusal">
           <p>{response.text || 'Не могу помочь с этим вопросом.'}</p>
-          {response.buddy_name && (
-            <p className="muted">Лучше спросить наставника: {response.buddy_name}</p>
+          {/* имя наставника уже есть в тексте отказа — второй строкой его не дублируем */}
+          {response.buddy_name && !mentionsBuddy(response.text, response.buddy_name) && (
+            <p className="muted">Наставник: {response.buddy_name}</p>
           )}
         </div>
       );

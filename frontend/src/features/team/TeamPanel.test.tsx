@@ -42,15 +42,66 @@ describe('TeamPanel', () => {
     expect(await screen.findByText('Сколько платят в Авито?')).toBeInTheDocument();
     expect(screen.getByText('×3')).toBeInTheDocument();
 
-    await userEvent.type(screen.getByLabelText('Комментарий к решению'), 'Хорошего отдыха');
+    // у каждой заявки своё поле комментария — видно, к какой заявке он уйдёт
+    await userEvent.type(screen.getByLabelText('Комментарий к заявке ABS-000001'), 'Хорошего отдыха');
+    await userEvent.type(screen.getByLabelText('Комментарий к заявке REQ-000001'), 'Про доступ');
     await userEvent.click(screen.getByRole('button', { name: 'Согласовать ABS-000001' }));
     await waitFor(() => {
       const call = spy.mock.calls.find(([url]) => String(url).endsWith('/api/v1/actions/ABS-000001/approve'));
       expect(call).toBeDefined();
       expect(JSON.parse(call![1]?.body as string)).toEqual({ comment: 'Хорошего отдыха' });
     });
-    // после решения комментарий очищается
-    await waitFor(() => expect(screen.getByLabelText('Комментарий к решению')).toHaveValue(''));
+    // после решения очищается комментарий только этой заявки
+    await waitFor(() => expect(screen.getByLabelText('Комментарий к заявке ABS-000001')).toHaveValue(''));
+    expect(screen.getByLabelText('Комментарий к заявке REQ-000001')).toHaveValue('Про доступ');
+  });
+
+  it('комментарий уходит только с той заявкой, у которой он написан', async () => {
+    const spy = mockFetch([
+      ...base,
+      { match: '/api/v1/team/actions?status=pending', body: [absence, access] },
+      { method: 'POST', match: '/api/v1/actions/REQ-000001/reject', body: { ...access, status: 'rejected' } },
+    ]);
+    renderWithQuery(<TeamPanel role="lead" />);
+    await userEvent.type(await screen.findByLabelText('Комментарий к заявке ABS-000001'), 'Это про отгул');
+    await userEvent.click(screen.getByRole('button', { name: 'Отклонить REQ-000001' }));
+    await waitFor(() => {
+      const call = spy.mock.calls.find(([url]) => String(url).endsWith('/api/v1/actions/REQ-000001/reject'));
+      expect(call).toBeDefined();
+      expect(JSON.parse(call![1]?.body as string)).toEqual({ comment: '' });
+    });
+    expect(screen.getByLabelText('Комментарий к заявке ABS-000001')).toHaveValue('Это про отгул');
+  });
+
+  it('пока пробелы базы грузятся — «Загружаю», а не «ответил на все вопросы»', async () => {
+    const answer = mockFetch([
+      { match: '/api/v1/team/progress', body: [] },
+      { match: '/api/v1/team/actions?status=pending', body: [] },
+    ]);
+    // /team/knowledge-gaps не отвечает — запрос «висит»
+    vi.stubGlobal('fetch', (input: RequestInfo | URL, init?: RequestInit) =>
+      String(input).endsWith('/team/knowledge-gaps') ? new Promise<Response>(() => {}) : answer(input, init),
+    );
+    renderWithQuery(<TeamPanel role="buddy" />);
+    expect(await screen.findByText('Загружаю вопросы без ответа…')).toBeInTheDocument();
+    expect(screen.queryByText(/ответил на все вопросы/)).not.toBeInTheDocument();
+  });
+
+  it('ошибка загрузки пробелов базы — ошибка с «Повторить», а не «ответил на все вопросы»', async () => {
+    const spy = mockFetch([
+      { match: '/api/v1/team/progress', body: [] },
+      { match: '/api/v1/team/actions?status=pending', body: [] },
+      { match: '/api/v1/team/knowledge-gaps', status: 500, body: { error: { code: 'internal', message: 'boom' } } },
+    ]);
+    renderWithQuery(<TeamPanel role="buddy" />);
+    expect(await screen.findByText(/Не удалось загрузить вопросы без ответа/)).toBeInTheDocument();
+    expect(screen.queryByText(/ответил на все вопросы/)).not.toBeInTheDocument();
+    // остальной кабинет работает
+    expect(screen.getByText('Новых заявок нет.')).toBeInTheDocument();
+    const gapCalls = () => spy.mock.calls.filter(([u]) => String(u).endsWith('/team/knowledge-gaps')).length;
+    const before = gapCalls();
+    await userEvent.click(screen.getByRole('button', { name: 'Повторить' }));
+    await waitFor(() => expect(gapCalls()).toBeGreaterThan(before));
   });
 
   it('«метрики пользы»: плитки сводки по команде из /team/summary', async () => {
@@ -106,7 +157,7 @@ describe('TeamPanel', () => {
     expect(await screen.findByText('Отгул 15.01.2030 – 16.01.2030')).toBeInTheDocument();
     expect(screen.getByText(/наставник: прогресс стажёров/)).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /Согласовать/ })).not.toBeInTheDocument();
-    expect(screen.queryByLabelText('Комментарий к решению')).not.toBeInTheDocument();
+    expect(screen.queryByLabelText(/Комментарий к заявке/)).not.toBeInTheDocument();
   });
 
   it('пустые списки: нет заявок, стажёров и пробелов', async () => {

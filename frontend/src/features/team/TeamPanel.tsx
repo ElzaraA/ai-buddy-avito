@@ -20,7 +20,9 @@ export function TeamPanel({ role }: Props) {
   const user = useChatStore((s) => s.user);
   const qc = useQueryClient();
   const canDecide = role === 'lead';
-  const [comment, setComment] = useState('');
+  // комментарий у каждой заявки свой: видно, к какой заявке он уйдёт
+  const [comments, setComments] = useState<Record<string, string>>({});
+  const setComment = (id: string, text: string) => setComments((c) => ({ ...c, [id]: text }));
 
   const opts = { refetchInterval: TEAM_REFRESH_MS };
   const pending = useQuery({ queryKey: ['team-pending', user], queryFn: api.teamPending, ...opts });
@@ -35,9 +37,10 @@ export function TeamPanel({ role }: Props) {
     qc.invalidateQueries({ queryKey: ['team-summary', user] });
   };
   const decide = useMutation({
-    mutationFn: (v: { id: string; decision: 'approve' | 'reject' }) => api.decideAction(v.id, v.decision, comment.trim()),
-    onSuccess: () => {
-      setComment('');
+    mutationFn: (v: { id: string; decision: 'approve' | 'reject'; comment: string }) =>
+      api.decideAction(v.id, v.decision, v.comment.trim()),
+    onSuccess: (_data, v) => {
+      setComments(({ [v.id]: _, ...rest }) => rest);
       refresh();
     },
     // 409: заявку уже отменили или решили — перечитываем список, чтобы она исчезла
@@ -98,9 +101,19 @@ export function TeamPanel({ role }: Props) {
                 <div className="muted">{nameOf(a.user_id)}</div>
               </div>
               {canDecide && (
+                <input
+                  className="comment"
+                  aria-label={`Комментарий к заявке ${a.id}`}
+                  placeholder="Комментарий стажёру к этой заявке (необязательно)"
+                  value={comments[a.id] ?? ''}
+                  onChange={(e) => setComment(a.id, e.target.value)}
+                  maxLength={500}
+                />
+              )}
+              {canDecide && (
                 <div className="card__actions">
                   <button
-                    onClick={() => decide.mutate({ id: a.id, decision: 'approve' })}
+                    onClick={() => decide.mutate({ id: a.id, decision: 'approve', comment: comments[a.id] ?? '' })}
                     disabled={decide.isPending}
                     aria-label={`Согласовать ${a.id}`}
                   >
@@ -108,7 +121,7 @@ export function TeamPanel({ role }: Props) {
                   </button>
                   <button
                     className="secondary"
-                    onClick={() => decide.mutate({ id: a.id, decision: 'reject' })}
+                    onClick={() => decide.mutate({ id: a.id, decision: 'reject', comment: comments[a.id] ?? '' })}
                     disabled={decide.isPending}
                     aria-label={`Отклонить ${a.id}`}
                   >
@@ -119,16 +132,6 @@ export function TeamPanel({ role }: Props) {
             </li>
           ))}
         </ul>
-        {canDecide && inbox.length > 0 && (
-          <input
-            className="comment"
-            aria-label="Комментарий к решению"
-            placeholder="Комментарий стажёру (необязательно)"
-            value={comment}
-            onChange={(e) => setComment(e.target.value)}
-            maxLength={500}
-          />
-        )}
         {decide.isError && (
           <div className="error" role="alert">
             {(decide.error as Error).message}
@@ -170,11 +173,22 @@ export function TeamPanel({ role }: Props) {
 
       <div className="stage">
         <h3>Чего нет в базе знаний</h3>
-        {(gaps.data ?? []).length === 0 ? (
+        {gaps.isError ? (
+          <div className="error" role="alert">
+            Не удалось загрузить вопросы без ответа.{' '}
+            <button className="link" onClick={() => void gaps.refetch()}>
+              Повторить
+            </button>
+          </div>
+        ) : gaps.isLoading ? (
+          <div className="muted">Загружаю вопросы без ответа…</div>
+        ) : (gaps.data ?? []).length === 0 ? (
           <div className="muted">Помощник пока ответил на все вопросы стажёров.</div>
         ) : (
           <>
-            <div className="muted">Вопросы, на которые помощник не нашёл ответа (обезличенно):</div>
+            <div className="muted">
+              Вопросы, на которые помощник не нашёл ответа (без автора, персональные данные маскируются):
+            </div>
             <ul>
               {(gaps.data ?? []).slice(0, 5).map((g) => (
                 <li key={g.question} className="step">

@@ -127,8 +127,9 @@ func TestAuthAndMe(t *testing.T) {
 	if res, body := call(t, "GET", srv.URL+"/api/v1/me", "", nil); res.StatusCode != 200 || !strings.Contains(string(body), `"intern-1"`) {
 		t.Fatalf("default user: %d %s", res.StatusCode, body)
 	}
-	if res, body := call(t, "GET", srv.URL+"/api/v1/me?user=mentor.backend", "", nil); !strings.Contains(string(body), `"mentor-1"`) {
-		t.Fatalf("query user: %d %s", res.StatusCode, body)
+	// R2-1: ?user= принимается только для SSE-потока чата; на остальных маршрутах игнорируется.
+	if res, body := call(t, "GET", srv.URL+"/api/v1/me?user=mentor.backend", "", nil); !strings.Contains(string(body), `"intern-1"`) {
+		t.Fatalf("query user must be ignored outside SSE: %d %s", res.StatusCode, body)
 	}
 	if res, body := call(t, "GET", srv.URL+"/api/v1/me", "hacker", nil); res.StatusCode != 401 || !strings.Contains(string(body), `"unauthorized"`) {
 		t.Fatalf("unknown user: %d %s", res.StatusCode, body)

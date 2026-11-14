@@ -70,7 +70,8 @@ func (MockClient) Complete(_ context.Context, msgs []Message) (string, error) {
 
 	if containsAny(q, "ignore previous", "игнорируй", "покажи все", "все отгулы", "чужие",
 		"забудь все", "забудь инструкц", "системный промпт", "system prompt", "ты теперь", "system:") {
-		return refuse("Не могу выполнить это действие. Обратитесь к наставнику Ивану Петрову.")
+		// Имя наставника мок не знает (оно зависит от команды) — совет обратиться к нему добавляет агент.
+		return refuse("Не могу выполнить это действие.")
 	}
 
 	// Слова сравниваем по началу слова: « дай» ловит «дай» и «дайте», но не «выдают».
@@ -96,14 +97,7 @@ func (MockClient) Complete(_ context.Context, msgs []Message) (string, error) {
 		imperative := hasWord(w, "запроси", "дай", "выдай", "оформи ", "оформите", "открой", "нужен", "нужна", "хочу", "сделай")
 		direct := !asks && hasWord(w, "доступ к", "доступ в", "доступа к", "доступа в")
 		if imperative || direct {
-			res := "jira"
-			switch {
-			case containsAny(q, "gitlab", "гитлаб"):
-				res = "gitlab"
-			case containsAny(q, "grafana", "графан"):
-				res = "grafana"
-			}
-			return toolCall("access_request", map[string]string{"resource": res, "reason": "onboarding"})
+			return toolCall("access_request", map[string]string{"resource": accessResource(q, w), "reason": "onboarding"})
 		}
 		return answerFromContext(prompt)
 	}
@@ -121,7 +115,30 @@ func answerFromContext(prompt string) (string, error) {
 	if txt := firstChunk(prompt); txt != "" {
 		return toJSON(map[string]any{"type": "answer", "text": txt})
 	}
-	return toJSON(map[string]any{"type": "refusal", "text": "Не нашёл в доступных источниках. Обратитесь к наставнику Ивану Петрову."})
+	return toJSON(map[string]any{"type": "refusal", "text": "Не нашёл в доступных источниках."})
+}
+
+// accessResource — система из просьбы о доступе. Неизвестную систему («Confluence») возвращаем как есть,
+// а не подменяем на Jira: агент честно ответит, что на неё заявку не оформить. Пусто — система не названа.
+func accessResource(q, w string) string {
+	switch {
+	case containsAny(q, "gitlab", "гитлаб"):
+		return "gitlab"
+	case containsAny(q, "grafana", "графан"):
+		return "grafana"
+	case containsAny(q, "jira", "джир"):
+		return "jira"
+	case hasWord(w, "git ", "гит "):
+		return "git"
+	}
+	for _, p := range []string{" доступ к ", " доступ в ", " доступа к ", " доступа в ", " доступ до "} {
+		if i := strings.Index(w, p); i >= 0 {
+			if f := strings.Fields(w[i+len(p):]); len(f) > 0 {
+				return f[0]
+			}
+		}
+	}
+	return ""
 }
 
 // words нормализует вопрос в « слово слово … » (знаки препинания → пробелы, дефис сохраняется).

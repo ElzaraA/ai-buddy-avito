@@ -18,6 +18,29 @@ jobs:
         run: go vet ./...
       - name: utf-8 guard (no mojibake)
         run: "! grep -rlE 'Р[°µ¸ѕ]|РЎ' --include='*.go' --include='*.md' --exclude-dir=node_modules ."
+      # Контракт ↔ код: каждый путь из specs/contracts/openapi.yaml (servers: /api/v1) должен быть
+      # зарегистрирован в internal/api/router.go. В роутере пути внутри r.Route("/api/v1", ...)
+      # записаны без префикса, а параметры называются {id} (в контракте — {actionId}, {sessionId}, {stepId}).
+      - name: openapi paths exist in router.go
+        run: |
+          set -euo pipefail
+          spec=specs/contracts/openapi.yaml
+          router=internal/api/router.go
+          grep -qF 'r.Route("/api/v1"' "$router" || { echo "router.go: нет r.Route(\"/api/v1\", ...)"; exit 1; }
+          # пути — строки вида '  /путь:' между 'paths:' и следующим ключом верхнего уровня
+          paths=$(sed -n '/^paths:/,/^[A-Za-z]/p' "$spec" | grep -E '^  /[^ ]*:[[:space:]]*$' | sed -E 's/^  //; s/:[[:space:]]*$//' || true)
+          [ -n "$paths" ] || { echo "в $spec не найдено ни одного пути"; exit 1; }
+          missing=0
+          for p in $paths; do
+            route=$(printf '%s' "$p" | sed -E 's/\{[A-Za-z]+Id\}/{id}/g')
+            if grep -qF "\"$route\"" "$router" || grep -qF "\"/api/v1$route\"" "$router"; then
+              echo "ok      /api/v1$p"
+            else
+              echo "MISSING /api/v1$p (в router.go нет \"$route\")"
+              missing=1
+            fi
+          done
+          exit $missing
       - name: test with race detector
         run: go test -race ./...
       - name: coverage >= 80%
@@ -56,17 +79,19 @@ jobs:
         run: |
           cp .env.example .env
           docker compose up --build -d --wait --wait-timeout 180
+      # порты опубликованы только на 127.0.0.1 (docker-compose.yml) — проверяем по этому адресу,
+      # чтобы localhost не ушёл в ::1
       - name: smoke test через UI-прокси
         run: |
           set -e
-          curl -fsS http://localhost:5173/ | grep -q '<div id="root">'
-          curl -fsS http://localhost:8080/health | grep -q '"ok"'
-          curl -fsS http://localhost:5173/api/v1/me | grep -q 'intern-1'
-          curl -fsS http://localhost:5173/api/ask -H 'Content-Type: application/json' \
+          curl -fsS http://127.0.0.1:5173/ | grep -q '<div id="root">'
+          curl -fsS http://127.0.0.1:8080/health | grep -q '"ok"'
+          curl -fsS http://127.0.0.1:5173/api/v1/me | grep -q 'intern-1'
+          curl -fsS http://127.0.0.1:5173/api/ask -H 'Content-Type: application/json' \
             -d '{"question":"Как у нас устроено код-ревью?"}' | grep -q '"type":"answer"'
-          curl -fsS http://localhost:5173/api/ask -H 'Content-Type: application/json' \
+          curl -fsS http://127.0.0.1:5173/api/ask -H 'Content-Type: application/json' \
             -d '{"question":"Сколько платят в Авито?"}' | grep -q '"type":"refusal"'
-          curl -fsS http://localhost:5173/api/v1/team/progress -H 'X-Demo-User: lead.backend' | grep -q 'intern-3'
+          curl -fsS http://127.0.0.1:5173/api/v1/team/progress -H 'X-Demo-User: lead.backend' | grep -q 'intern-3'
       - name: logs on failure
         if: failure()
         run: docker compose logs --no-color | tail -100

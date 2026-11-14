@@ -15,13 +15,25 @@ import (
 	"github.com/ElzaraA/ai-buddy-avito/internal/config"
 )
 
+// exit — os.Exit, подменяется в тестах.
+var exit = os.Exit
+
+// shutdownTimeout — сколько ждать завершения запросов (в том числе SSE) при остановке.
+var shutdownTimeout = 5 * time.Second
+
 func main() {
+	exit(serve())
+}
+
+// serve запускает сервер до SIGINT/SIGTERM и возвращает код выхода процесса.
+func serve() int {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 	if err := run(ctx); err != nil {
 		slog.Error("server stopped", "err", err)
-		os.Exit(1)
+		return 1
 	}
+	return 0
 }
 
 // run поднимает сервер и останавливает его корректно (graceful shutdown) при отмене ctx.
@@ -70,7 +82,7 @@ func run(parent context.Context) error {
 		}
 		return err
 	case <-ctx.Done():
-		shutdownCtx, cancelShutdown := context.WithTimeout(context.Background(), 5*time.Second)
+		shutdownCtx, cancelShutdown := context.WithTimeout(context.Background(), shutdownTimeout)
 		defer cancelShutdown()
 		slog.Info("shutting down")
 		// SSE-потоки живут долго: Shutdown ждёт их до таймаута, затем закрываем принудительно.

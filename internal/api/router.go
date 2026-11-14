@@ -26,6 +26,8 @@ func NewRouterWithOrigins(h *Handlers, origins []string) *chi.Mux {
 		ExposedHeaders: []string{"X-Request-Id", "Retry-After"},
 		MaxAge:         300,
 	}))
+	// CSRF: CORS защищает только чтение ответа, а сам «простой» POST с чужой страницы браузер отправит.
+	r.Use(SameOriginWrites(origins))
 	r.Use(LimitBody)
 
 	r.Get("/health", h.Health)

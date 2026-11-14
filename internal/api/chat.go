@@ -193,8 +193,7 @@ func (h *ChatHandlers) runAgent(sessionID, msgID, question string, history []llm
 	defer cancel()
 	start := time.Now()
 	resp, err := h.Agent.AskWithHistory(ctx, u, question, history)
-	h.Metrics.Add("buddy_agent_duration_seconds_sum", "Суммарное время работы агента", time.Since(start).Seconds())
-	h.Metrics.Inc("buddy_agent_runs_total", "Запуски агента")
+	observeRun(h.Metrics, start)
 	if err != nil {
 		h.Metrics.Inc("buddy_agent_errors_total", "Сбои агента (LLM недоступна)")
 		slog.Warn("agent failed", "session", sessionID, "message", msgID, "err", err)

@@ -49,6 +49,23 @@ func TestAudienceDenyByDefault(t *testing.T) {
 	}
 }
 
+// R2-8: индекс сообщает, что ответ есть, но для другой аудитории (без раскрытия фрагмента).
+func TestRestricted(t *testing.T) {
+	idx := kb()
+	if !idx.Restricted("наставник проводит", "backend", "intern") {
+		t.Fatal("mentors-only chunk must be reported as restricted for intern")
+	}
+	if idx.Restricted("наставник проводит", "backend", "buddy") {
+		t.Fatal("mentor sees the chunk: not restricted")
+	}
+	if idx.Restricted("наставник проводит", "frontend", "intern") {
+		t.Fatal("other team's chunk is not restricted, it is absent")
+	}
+	if idx.Restricted("секретный текст", "backend", "intern") || idx.Restricted("Сколько платят?", "backend", "intern") {
+		t.Fatal("chunk without audience or no match is not restricted")
+	}
+}
+
 // AI-2: одно общее слово не делает фрагмент ответом. Короткий запрос — совпасть должны все слова,
 // длинный — по весу IDF: частые слова («стажёр», «заявка») не тянут нерелевантный ответ.
 func TestCoverageRequiresTopicWords(t *testing.T) {

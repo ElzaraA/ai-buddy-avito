@@ -4,6 +4,7 @@ import (
 	"log/slog"
 	"net/http"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -19,12 +20,14 @@ const maxBodyBytes = 64 << 10
 // DefaultDemoUser — учётка по умолчанию, если заголовок не передан (упрощённая авторизация прототипа).
 const DefaultDemoUser = "intern.backend"
 
-// DemoUser имитирует SSO: пользователь берётся из заголовка X-Demo-User
-// или из query ?user= (EventSource не умеет передавать заголовки). Неизвестный логин — 401.
+// DemoUser имитирует SSO: пользователь берётся из заголовка X-Demo-User. Query ?user= принимается
+// только для GET-потока событий чата (EventSource не умеет передавать заголовки); на остальных маршрутах
+// он игнорируется, иначе ссылка вида /actions/{id}/approve?user=lead.backend действовала бы от чужого имени.
+// Неизвестный логин — 401.
 func DemoUser(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		key := r.Header.Get("X-Demo-User")
-		if key == "" {
+		if key == "" && isEventStream(r) {
 			key = r.URL.Query().Get("user")
 		}
 		if key == "" {
@@ -37,6 +40,42 @@ func DemoUser(next http.Handler) http.Handler {
 		}
 		next.ServeHTTP(w, r.WithContext(auth.WithUser(r.Context(), u)))
 	})
+}
+
+// isEventStream — GET /api/v1/chat/sessions/{id}/events: единственный маршрут, где допустим ?user=.
+func isEventStream(r *http.Request) bool {
+	if r.Method != http.MethodGet {
+		return false
+	}
+	const prefix, suffix = "/api/v1/chat/sessions/", "/events"
+	p := r.URL.Path
+	if !strings.HasPrefix(p, prefix) || !strings.HasSuffix(p, suffix) {
+		return false
+	}
+	id := p[len(prefix) : len(p)-len(suffix)]
+	return id != "" && !strings.Contains(id, "/")
+}
+
+// SameOriginWrites — защита от CSRF: небезопасный запрос (POST, PATCH, PUT, DELETE) с заголовком Origin
+// не из списка разрешённых CORS-origins отклоняется 403. Запросы без Origin (curl, тесты, MCP-клиенты)
+// пропускаются: браузер всегда шлёт Origin на cross-origin POST, так что чужая страница сюда не попадёт.
+func SameOriginWrites(origins []string) func(http.Handler) http.Handler {
+	allowed := make(map[string]bool, len(origins))
+	for _, o := range origins {
+		allowed[strings.TrimRight(o, "/")] = true
+	}
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			switch r.Method {
+			case http.MethodPost, http.MethodPatch, http.MethodPut, http.MethodDelete:
+				if o := r.Header.Get("Origin"); o != "" && !allowed[o] && !allowed["*"] {
+					writeError(w, http.StatusForbidden, "forbidden", "cross-origin request blocked")
+					return
+				}
+			}
+			next.ServeHTTP(w, r)
+		})
+	}
 }
 
 // LimitBody ограничивает размер тела запроса.

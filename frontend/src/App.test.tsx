@@ -28,6 +28,17 @@ describe('App', () => {
     expect(useChatStore.getState().user).toBe('intern.other');
   });
 
+  it('в переключателе есть руководитель команды frontend', async () => {
+    mockFetch([
+      { match: '/api/v1/me', body: { id: 'intern-1', name: 'Стажёр Backend', role: 'intern', team_id: 'backend' } },
+      { match: '/api/v1/onboarding/progress', body: { items: [], next_step: '' } },
+    ]);
+    renderWithQuery(<App />);
+    expect(screen.getByRole('option', { name: 'Руководитель Frontend' })).toHaveValue('lead.frontend');
+    await userEvent.selectOptions(screen.getByLabelText('Тестовый пользователь'), 'lead.frontend');
+    await waitFor(() => expect(getDemoUser()).toBe('lead.frontend'));
+  });
+
   it('руководителю вместо плана адаптации показывается кабинет команды', async () => {
     useChatStore.getState().setUser('lead.backend');
     mockFetch([

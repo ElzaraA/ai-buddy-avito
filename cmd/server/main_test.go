@@ -2,9 +2,11 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"io"
 	"net"
 	"net/http"
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -116,6 +118,107 @@ func TestStateSurvivesRestart(t *testing.T) {
 	body, _ := io.ReadAll(res.Body)
 	if res.StatusCode != 200 || !strings.Contains(string(body), `"resource":"gitlab"`) {
 		t.Fatalf("action lost after restart: %d %s", res.StatusCode, body)
+	}
+}
+
+// R2-11: подтверждённая заявка попадает на диск сразу, а не через 2 с по тику Persister.
+func TestConfirmSavedImmediately(t *testing.T) {
+	t.Setenv("LLM_API_KEY", "")
+	t.Setenv("KNOWLEDGE_DIR", "../../data/knowledge")
+	state := filepath.Join(t.TempDir(), "state.json")
+	t.Setenv("STATE_FILE", state)
+	addr := freeAddr(t)
+	t.Setenv("ADDR", addr)
+	stop := startServer(t, addr)
+	defer stop()
+
+	res, err := http.Post("http://"+addr+"/api/v1/actions", "application/json",
+		strings.NewReader(`{"type":"access","resource":"gitlab"}`))
+	if err != nil || res.StatusCode != 201 {
+		t.Fatalf("create: %v %v", err, res)
+	}
+	res.Body.Close()
+	res, err = http.Post("http://"+addr+"/api/v1/actions/REQ-000001/confirm", "application/json", nil)
+	if err != nil || res.StatusCode != 200 {
+		t.Fatalf("confirm: %v %v", err, res)
+	}
+	res.Body.Close()
+	deadline := time.Now().Add(time.Second) // заметно меньше интервала Persister (2 с)
+	for {
+		if raw, err := os.ReadFile(state); err == nil && strings.Contains(string(raw), `"status":"pending"`) {
+			return
+		}
+		if time.Now().After(deadline) {
+			t.Fatal("confirmed action was not saved immediately")
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+}
+
+// main завершает процесс с кодом 1, если сервер не смог стартовать.
+func TestMainExitCode(t *testing.T) {
+	t.Setenv("KNOWLEDGE_DIR", "does-not-exist")
+	code := -1
+	exit = func(c int) { code = c }
+	defer func() { exit = os.Exit }()
+	main()
+	if code != 1 {
+		t.Fatalf("exit code: %d", code)
+	}
+}
+
+// Открытый SSE-поток не даёт серверу остановиться штатно: по таймауту соединения закрываются принудительно.
+func TestShutdownClosesHangingStreams(t *testing.T) {
+	t.Setenv("LLM_API_KEY", "")
+	t.Setenv("KNOWLEDGE_DIR", "../../data/knowledge")
+	addr := freeAddr(t)
+	t.Setenv("ADDR", addr)
+	old := shutdownTimeout
+	shutdownTimeout = 100 * time.Millisecond
+	defer func() { shutdownTimeout = old }()
+
+	ctx, cancel := context.WithCancel(context.Background())
+	done := make(chan error, 1)
+	go func() { done <- run(ctx) }()
+	base := "http://" + addr
+	deadline := time.Now().Add(3 * time.Second)
+	for {
+		if res, err := http.Get(base + "/health"); err == nil {
+			res.Body.Close()
+			break
+		}
+		if time.Now().After(deadline) {
+			cancel()
+			t.Fatal("server did not start")
+		}
+		time.Sleep(20 * time.Millisecond)
+	}
+	res, err := http.Post(base+"/api/v1/chat/sessions", "application/json", nil)
+	if err != nil || res.StatusCode != http.StatusCreated {
+		cancel()
+		t.Fatalf("session: %v %v", err, res)
+	}
+	var sess struct {
+		ID string `json:"id"`
+	}
+	_ = json.NewDecoder(res.Body).Decode(&sess)
+	res.Body.Close()
+	stream, err := http.Get(base + "/api/v1/chat/sessions/" + sess.ID + "/events")
+	if err != nil || stream.StatusCode != http.StatusOK {
+		cancel()
+		t.Fatalf("sse: %v", err)
+	}
+	defer stream.Body.Close()
+
+	start := time.Now()
+	cancel()
+	select {
+	case <-done: // ошибка принудительного закрытия не важна: важно, что сервер остановился
+	case <-time.After(5 * time.Second):
+		t.Fatal("server hung on open SSE stream")
+	}
+	if d := time.Since(start); d > 3*time.Second {
+		t.Fatalf("shutdown took %v", d)
 	}
 }
 

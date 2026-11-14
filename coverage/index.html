@@ -55,15 +55,15 @@
 			<div id="nav">
 				<select id="files">
 				
-				<option value="file0">github.com/ElzaraA/ai-buddy-avito/cmd/server/main.go (78.4%)</option>
+				<option value="file0">github.com/ElzaraA/ai-buddy-avito/cmd/server/main.go (92.3%)</option>
 				
-				<option value="file1">github.com/ElzaraA/ai-buddy-avito/internal/agent/agent.go (98.5%)</option>
+				<option value="file1">github.com/ElzaraA/ai-buddy-avito/internal/agent/agent.go (98.9%)</option>
 				
 				<option value="file2">github.com/ElzaraA/ai-buddy-avito/internal/agent/dates.go (97.4%)</option>
 				
 				<option value="file3">github.com/ElzaraA/ai-buddy-avito/internal/agent/prompts.go (100.0%)</option>
 				
-				<option value="file4">github.com/ElzaraA/ai-buddy-avito/internal/agent/smalltalk.go (95.7%)</option>
+				<option value="file4">github.com/ElzaraA/ai-buddy-avito/internal/agent/smalltalk.go (97.2%)</option>
 				
 				<option value="file5">github.com/ElzaraA/ai-buddy-avito/internal/api/actions.go (100.0%)</option>
 				
@@ -71,15 +71,15 @@
 				
 				<option value="file7">github.com/ElzaraA/ai-buddy-avito/internal/api/chat.go (95.8%)</option>
 				
-				<option value="file8">github.com/ElzaraA/ai-buddy-avito/internal/api/drafts.go (100.0%)</option>
+				<option value="file8">github.com/ElzaraA/ai-buddy-avito/internal/api/drafts.go (97.7%)</option>
 				
 				<option value="file9">github.com/ElzaraA/ai-buddy-avito/internal/api/errors.go (100.0%)</option>
 				
-				<option value="file10">github.com/ElzaraA/ai-buddy-avito/internal/api/handlers.go (98.7%)</option>
+				<option value="file10">github.com/ElzaraA/ai-buddy-avito/internal/api/handlers.go (98.8%)</option>
 				
-				<option value="file11">github.com/ElzaraA/ai-buddy-avito/internal/api/mcp.go (98.1%)</option>
+				<option value="file11">github.com/ElzaraA/ai-buddy-avito/internal/api/mcp.go (98.3%)</option>
 				
-				<option value="file12">github.com/ElzaraA/ai-buddy-avito/internal/api/middleware.go (98.4%)</option>
+				<option value="file12">github.com/ElzaraA/ai-buddy-avito/internal/api/middleware.go (98.7%)</option>
 				
 				<option value="file13">github.com/ElzaraA/ai-buddy-avito/internal/api/router.go (100.0%)</option>
 				
@@ -93,7 +93,7 @@
 				
 				<option value="file18">github.com/ElzaraA/ai-buddy-avito/internal/config/dotenv.go (93.8%)</option>
 				
-				<option value="file19">github.com/ElzaraA/ai-buddy-avito/internal/llm/mock.go (97.0%)</option>
+				<option value="file19">github.com/ElzaraA/ai-buddy-avito/internal/llm/mock.go (97.2%)</option>
 				
 				<option value="file20">github.com/ElzaraA/ai-buddy-avito/internal/llm/openai.go (97.5%)</option>
 				
@@ -101,7 +101,7 @@
 				
 				<option value="file22">github.com/ElzaraA/ai-buddy-avito/internal/rag/chunker.go (100.0%)</option>
 				
-				<option value="file23">github.com/ElzaraA/ai-buddy-avito/internal/rag/index.go (97.4%)</option>
+				<option value="file23">github.com/ElzaraA/ai-buddy-avito/internal/rag/index.go (97.5%)</option>
 				
 				<option value="file24">github.com/ElzaraA/ai-buddy-avito/internal/rag/retrieve.go (91.7%)</option>
 				
@@ -109,15 +109,15 @@
 				
 				<option value="file26">github.com/ElzaraA/ai-buddy-avito/internal/store/messages.go (93.9%)</option>
 				
-				<option value="file27">github.com/ElzaraA/ai-buddy-avito/internal/store/persist.go (94.0%)</option>
+				<option value="file27">github.com/ElzaraA/ai-buddy-avito/internal/store/persist.go (94.2%)</option>
 				
-				<option value="file28">github.com/ElzaraA/ai-buddy-avito/internal/store/store.go (99.2%)</option>
+				<option value="file28">github.com/ElzaraA/ai-buddy-avito/internal/store/store.go (99.3%)</option>
 				
 				<option value="file29">github.com/ElzaraA/ai-buddy-avito/internal/store/validate.go (100.0%)</option>
 				
 				<option value="file30">github.com/ElzaraA/ai-buddy-avito/internal/tools/absence.go (100.0%)</option>
 				
-				<option value="file31">github.com/ElzaraA/ai-buddy-avito/internal/tools/absence_policy.go (83.3%)</option>
+				<option value="file31">github.com/ElzaraA/ai-buddy-avito/internal/tools/absence_policy.go (85.7%)</option>
 				
 				<option value="file32">github.com/ElzaraA/ai-buddy-avito/internal/tools/access.go (90.0%)</option>
 				
@@ -158,13 +158,25 @@ import (
         "github.com/ElzaraA/ai-buddy-avito/internal/config"
 )
 
-func main() <span class="cov0" title="0">{
+// exit — os.Exit, подменяется в тестах.
+var exit = os.Exit
+
+// shutdownTimeout — сколько ждать завершения запросов (в том числе SSE) при остановке.
+var shutdownTimeout = 5 * time.Second
+
+func main() <span class="cov8" title="1">{
+        exit(serve())
+}</span>
+
+// serve запускает сервер до SIGINT/SIGTERM и возвращает код выхода процесса.
+func serve() int <span class="cov8" title="1">{
         ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
         defer stop()
-        if err := run(ctx); err != nil </span><span class="cov0" title="0">{
+        if err := run(ctx); err != nil </span><span class="cov8" title="1">{
                 slog.Error("server stopped", "err", err)
-                os.Exit(1)
+                return 1
         }</span>
+        <span class="cov0" title="0">return 0</span>
 }
 
 // run поднимает сервер и останавливает его корректно (graceful shutdown) при отмене ctx.
@@ -213,11 +225,11 @@ func run(parent context.Context) error <span class="cov8" title="1">{
                 }</span>
                 <span class="cov8" title="1">return err</span>
         case &lt;-ctx.Done():<span class="cov8" title="1">
-                shutdownCtx, cancelShutdown := context.WithTimeout(context.Background(), 5*time.Second)
+                shutdownCtx, cancelShutdown := context.WithTimeout(context.Background(), shutdownTimeout)
                 defer cancelShutdown()
                 slog.Info("shutting down")
                 // SSE-потоки живут долго: Shutdown ждёт их до таймаута, затем закрываем принудительно.
-                if err := srv.Shutdown(shutdownCtx); err != nil </span><span class="cov0" title="0">{
+                if err := srv.Shutdown(shutdownCtx); err != nil </span><span class="cov8" title="1">{
                         return srv.Close()
                 }</span>
                 <span class="cov8" title="1">return nil</span>
@@ -233,6 +245,7 @@ import (
         "errors"
         "strings"
         "time"
+        "unicode"
 
         "github.com/ElzaraA/ai-buddy-avito/internal/auth"
         "github.com/ElzaraA/ai-buddy-avito/internal/llm"
@@ -242,18 +255,91 @@ import (
 )
 
 const (
+        // BuddyName и ManagerName — контакты команды по умолчанию (backend). Для конкретного пользователя
+        // имена берутся из справочника команд auth.TeamContacts.
         BuddyName   = "Иван Петров"
         ManagerName = "Мария Сидорова"
-        // buddyDative — «обратитесь к наставнику Ивану Петрову».
-        buddyDative = "Ивану Петрову"
-        // buddyAccusative — «предупредите наставника Ивана Петрова».
-        buddyAccusative = "Ивана Петрова"
         // maxHistory — сколько последних реплик диалога передаём модели.
         maxHistory = 6
 )
 
-// RefusalText — единый текст отказа, когда в базе нет ответа.
-const RefusalText = "Не нашёл ответа в доступных источниках. Лучше спросить наставника — " + buddyDative + "."
+// RefusalText — текст отказа, когда в базе нет ответа, для стажёра команды по умолчанию (backend).
+// Для пользователя он строится по его команде и роли: contactsFor(u).refusalText().
+const RefusalText = "Не нашёл ответа в доступных источниках. Лучше написать наставнику — Ивану Петрову."
+
+// resourceList — системы, на которые можно оформить заявку на доступ (store.ValidResource).
+const resourceList = "Jira, GitLab, Grafana или Git"
+
+// contacts — к кому направлять пользователя. Стажёра — к наставнику его команды;
+// наставнику и руководителю советовать «обратиться к наставнику» (к себе или к подчинённому) нельзя.
+type contacts struct {
+        auth.Contacts
+        foreign []string // фамилии наставников и руководителей других команд
+        staff   bool     // наставник или руководитель
+}
+
+func contactsFor(u auth.User) contacts <span class="cov8" title="1">{
+        return contacts{
+                Contacts: auth.TeamContacts(u.TeamID),
+                foreign:  auth.ForeignContactStems(u.TeamID),
+                staff:    u.Role == auth.RoleBuddy || u.Role == auth.RoleLead,
+        }
+}</span>
+
+// help — короткий совет, к кому обратиться.
+func (c contacts) help() string <span class="cov8" title="1">{
+        if c.staff </span><span class="cov8" title="1">{
+                return "Обратитесь к HR BP команды."
+        }</span>
+        <span class="cov8" title="1">return "Обратитесь к наставнику " + c.BuddyDative + "."</span>
+}
+
+// refusalText — отказ, когда в базе нет ответа.
+func (c contacts) refusalText() string <span class="cov8" title="1">{
+        if c.staff </span><span class="cov8" title="1">{
+                return "Не нашёл ответа в доступных источниках. Уточните вопрос у HR BP команды."
+        }</span>
+        <span class="cov8" title="1">return "Не нашёл ответа в доступных источниках. Лучше написать наставнику — " + c.BuddyDative + "."</span>
+}
+
+// otherSystems — куда идти с доступом к системе не из списка.
+func (c contacts) otherSystems() string <span class="cov8" title="1">{
+        if c.staff </span><span class="cov8" title="1">{
+                return "По другим системам обратитесь в IT Support."
+        }</span>
+        <span class="cov8" title="1">return "По другим системам подскажет наставник " + c.Buddy + "."</span>
+}
+
+func (c contacts) refusal(text string) Response <span class="cov8" title="1">{
+        return Response{Type: "refusal", Text: text, Buddy: c.Buddy}
+}</span>
+
+// mentionsForeign — в тексте назван наставник или руководитель чужой команды.
+func (c contacts) mentionsForeign(text string) bool <span class="cov8" title="1">{
+        for _, s := range c.foreign </span><span class="cov8" title="1">{
+                if strings.Contains(text, s) </span><span class="cov8" title="1">{
+                        return true
+                }</span>
+        }
+        <span class="cov8" title="1">return false</span>
+}
+
+// withHelp приводит текст отказа модели к контактам пользователя: чужое имя или совет
+// «обратиться к наставнику» для наставника/руководителя заменяются, отсутствующий совет дописывается.
+func (c contacts) withHelp(text string) string <span class="cov8" title="1">{
+        low := strings.ToLower(text)
+        if c.mentionsForeign(text) || (c.staff &amp;&amp; strings.Contains(low, "наставник")) </span><span class="cov8" title="1">{
+                return "Не могу помочь с этим вопросом. " + c.help()
+        }</span>
+        <span class="cov8" title="1">if strings.Contains(low, "наставник") || strings.Contains(text, "HR BP") </span><span class="cov8" title="1">{
+                return text
+        }</span>
+        <span class="cov8" title="1">text = strings.TrimSpace(text)
+        if !strings.HasSuffix(text, ".") &amp;&amp; !strings.HasSuffix(text, "!") &amp;&amp; !strings.HasSuffix(text, "?") </span><span class="cov8" title="1">{
+                text += "."
+        }</span>
+        <span class="cov8" title="1">return text + " " + c.help()</span>
+}
 
 type Agent struct {
         LLM llm.Client
@@ -273,6 +359,7 @@ type Response struct {
         Action   string            `json:"action,omitempty"`
         Args     map[string]string `json:"args,omitempty"`
         Result   *tools.Result     `json:"result,omitempty"`
+        Tool     string            `json:"tool,omitempty"` // имя выполненного инструмента (для type=action)
         Sources  []Source          `json:"sources,omitempty"`
         Buddy    string            `json:"buddy_name,omitempty"`
         Manager  string            `json:"manager_name,omitempty"`
@@ -280,10 +367,6 @@ type Response struct {
         // NoSource — отказ из-за отсутствия ответа в базе (сигнал «пробел в базе знаний»).
         NoSource bool `json:"-"`
 }
-
-func refusal(text string) Response <span class="cov8" title="1">{
-        return Response{Type: "refusal", Text: text, Buddy: BuddyName}
-}</span>
 
 func (a *Agent) now() time.Time <span class="cov8" title="1">{
         if a.Now != nil </span><span class="cov8" title="1">{
@@ -324,9 +407,14 @@ func (a *Agent) AskWithHistory(ctx context.Context, user auth.User, question str
         ctx, cancel := context.WithTimeout(ctx, 60*time.Second)
         defer cancel()
 
+        c := contactsFor(user)
+        // «Мне плохо», «я не справляюсь» — не вопрос к базе знаний: поддерживаем и предлагаем живого человека.
+        if isEmotional(question) </span><span class="cov8" title="1">{
+                return Response{Type: "answer", Text: c.supportText(), Buddy: c.Buddy}, nil
+        }</span>
         // Приветствие, «спасибо», «ок», «отмени» — не вопрос к базе знаний: отвечаем сразу, без LLM и без отказа.
-        if reply := smallTalk(question); reply != "" </span><span class="cov8" title="1">{
-                return Response{Type: "answer", Text: reply, Buddy: BuddyName}, nil
+        <span class="cov8" title="1">if reply := smallTalk(question); reply != "" </span><span class="cov8" title="1">{
+                return Response{Type: "answer", Text: reply, Buddy: c.Buddy}, nil
         }</span>
 
         <span class="cov8" title="1">hits := a.Index.Search(question, user.TeamID, string(user.Role), 4)
@@ -334,10 +422,12 @@ func (a *Agent) AskWithHistory(ctx context.Context, user auth.User, question str
         for _, h := range hits </span><span class="cov8" title="1">{
                 srcs = append(srcs, Source{ID: h.Chunk.ID, Source: h.Chunk.Source, Stage: h.Chunk.Stage, Title: h.Chunk.Title})
         }</span>
+        // Ответ есть, но в материале для другой аудитории (например, «только для наставников»): это не пробел базы.
+        <span class="cov8" title="1">restricted := len(hits) == 0 &amp;&amp; a.Index.Restricted(question, user.TeamID, string(user.Role))
 
         // Действия (отгул, доступ, чек-лист) не зависят от базы знаний, поэтому LLM вызываем всегда,
         // а инвариант «нет источника — нет ответа» проверяем ниже для текстовых ответов.
-        <span class="cov8" title="1">if len(history) &gt; maxHistory </span><span class="cov8" title="1">{
+        if len(history) &gt; maxHistory </span><span class="cov8" title="1">{
                 history = history[len(history)-maxHistory:]
         }</span>
         <span class="cov8" title="1">msgs := make([]llm.Message, 0, len(history)+2)
@@ -349,13 +439,23 @@ func (a *Agent) AskWithHistory(ctx context.Context, user auth.User, question str
         if err != nil </span><span class="cov8" title="1">{
                 return Response{}, err
         }</span>
-        <span class="cov8" title="1">resp := a.interpret(ctx, user, question, raw, srcs)
+        <span class="cov8" title="1">resp := a.interpret(ctx, user, question, raw, srcs, restricted)
         resp.Degraded = degraded
         return resp, nil</span>
 }
 
+// restrictedRefusal — материал по вопросу есть, но доступен наставникам и руководителям.
+func (c contacts) restrictedRefusal() Response <span class="cov8" title="1">{
+        if c.staff </span><span class="cov8" title="1">{
+                return c.refusal("Этот материал предназначен для другой роли в команде. " + c.help())
+        }</span>
+        <span class="cov8" title="1">return c.refusal("Этот материал доступен наставникам и руководителям команды. " + c.help())</span>
+}
+
 // interpret превращает вывод модели в ответ, применяя инварианты из specs/agent/spec.md.
-func (a *Agent) interpret(ctx context.Context, user auth.User, question, raw string, srcs []Source) Response <span class="cov8" title="1">{
+// restricted — по вопросу нашёлся только материал для другой аудитории (не пробел базы знаний).
+func (a *Agent) interpret(ctx context.Context, user auth.User, question, raw string, srcs []Source, restricted bool) Response <span class="cov8" title="1">{
+        c := contactsFor(user)
         raw = stripCodeFence(raw)
         var out AgentOutput
         if err := json.Unmarshal([]byte(raw), &amp;out); err != nil </span><span class="cov8" title="1">{
@@ -367,46 +467,57 @@ func (a *Agent) interpret(ctx context.Context, user auth.User, question, raw str
         case "tool_call":<span class="cov8" title="1">
                 t, ok := a.Tools.Get(out.Tool)
                 if !ok </span><span class="cov8" title="1">{
-                        return refusal("Этот инструмент мне недоступен. Обратитесь к наставнику " + buddyDative + ".")
+                        return c.refusal("Этот инструмент мне недоступен. " + c.help())
                 }</span>
                 // Инвариант 2: право проверяется до любого действия, в том числе до подготовки черновика.
                 <span class="cov8" title="1">if !auth.Can(user, t.RequiredPermission()) </span><span class="cov8" title="1">{
-                        return refusal("У вашей роли нет доступа к этому действию. Обратитесь к наставнику " + buddyDative + ".")
+                        return c.refusal("У вашей роли нет доступа к этому действию. " + c.help())
                 }</span>
                 // Инвариант 4: мутирующие инструменты не выполняются сразу — только черновик.
                 <span class="cov8" title="1">if t.RequiresConfirmation() </span><span class="cov8" title="1">{
-                        return a.draftFor(question, out.Tool, out.Args, srcs)
+                        return a.draftFor(user, question, out.Tool, out.Args, srcs)
                 }</span>
                 <span class="cov8" title="1">res, err := tools.Run(ctx, t, user, out.Args)
                 if err != nil </span><span class="cov0" title="0">{
-                        return refusal("Действие сейчас недоступно. Обратитесь к наставнику " + buddyDative + ".")
+                        return c.refusal("Действие сейчас недоступно. " + c.help())
                 }</span>
-                <span class="cov8" title="1">return Response{Type: "action", Result: &amp;res, Sources: srcs, Buddy: BuddyName, Manager: ManagerName}</span>
+                <span class="cov8" title="1">return Response{Type: "action", Result: &amp;res, Tool: t.Name(), Sources: srcs, Buddy: c.Buddy, Manager: c.Manager}</span>
 
         case "draft":<span class="cov8" title="1">
                 tool := draftTool(out.Action)
                 if t, ok := a.Tools.Get(tool); ok &amp;&amp; !auth.Can(user, t.RequiredPermission()) </span><span class="cov8" title="1">{
-                        return refusal("У вашей роли нет доступа к этому действию. Обратитесь к наставнику " + buddyDative + ".")
+                        return c.refusal("У вашей роли нет доступа к этому действию. " + c.help())
                 }</span>
-                <span class="cov8" title="1">return a.draftFor(question, tool, out.Args, srcs)</span>
+                <span class="cov8" title="1">return a.draftFor(user, question, tool, out.Args, srcs)</span>
 
         case "refusal":<span class="cov8" title="1">
-                text := out.Text
+                if restricted </span><span class="cov8" title="1">{
+                        return c.restrictedRefusal()
+                }</span>
+                <span class="cov8" title="1">text := out.Text
                 // Инвариант 1 действует и для отказа: без источников текст модели не показываем дословно,
                 // иначе выдуманный факт («Зарплата стажёра 120 000 ₽») просочится под видом отказа.
-                if text == "" || (len(srcs) == 0 &amp;&amp; !safeRefusal(text)) </span><span class="cov8" title="1">{
-                        text = RefusalText
-                }</span>
-                <span class="cov8" title="1">r := refusal(text)
+                switch </span>{
+                case len(srcs) == 0 &amp;&amp; looksLikeInjection(question):<span class="cov8" title="1">
+                        text = "Не могу выполнить это действие. " + c.help()</span>
+                case text == "" || (len(srcs) == 0 &amp;&amp; !safeRefusal(text, c)):<span class="cov8" title="1">
+                        text = c.refusalText()</span>
+                default:<span class="cov8" title="1">
+                        text = c.withHelp(text)</span>
+                }
+                <span class="cov8" title="1">r := c.refusal(text)
                 r.NoSource = len(srcs) == 0 &amp;&amp; isKnowledgeGap(question)
                 return r</span>
         }
         // Инвариант 1: нет источника — нет ответа (защита от галлюцинаций реальной LLM).
         <span class="cov8" title="1">if len(srcs) == 0 || strings.TrimSpace(out.Text) == "" </span><span class="cov8" title="1">{
-                r := refusal(RefusalText)
+                if restricted </span><span class="cov8" title="1">{
+                        return c.restrictedRefusal()
+                }</span>
+                <span class="cov8" title="1">r := c.refusal(c.refusalText())
                 r.NoSource = isKnowledgeGap(question)
-                return r
-        }</span>
+                return r</span>
+        }
         <span class="cov8" title="1">return Response{Type: "answer", Text: out.Text, Sources: srcs}</span>
 }
 
@@ -421,22 +532,28 @@ func draftTool(action string) string <span class="cov8" title="1">{
 }
 
 // DraftFor строит черновик действия для инструмента (используется и агентом, и MCP-эндпоинтом).
-func (a *Agent) DraftFor(question, tool string, args map[string]string) Response <span class="cov8" title="1">{
-        return a.draftFor(question, tool, args, nil)
+// Пользователь нужен, чтобы назвать наставника и руководителя его команды.
+func (a *Agent) DraftFor(u auth.User, question, tool string, args map[string]string) Response <span class="cov8" title="1">{
+        return a.draftFor(u, question, tool, args, nil)
 }</span>
 
 // draftFor строит черновик действия; само действие создаётся только после POST /actions/{id}/confirm.
-func (a *Agent) draftFor(question, tool string, args map[string]string, srcs []Source) Response <span class="cov8" title="1">{
+func (a *Agent) draftFor(u auth.User, question, tool string, args map[string]string, srcs []Source) Response <span class="cov8" title="1">{
+        c := contactsFor(u)
         switch tool </span>{
         case "absence_create_request":<span class="cov8" title="1">
-                return a.absenceDraft(question, args, titled(srcs, "отгул"))</span>
+                return a.absenceDraft(c, question, args, titled(srcs, "отгул"))</span>
         case "access_request":<span class="cov8" title="1">
-                res := strings.ToLower(strings.TrimSpace(args["resource"]))
+                res := store.NormalizeResource(args["resource"])
+                // Система не названа или не из списка — честно говорим, на что можно оформить заявку,
+                // и черновик не создаём (раньше неизвестная система молча становилась Jira).
                 if res == "" </span><span class="cov8" title="1">{
-                        res = "jira"
+                        return c.refusal("К какой системе нужен доступ? Заявку можно оформить только на " + resourceList +
+                                " — напишите, например, «Запроси доступ в GitLab».")
                 }</span>
                 <span class="cov8" title="1">if !store.ValidResource(res) </span><span class="cov8" title="1">{
-                        return refusal("Могу запросить доступ только к Jira, GitLab, Grafana или Git. По другим системам подскажет наставник " + BuddyName + ".")
+                        return c.refusal("Заявку на доступ к " + foreignResource(res) + " оформить не могу: заявку можно оформить только на " +
+                                resourceList + ". " + c.otherSystems())
                 }</span>
                 <span class="cov8" title="1">reason := args["reason"]
                 if reason == "" </span><span class="cov8" title="1">{
@@ -448,11 +565,26 @@ func (a *Agent) draftFor(question, tool string, args map[string]string, srcs []S
                         Args:    map[string]string{"resource": res, "reason": reason},
                         Text:    "Подготовил заявку на доступ к " + displayResource(res) + ". Проверьте и подтвердите отправку — без подтверждения заявка не уйдёт.",
                         Sources: titled(srcs, "доступ"),
-                        Buddy:   BuddyName,
-                        Manager: ManagerName,
+                        Buddy:   c.Buddy,
+                        Manager: c.Manager,
                 }</span>
         }
-        <span class="cov8" title="1">return refusal("Не знаю такого действия. Обратитесь к наставнику " + buddyDative + ".")</span>
+        <span class="cov8" title="1">return c.refusal("Не знаю такого действия. " + c.help())</span>
+}
+
+// foreignResource — имя системы не из списка для текста ответа: короткое слово показываем
+// с заглавной буквы («confluence» → «Confluence»), всё остальное (разметку, длинные строки) — не повторяем.
+func foreignResource(r string) string <span class="cov8" title="1">{
+        rs := []rune(r)
+        if len(rs) == 0 || len(rs) &gt; 30 </span><span class="cov8" title="1">{
+                return "этой системе"
+        }</span>
+        <span class="cov8" title="1">for _, x := range rs </span><span class="cov8" title="1">{
+                if !unicode.IsLetter(x) &amp;&amp; !unicode.IsDigit(x) &amp;&amp; x != '-' &amp;&amp; x != ' ' &amp;&amp; x != '.' </span><span class="cov8" title="1">{
+                        return "этой системе"
+                }</span>
+        }
+        <span class="cov8" title="1">return string(unicode.ToUpper(rs[0])) + string(rs[1:])</span>
 }
 
 // titled оставляет у черновика только источники по его теме: «Хочу отгул послезавтра»
@@ -481,7 +613,7 @@ func displayResource(r string) string <span class="cov8" title="1">{
         <span class="cov8" title="1">return r</span>
 }
 
-func (a *Agent) absenceDraft(question string, args map[string]string, srcs []Source) Response <span class="cov8" title="1">{
+func (a *Agent) absenceDraft(c contacts, question string, args map[string]string, srcs []Source) Response <span class="cov8" title="1">{
         from, to := args["date_from"], args["date_to"]
         if from == "" </span><span class="cov8" title="1">{
                 from, to = args["dateFrom"], args["dateTo"]
@@ -501,13 +633,13 @@ func (a *Agent) absenceDraft(question string, args map[string]string, srcs []Sou
                 Type:    "draft",
                 Action:  store.ActionAbsence,
                 Sources: srcs,
-                Buddy:   BuddyName,
-                Manager: ManagerName,
+                Buddy:   c.Buddy,
+                Manager: c.Manager,
         }
         if from == "" </span><span class="cov8" title="1">{
                 base.Args = map[string]string{"reason": "personal"}
                 example := HumanDate(a.now().AddDate(0, 0, 7))
-                base.Text = "На какую дату оформить отгул? Напишите, например, «" + example + "», «20.11» или «в пятницу». Согласует руководитель — " + ManagerName + "."
+                base.Text = "На какую дату оформить отгул? Напишите, например, «" + example + "», «20.11» или «в пятницу». Согласует руководитель — " + c.Manager + "."
                 if bad := InvalidISODate(question); bad != "" </span><span class="cov8" title="1">{
                         base.Text = "Даты " + bad + " не существует. " + base.Text
                 }</span>
@@ -521,15 +653,17 @@ func (a *Agent) absenceDraft(question string, args map[string]string, srcs []Sou
         // Те же правила, что у POST /actions: отгул не длиннее 30 дней.
         <span class="cov8" title="1">if err := store.ValidateAbsenceDates(from, to, a.now()); err != nil </span><span class="cov8" title="1">{
                 base.Args = map[string]string{"reason": "personal"}
-                base.Text = "Отгул можно оформить не больше чем на 30 дней подряд. Для более долгого отсутствия обратитесь к руководителю — " + ManagerName + ". На какие даты оформить отгул?"
+                base.Text = "Отгул можно оформить не больше чем на 30 дней подряд. Для более долгого отсутствия обратитесь к руководителю — " + c.Manager + ". На какие даты оформить отгул?"
                 return base
         }</span>
-        <span class="cov8" title="1">base.Args = map[string]string{
-                "date_from": from, "date_to": to, "reason": "personal",
-                "suggest_notify_buddy": "true",
-        }
-        base.Text = "Подготовил черновик заявки на отгул. Её согласует руководитель — " + ManagerName +
-                ". Предупредите наставника " + buddyAccusative + " — сам писать ему я не буду. Проверьте даты и подтвердите."
+        <span class="cov8" title="1">base.Args = map[string]string{"date_from": from, "date_to": to, "reason": "personal"}
+        base.Text = "Подготовил черновик заявки на отгул. Её согласует руководитель — " + c.Manager + ". "
+        if !c.staff </span><span class="cov8" title="1">{
+                // Наставнику и руководителю не советуем «предупредить наставника» — себя или подчинённого.
+                base.Args["suggest_notify_buddy"] = "true"
+                base.Text += "Предупредите наставника " + c.BuddyAccusative + " — сам писать я не буду. "
+        }</span>
+        <span class="cov8" title="1">base.Text += "Проверьте даты и подтвердите."
         return base</span>
 }
 
@@ -783,12 +917,53 @@ import (
 const maxModelRefusalRunes = 200
 
 // safeRefusal — можно ли показать текст отказа модели, если источников нет.
-// Допускаем только короткую отсылку к наставнику без цифр: в ней нет места выдуманным фактам.
-func safeRefusal(text string) bool <span class="cov8" title="1">{
-        if utf8.RuneCountInString(text) &gt; maxModelRefusalRunes || !strings.Contains(text, "Петров") </span><span class="cov8" title="1">{
+// Допускаем только короткую отсылку к наставнику команды пользователя без цифр: в ней нет места
+// выдуманным фактам. Наставнику и руководителю такой текст не подходит (советовал бы обратиться к себе).
+func safeRefusal(text string, c contacts) bool <span class="cov8" title="1">{
+        if c.staff || utf8.RuneCountInString(text) &gt; maxModelRefusalRunes || len(c.Stems) == 0 ||
+                !strings.Contains(text, c.Stems[0]) || c.mentionsForeign(text) </span><span class="cov8" title="1">{
                 return false
         }</span>
         <span class="cov8" title="1">return !strings.ContainsFunc(text, unicode.IsDigit)</span>
+}
+
+// emotionalMarkers — признаки того, что стажёру тяжело (с начала слова). Это не вопрос к базе знаний.
+var emotionalMarkers = []string{
+        "мне плохо", "плохо себя чувствую", "не справляюсь", "не справлюсь", "устал", "выгора", "выгорел",
+        "хочу уволиться", "уволюсь", "думаю уволиться", "мне тяжело", "опускаются руки", "нет сил", "депресс",
+        "хочу всё бросить", "хочу все бросить", "ничего не получается", "у меня ничего не выходит",
+}
+
+// actionWords — реплика с ними остаётся запросом действия («мне плохо, хочу отгул завтра» → черновик отгула).
+var actionWords = []string{"отгул", "отпуск", "выходн", "доступ", "больнич"}
+
+// isEmotional — реплика про самочувствие или выгорание, а не вопрос к базе и не запрос действия.
+func isEmotional(q string) bool <span class="cov8" title="1">{
+        low := strings.ToLower(q)
+        for _, w := range actionWords </span><span class="cov8" title="1">{
+                if strings.Contains(low, w) </span><span class="cov8" title="1">{
+                        return false
+                }</span>
+        }
+        <span class="cov8" title="1">words := " " + strings.Join(strings.FieldsFunc(low, func(r rune) bool </span><span class="cov8" title="1">{ return !unicode.IsLetter(r) }</span>), " ") + " "
+        <span class="cov8" title="1">for _, m := range emotionalMarkers </span><span class="cov8" title="1">{
+                if strings.Contains(words, " "+m) </span><span class="cov8" title="1">{
+                        return true
+                }</span>
+        }
+        <span class="cov8" title="1">return false</span>
+}
+
+// supportText — поддерживающий ответ с предложением поговорить с человеком.
+func (c contacts) supportText() string <span class="cov8" title="1">{
+        if c.staff </span><span class="cov8" title="1">{
+                return "Понимаю, сейчас непросто. Предлагаю обсудить нагрузку с руководителем или с HR BP команды — " +
+                        "они помогут найти решение. Если вы заболели, оформите отгул: напишите, например, «Хочу отгул завтра»."
+        }</span>
+        <span class="cov8" title="1">return "Понимаю, сейчас непросто — в начале стажировки так бывает почти у всех, и это нормально. " +
+                "Предлагаю обсудить это с наставником — " + c.Buddy + ": напишите в личные сообщения или попросите внеочередную встречу 1:1. " +
+                "Если хочется поговорить с кем-то вне команды, можно обратиться к HR BP. " +
+                "Если вы заболели, оформите отгул: напишите, например, «Хочу отгул завтра»."</span>
 }
 
 // injectionMarkers — признаки попытки переписать инструкции помощника.
@@ -811,7 +986,7 @@ func looksLikeInjection(q string) bool <span class="cov8" title="1">{
 // isKnowledgeGap — стоит ли записать вопрос без ответа в «пробелы базы знаний» для наставника.
 // Small talk, инъекции и вопросы без значимых слов пробелом не считаются.
 func isKnowledgeGap(q string) bool <span class="cov8" title="1">{
-        return rag.Meaningful(q) &amp;&amp; !looksLikeInjection(q) &amp;&amp; smallTalk(q) == ""
+        return rag.Meaningful(q) &amp;&amp; !looksLikeInjection(q) &amp;&amp; smallTalk(q) == "" &amp;&amp; !isEmotional(q)
 }</span>
 
 // Реплики small talk: помощник отвечает вежливо, без поиска по базе и без записи в пробелы.
@@ -966,8 +1141,10 @@ func (h *Handlers) GetAction(w http.ResponseWriter, r *http.Request) <span class
 }
 
 // finish записывает переход в метрики, синхронизирует чек-лист и отвечает клиенту.
+// Решение по заявке сохраняется на диск сразу (если включён STATE_FILE), а не по тику Persister.
 func (h *Handlers) finish(w http.ResponseWriter, a store.Absence) <span class="cov8" title="1">{
         syncStep(h.Store, a)
+        h.Store.RequestSave()
         h.Metrics.Inc("buddy_actions_total", "Действия пользователей по типу и статусу", "type", a.Type, "status", a.Status)
         writeJSON(w, http.StatusOK, a)
 }</span>
@@ -1373,8 +1550,7 @@ func (h *ChatHandlers) runAgent(sessionID, msgID, question string, history []llm
         defer cancel()
         start := time.Now()
         resp, err := h.Agent.AskWithHistory(ctx, u, question, history)
-        h.Metrics.Add("buddy_agent_duration_seconds_sum", "Суммарное время работы агента", time.Since(start).Seconds())
-        h.Metrics.Inc("buddy_agent_runs_total", "Запуски агента")
+        observeRun(h.Metrics, start)
         if err != nil </span><span class="cov8" title="1">{
                 h.Metrics.Inc("buddy_agent_errors_total", "Сбои агента (LLM недоступна)")
                 slog.Warn("agent failed", "session", sessionID, "message", msgID, "err", err)
@@ -1496,14 +1672,15 @@ func saveDraftAt(st *store.Store, u auth.User, resp *agent.Response, now time.Ti
         default:<span class="cov8" title="1">
                 return</span>
         }
-        <span class="cov8" title="1">if err := store.ValidateAction(a, now); err != nil </span><span class="cov8" title="1">{
-                rejectDraft(resp, draftProblem(a))
+        <span class="cov8" title="1">buddy := auth.TeamContacts(u.TeamID).Buddy
+        if err := store.ValidateAction(a, now); err != nil </span><span class="cov8" title="1">{
+                rejectDraft(resp, draftProblem(a, u), buddy)
                 return
         }</span>
         <span class="cov8" title="1">a.ID = st.NextID(idPrefix(a.Type))
         created, err := st.CreateDraft(a)
         if err != nil </span><span class="cov8" title="1">{
-                *resp = agent.Response{Type: "refusal", Buddy: agent.BuddyName,
+                *resp = agent.Response{Type: "refusal", Buddy: buddy,
                         Text: "У вас уже много неподтверждённых черновиков. Подтвердите или отмените старые в разделе «Мои заявки» и повторите запрос."}
                 return
         }</span>
@@ -1513,22 +1690,25 @@ func saveDraftAt(st *store.Store, u auth.User, resp *agent.Response, now time.Ti
 // rejectDraft оставляет пользователя без сохранённого черновика и объясняет почему.
 // Отгул остаётся уточняющим черновиком без дат (диалог продолжается следующей датой),
 // доступ превращается в отказ. В обоих случаях action_id нет — MCP вернёт isError.
-func rejectDraft(resp *agent.Response, text string) <span class="cov8" title="1">{
+func rejectDraft(resp *agent.Response, text, buddy string) <span class="cov8" title="1">{
         if resp.Action == store.ActionAbsence </span><span class="cov8" title="1">{
                 resp.Args = map[string]string{"reason": "personal"}
                 resp.Text = text
                 return
         }</span>
-        <span class="cov8" title="1">*resp = agent.Response{Type: "refusal", Text: text, Buddy: agent.BuddyName}</span>
+        <span class="cov8" title="1">*resp = agent.Response{Type: "refusal", Text: text, Buddy: buddy}</span>
 }
 
 // draftProblem — человеческое объяснение, почему черновик не прошёл проверку.
-func draftProblem(a store.Absence) string <span class="cov8" title="1">{
+// Наставнику и руководителю не советуем обратиться к наставнику (к себе или к подчинённому).
+func draftProblem(a store.Absence, u auth.User) string <span class="cov8" title="1">{
         switch </span>{
         case utf8.RuneCountInString(a.Reason) &gt; store.MaxReasonRunes:<span class="cov8" title="1">
                 return "Причина заявки слишком длинная — сократите её до 500 символов."</span>
+        case a.Type == store.ActionAccess &amp;&amp; u.Role == auth.RoleIntern:<span class="cov0" title="0">
+                return "Заявку можно оформить только на Jira, GitLab, Grafana или Git. По другим системам подскажет наставник " + auth.TeamContacts(u.TeamID).Buddy + "."</span>
         case a.Type == store.ActionAccess:<span class="cov8" title="1">
-                return "Могу запросить доступ только к Jira, GitLab, Grafana или Git. По другим системам подскажет наставник " + agent.BuddyName + "."</span>
+                return "Заявку можно оформить только на Jira, GitLab, Grafana или Git. По другим системам обратитесь в IT Support."</span>
         }
         <span class="cov8" title="1">return "Не могу оформить отгул на эти даты: дата не должна быть в прошлом, окончание — не раньше начала, а отгул — не длиннее 30 дней. Напишите другие даты."</span>
 }
@@ -1584,6 +1764,7 @@ import (
         "errors"
         "io"
         "net/http"
+        "time"
         "unicode/utf8"
 
         "github.com/ElzaraA/ai-buddy-avito/internal/agent"
@@ -1657,6 +1838,12 @@ func observe(m *metrics.Registry, st *store.Store, u auth.User, question string,
         }</span>
 }
 
+// observeRun учитывает запуск агента и его длительность — одинаково для чата и синхронного /ask.
+func observeRun(m *metrics.Registry, start time.Time) <span class="cov8" title="1">{
+        m.Add("buddy_agent_duration_seconds_sum", "Суммарное время работы агента", time.Since(start).Seconds())
+        m.Inc("buddy_agent_runs_total", "Запуски агента")
+}</span>
+
 // Ask — синхронный вариант чата (удобен для проверки curl'ом).
 func (h *Handlers) Ask(w http.ResponseWriter, r *http.Request) <span class="cov8" title="1">{
         u, ok := auth.FromCtx(r.Context())
@@ -1672,7 +1859,9 @@ func (h *Handlers) Ask(w http.ResponseWriter, r *http.Request) <span class="cov8
         <span class="cov8" title="1">if !validQuestion(w, body.Q()) </span><span class="cov0" title="0">{
                 return
         }</span>
-        <span class="cov8" title="1">resp, err := h.Agent.Ask(r.Context(), u, body.Q())
+        <span class="cov8" title="1">start := time.Now()
+        resp, err := h.Agent.Ask(r.Context(), u, body.Q())
+        observeRun(h.Metrics, start)
         if err != nil </span><span class="cov8" title="1">{
                 h.Metrics.Inc("buddy_agent_errors_total", "Сбои агента (LLM недоступна)")
                 writeError(w, http.StatusBadGateway, "agent_error", "Помощник временно недоступен, попробуйте ещё раз")
@@ -1767,6 +1956,7 @@ import (
         "encoding/json"
         "fmt"
         "net/http"
+        "strings"
 
         "github.com/ElzaraA/ai-buddy-avito/internal/auth"
         "github.com/ElzaraA/ai-buddy-avito/internal/tools"
@@ -1834,6 +2024,19 @@ func toolFail(msg string) mcpToolResult <span class="cov8" title="1">{
         return mcpToolResult{Content: []mcpContent{{Type: "text", Text: msg}}, IsError: true}
 }</span>
 
+// mcpMethodLabel — значение метки method метрики: только из фиксированного набора, иначе "other".
+// Имя метода приходит от клиента, и без этого каждый выдуманный метод заводил бы новый временной ряд.
+func mcpMethodLabel(method string) string <span class="cov8" title="1">{
+        switch method </span>{
+        case "initialize", "ping", "tools/list", "tools/call":<span class="cov8" title="1">
+                return method</span>
+        }
+        <span class="cov8" title="1">if strings.HasPrefix(method, "notifications/") </span><span class="cov8" title="1">{
+                return "notifications"
+        }</span>
+        <span class="cov8" title="1">return "other"</span>
+}
+
 // MCP обрабатывает один JSON-RPC запрос.
 func (h *Handlers) MCP(w http.ResponseWriter, r *http.Request) <span class="cov8" title="1">{
         u, _ := auth.FromCtx(r.Context())
@@ -1846,14 +2049,14 @@ func (h *Handlers) MCP(w http.ResponseWriter, r *http.Request) <span class="cov8
                 writeRPC(w, req.ID, nil, &amp;rpcError{rpcInvalidRequest, "invalid request"})
                 return
         }</span>
+        <span class="cov8" title="1">h.Metrics.Inc("buddy_mcp_requests_total", "Запросы к MCP-эндпоинту", "method", mcpMethodLabel(req.Method))
         // Уведомления (без id) ответа не требуют.
-        <span class="cov8" title="1">if req.ID == nil </span><span class="cov8" title="1">{
+        if req.ID == nil </span><span class="cov8" title="1">{
                 w.WriteHeader(http.StatusAccepted)
                 return
         }</span>
-        <span class="cov8" title="1">h.Metrics.Inc("buddy_mcp_requests_total", "Запросы к MCP-эндпоинту", "method", req.Method)
 
-        switch req.Method </span>{
+        <span class="cov8" title="1">switch req.Method </span>{
         case "initialize":<span class="cov8" title="1">
                 writeRPC(w, req.ID, map[string]any{
                         "protocolVersion": mcpProtocolVersion,
@@ -1919,7 +2122,7 @@ func (h *Handlers) mcpCall(r *http.Request, u auth.User, name string, raw map[st
         }
         <span class="cov8" title="1">if t.RequiresConfirmation() </span><span class="cov8" title="1">{
                 // Тот же путь, что у агента: черновик, который пользователь подтверждает сам.
-                resp := h.Agent.DraftFor("", name, args)
+                resp := h.Agent.DraftFor(u, "", name, args)
                 if resp.Type != "draft" </span><span class="cov8" title="1">{
                         return toolFail(resp.Text)
                 }</span>
@@ -1949,6 +2152,7 @@ import (
         "log/slog"
         "net/http"
         "strconv"
+        "strings"
         "sync"
         "time"
 
@@ -1964,12 +2168,14 @@ const maxBodyBytes = 64 &lt;&lt; 10
 // DefaultDemoUser — учётка по умолчанию, если заголовок не передан (упрощённая авторизация прототипа).
 const DefaultDemoUser = "intern.backend"
 
-// DemoUser имитирует SSO: пользователь берётся из заголовка X-Demo-User
-// или из query ?user= (EventSource не умеет передавать заголовки). Неизвестный логин — 401.
+// DemoUser имитирует SSO: пользователь берётся из заголовка X-Demo-User. Query ?user= принимается
+// только для GET-потока событий чата (EventSource не умеет передавать заголовки); на остальных маршрутах
+// он игнорируется, иначе ссылка вида /actions/{id}/approve?user=lead.backend действовала бы от чужого имени.
+// Неизвестный логин — 401.
 func DemoUser(next http.Handler) http.Handler <span class="cov8" title="1">{
         return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) </span><span class="cov8" title="1">{
                 key := r.Header.Get("X-Demo-User")
-                if key == "" </span><span class="cov8" title="1">{
+                if key == "" &amp;&amp; isEventStream(r) </span><span class="cov8" title="1">{
                         key = r.URL.Query().Get("user")
                 }</span>
                 <span class="cov8" title="1">if key == "" </span><span class="cov8" title="1">{
@@ -1982,6 +2188,42 @@ func DemoUser(next http.Handler) http.Handler <span class="cov8" title="1">{
                 }</span>
                 <span class="cov8" title="1">next.ServeHTTP(w, r.WithContext(auth.WithUser(r.Context(), u)))</span>
         })
+}
+
+// isEventStream — GET /api/v1/chat/sessions/{id}/events: единственный маршрут, где допустим ?user=.
+func isEventStream(r *http.Request) bool <span class="cov8" title="1">{
+        if r.Method != http.MethodGet </span><span class="cov8" title="1">{
+                return false
+        }</span>
+        <span class="cov8" title="1">const prefix, suffix = "/api/v1/chat/sessions/", "/events"
+        p := r.URL.Path
+        if !strings.HasPrefix(p, prefix) || !strings.HasSuffix(p, suffix) </span><span class="cov8" title="1">{
+                return false
+        }</span>
+        <span class="cov8" title="1">id := p[len(prefix) : len(p)-len(suffix)]
+        return id != "" &amp;&amp; !strings.Contains(id, "/")</span>
+}
+
+// SameOriginWrites — защита от CSRF: небезопасный запрос (POST, PATCH, PUT, DELETE) с заголовком Origin
+// не из списка разрешённых CORS-origins отклоняется 403. Запросы без Origin (curl, тесты, MCP-клиенты)
+// пропускаются: браузер всегда шлёт Origin на cross-origin POST, так что чужая страница сюда не попадёт.
+func SameOriginWrites(origins []string) func(http.Handler) http.Handler <span class="cov8" title="1">{
+        allowed := make(map[string]bool, len(origins))
+        for _, o := range origins </span><span class="cov8" title="1">{
+                allowed[strings.TrimRight(o, "/")] = true
+        }</span>
+        <span class="cov8" title="1">return func(next http.Handler) http.Handler </span><span class="cov8" title="1">{
+                return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) </span><span class="cov8" title="1">{
+                        switch r.Method </span>{
+                        case http.MethodPost, http.MethodPatch, http.MethodPut, http.MethodDelete:<span class="cov8" title="1">
+                                if o := r.Header.Get("Origin"); o != "" &amp;&amp; !allowed[o] &amp;&amp; !allowed["*"] </span><span class="cov8" title="1">{
+                                        writeError(w, http.StatusForbidden, "forbidden", "cross-origin request blocked")
+                                        return
+                                }</span>
+                        }
+                        <span class="cov8" title="1">next.ServeHTTP(w, r)</span>
+                })
+        }
 }
 
 // LimitBody ограничивает размер тела запроса.
@@ -2118,6 +2360,8 @@ func NewRouterWithOrigins(h *Handlers, origins []string) *chi.Mux <span class="c
                 ExposedHeaders: []string{"X-Request-Id", "Retry-After"},
                 MaxAge:         300,
         }))
+        // CSRF: CORS защищает только чтение ответа, а сам «простой» POST с чужой страницы браузер отправит.
+        r.Use(SameOriginWrites(origins))
         r.Use(LimitBody)
 
         r.Get("/health", h.Health)
@@ -2364,6 +2608,53 @@ var DemoUsers = map[string]User{
         "intern.other":   {ID: "intern-2", Name: "Стажёр другой команды", Role: RoleIntern, TeamID: "frontend"},
         "lead.backend":   {ID: "lead-1", Name: "Руководитель Backend", Role: RoleLead, TeamID: "backend"},
         "intern.junior":  {ID: "intern-3", Name: "Второй стажёр Backend", Role: RoleIntern, TeamID: "backend"},
+        "lead.frontend":  {ID: "lead-2", Name: "Руководитель Frontend", Role: RoleLead, TeamID: "frontend"},
+}
+
+// Contacts — наставник и руководитель команды (синтетические имена прототипа) в нужных падежах.
+type Contacts struct {
+        Buddy           string // «Иван Петров»
+        BuddyDative     string // «обратитесь к наставнику Ивану Петрову»
+        BuddyAccusative string // «предупредите наставника Ивана Петрова»
+        Manager         string // «согласует руководитель — Мария Сидорова»
+        // Stems — основы фамилий для поиска имени в тексте в любом падеже («Петров» ловит «Петрову»).
+        Stems []string
+}
+
+// DefaultTeam — команда, контакты которой берутся для неизвестной команды.
+const DefaultTeam = "backend"
+
+var teamContacts = map[string]Contacts{
+        "backend": {
+                Buddy: "Иван Петров", BuddyDative: "Ивану Петрову", BuddyAccusative: "Ивана Петрова",
+                Manager: "Мария Сидорова", Stems: []string{"Петров", "Сидоров"},
+        },
+        "frontend": {
+                Buddy: "Анна Козлова", BuddyDative: "Анне Козловой", BuddyAccusative: "Анну Козлову",
+                Manager: "Дмитрий Орлов", Stems: []string{"Козлов", "Орлов"},
+        },
+}
+
+// TeamContacts — наставник и руководитель команды; для неизвестной команды — контакты DefaultTeam.
+func TeamContacts(teamID string) Contacts <span class="cov8" title="1">{
+        if c, ok := teamContacts[teamID]; ok </span><span class="cov8" title="1">{
+                return c
+        }</span>
+        <span class="cov8" title="1">return teamContacts[DefaultTeam]</span>
+}
+
+// ForeignContactStems — основы фамилий контактов других команд (чтобы не назвать стажёру чужого наставника).
+func ForeignContactStems(teamID string) []string <span class="cov8" title="1">{
+        own := TeamContacts(teamID)
+        var out []string
+        for _, c := range teamContacts </span><span class="cov8" title="1">{
+                if c.Buddy == own.Buddy </span><span class="cov8" title="1">{
+                        continue</span>
+                }
+                <span class="cov8" title="1">out = append(out, c.Stems...)</span>
+        }
+        <span class="cov8" title="1">sort.Strings(out)
+        return out</span>
 }
 
 // TeamInterns — стажёры команды (для кабинета наставника и руководителя).
@@ -2581,7 +2872,8 @@ func (MockClient) Complete(_ context.Context, msgs []Message) (string, error) <s
 
         <span class="cov8" title="1">if containsAny(q, "ignore previous", "игнорируй", "покажи все", "все отгулы", "чужие",
                 "забудь все", "забудь инструкц", "системный промпт", "system prompt", "ты теперь", "system:") </span><span class="cov8" title="1">{
-                return refuse("Не могу выполнить это действие. Обратитесь к наставнику Ивану Петрову.")
+                // Имя наставника мок не знает (оно зависит от команды) — совет обратиться к нему добавляет агент.
+                return refuse("Не могу выполнить это действие.")
         }</span>
 
         // Слова сравниваем по началу слова: « дай» ловит «дай» и «дайте», но не «выдают».
@@ -2607,15 +2899,8 @@ func (MockClient) Complete(_ context.Context, msgs []Message) (string, error) <s
                 imperative := hasWord(w, "запроси", "дай", "выдай", "оформи ", "оформите", "открой", "нужен", "нужна", "хочу", "сделай")
                 direct := !asks &amp;&amp; hasWord(w, "доступ к", "доступ в", "доступа к", "доступа в")
                 if imperative || direct </span><span class="cov8" title="1">{
-                        res := "jira"
-                        switch </span>{
-                        case containsAny(q, "gitlab", "гитлаб"):<span class="cov8" title="1">
-                                res = "gitlab"</span>
-                        case containsAny(q, "grafana", "графан"):<span class="cov8" title="1">
-                                res = "grafana"</span>
-                        }
-                        <span class="cov8" title="1">return toolCall("access_request", map[string]string{"resource": res, "reason": "onboarding"})</span>
-                }
+                        return toolCall("access_request", map[string]string{"resource": accessResource(q, w), "reason": "onboarding"})
+                }</span>
                 <span class="cov8" title="1">return answerFromContext(prompt)</span>
         }
 
@@ -2632,7 +2917,30 @@ func answerFromContext(prompt string) (string, error) <span class="cov8" title="
         if txt := firstChunk(prompt); txt != "" </span><span class="cov8" title="1">{
                 return toJSON(map[string]any{"type": "answer", "text": txt})
         }</span>
-        <span class="cov8" title="1">return toJSON(map[string]any{"type": "refusal", "text": "Не нашёл в доступных источниках. Обратитесь к наставнику Ивану Петрову."})</span>
+        <span class="cov8" title="1">return toJSON(map[string]any{"type": "refusal", "text": "Не нашёл в доступных источниках."})</span>
+}
+
+// accessResource — система из просьбы о доступе. Неизвестную систему («Confluence») возвращаем как есть,
+// а не подменяем на Jira: агент честно ответит, что на неё заявку не оформить. Пусто — система не названа.
+func accessResource(q, w string) string <span class="cov8" title="1">{
+        switch </span>{
+        case containsAny(q, "gitlab", "гитлаб"):<span class="cov8" title="1">
+                return "gitlab"</span>
+        case containsAny(q, "grafana", "графан"):<span class="cov8" title="1">
+                return "grafana"</span>
+        case containsAny(q, "jira", "джир"):<span class="cov8" title="1">
+                return "jira"</span>
+        case hasWord(w, "git ", "гит "):<span class="cov8" title="1">
+                return "git"</span>
+        }
+        <span class="cov8" title="1">for _, p := range []string{" доступ к ", " доступ в ", " доступа к ", " доступа в ", " доступ до "} </span><span class="cov8" title="1">{
+                if i := strings.Index(w, p); i &gt;= 0 </span><span class="cov8" title="1">{
+                        if f := strings.Fields(w[i+len(p):]); len(f) &gt; 0 </span><span class="cov8" title="1">{
+                                return f[0]
+                        }</span>
+                }
+        }
+        <span class="cov8" title="1">return ""</span>
 }
 
 // words нормализует вопрос в « слово слово … » (знаки препинания → пробелы, дефис сохраняется).
@@ -3164,6 +3472,18 @@ func allowed(c Chunk, role string) bool <span class="cov8" title="1">{
 }
 
 func (idx *Index) Search(q string, teamID string, role string, k int) []Hit <span class="cov8" title="1">{
+        return idx.search(q, teamID, func(c Chunk) bool </span><span class="cov8" title="1">{ return allowed(c, role) }</span>, k)
+}
+
+// Restricted сообщает, что релевантный фрагмент своей команды есть, но он адресован другой аудитории
+// (например, «только для наставников»). Это не пробел базы знаний: ответ есть, просто роль не та.
+// Сам фрагмент наружу не отдаётся — только факт его существования.
+func (idx *Index) Restricted(q string, teamID string, role string) bool <span class="cov8" title="1">{
+        hits := idx.search(q, teamID, func(c Chunk) bool </span><span class="cov8" title="1">{ return len(c.Audience) &gt; 0 &amp;&amp; !allowed(c, role) }</span>, 1)
+        <span class="cov8" title="1">return len(hits) &gt; 0</span>
+}
+
+func (idx *Index) search(q string, teamID string, visible func(Chunk) bool, k int) []Hit <span class="cov8" title="1">{
         qt := terms(q)
         n := float64(len(idx.chunks))
         avg := 0.0
@@ -3206,7 +3526,7 @@ func (idx *Index) Search(q string, teamID string, role string, k int) []Hit <spa
                 if teamID != "" &amp;&amp; c.TeamID != "" &amp;&amp; c.TeamID != teamID </span><span class="cov8" title="1">{
                         continue</span>
                 }
-                <span class="cov8" title="1">if !allowed(c, role) </span><span class="cov8" title="1">{
+                <span class="cov8" title="1">if !visible(c) </span><span class="cov8" title="1">{
                         continue</span>
                 }
                 <span class="cov8" title="1">score, covered := 0.0, 0.0
@@ -3276,9 +3596,11 @@ func LoadDir(dir string) ([]Chunk, error) <span class="cov8" title="1">{
 		<pre class="file" id="file25" style="display: none">package store
 
 import (
+        "regexp"
         "sort"
         "strings"
         "time"
+        "unicode"
 )
 
 // Gap — вопрос, на который в базе знаний не нашлось ответа.
@@ -3299,8 +3621,37 @@ func normalizeQuestion(q string) string <span class="cov8" title="1">{
         return strings.TrimRight(q, "?!. ")
 }</span>
 
-// RecordGap запоминает вопрос без ответа для команды.
+var (
+        emailRe = regexp.MustCompile(`[\p{L}\d._%+\-]+@[\p{L}\d.\-]+\.\p{L}{2,}`)
+        // numberRe — число с разделителями: телефон «+7 (999) 123-45-67», паспорт «4510 123456», счёт.
+        numberRe = regexp.MustCompile(`[+(]?\d[\d\s()\-]*\d\)?`)
+)
+
+// minMaskedDigits — последовательность из стольких цифр и больше считается персональными данными.
+const minMaskedDigits = 6
+
+// MaskPII убирает из текста персональные данные: email → [email], телефоны, номера паспортов и прочие
+// последовательности из 6+ цифр (с пробелами, дефисами, скобками, плюсом) → [число].
+// Пробелы базы знаний видит наставник — личные данные стажёра туда попадать не должны.
+func MaskPII(q string) string <span class="cov8" title="1">{
+        q = emailRe.ReplaceAllString(q, "[email]")
+        return numberRe.ReplaceAllStringFunc(q, func(m string) string </span><span class="cov8" title="1">{
+                n := 0
+                for _, r := range m </span><span class="cov8" title="1">{
+                        if unicode.IsDigit(r) </span><span class="cov8" title="1">{
+                                n++
+                        }</span>
+                }
+                <span class="cov8" title="1">if n &lt; minMaskedDigits </span><span class="cov8" title="1">{
+                        return m
+                }</span>
+                <span class="cov8" title="1">return "[число]"</span>
+        })
+}
+
+// RecordGap запоминает вопрос без ответа для команды (с замаскированными персональными данными).
 func (s *Store) RecordGap(teamID, question string) <span class="cov8" title="1">{
+        question = MaskPII(question)
         key := normalizeQuestion(question)
         if key == "" </span><span class="cov8" title="1">{
                 return
@@ -3594,7 +3945,8 @@ func (p *Persister) Save() error <span class="cov8" title="1">{
         return nil</span>
 }
 
-// Run сохраняет состояние раз в interval, если оно изменилось, и ещё раз — при остановке.
+// Run сохраняет состояние раз в interval, если оно изменилось, сразу — по сигналу Store.RequestSave
+// (подтверждённая заявка не теряется при падении между тиками) и ещё раз — при остановке.
 func (p *Persister) Run(ctx context.Context, interval time.Duration) <span class="cov8" title="1">{
         t := time.NewTicker(interval)
         defer t.Stop()
@@ -3606,14 +3958,20 @@ func (p *Persister) Run(ctx context.Context, interval time.Duration) <span class
                         }</span>
                         <span class="cov8" title="1">return</span>
                 case &lt;-t.C:<span class="cov8" title="1">
-                        if p.version() == p.saved </span><span class="cov8" title="1">{
-                                continue</span>
-                        }
-                        <span class="cov8" title="1">if err := p.Save(); err != nil </span><span class="cov0" title="0">{
-                                slog.Error("state save failed", "err", err)
-                        }</span>
+                        p.saveIfChanged()</span>
+                case &lt;-p.Store.SaveRequests():<span class="cov8" title="1">
+                        p.saveIfChanged()</span>
                 }
         }
+}
+
+func (p *Persister) saveIfChanged() <span class="cov8" title="1">{
+        if p.version() == p.saved </span><span class="cov8" title="1">{
+                return
+        }</span>
+        <span class="cov8" title="1">if err := p.Save(); err != nil </span><span class="cov0" title="0">{
+                slog.Error("state save failed", "err", err)
+        }</span>
 }
 </pre>
 		
@@ -3702,6 +4060,7 @@ type Store struct {
         gaps      map[string]map[string]*Gap // team → нормализованный вопрос → счётчик
         version   atomic.Int64               // растёт при каждом изменении (для сохранения на диск)
         now       func() time.Time
+        saveNow   chan struct{} // сигнал Persister'у «сохранить сейчас» (буфер 1)
 }
 
 func New() *Store <span class="cov8" title="1">{
@@ -3711,11 +4070,25 @@ func New() *Store <span class="cov8" title="1">{
                 seq:       map[string]int64{},
                 gaps:      map[string]map[string]*Gap{},
                 now:       time.Now,
+                saveNow:   make(chan struct{}, 1),
         }
 }</span>
 
 // Version — счётчик изменений; по нему Persister понимает, что пора сохранять.
 func (s *Store) Version() int64 <span class="cov8" title="1">{ return s.version.Load() }</span>
+
+// RequestSave просит Persister сохранить состояние сейчас, не дожидаясь тика (после подтверждения,
+// согласования, отклонения или отмены заявки). Не блокирует: повторные сигналы до сохранения схлопываются.
+// Без Persister (STATE_FILE пуст) сигнал просто остаётся в буфере — поведение не меняется.
+func (s *Store) RequestSave() <span class="cov8" title="1">{
+        select </span>{
+        case s.saveNow &lt;- struct{}{}:<span class="cov8" title="1"></span>
+        default:<span class="cov8" title="1"></span>
+        }
+}
+
+// SaveRequests — канал сигналов «сохранить сейчас» для Persister.
+func (s *Store) SaveRequests() &lt;-chan struct{} <span class="cov8" title="1">{ return s.saveNow }</span>
 
 func (s *Store) touch() <span class="cov8" title="1">{ s.version.Add(1) }</span>
 
@@ -4064,15 +4437,16 @@ func (t *AbsenceCreateRequest) Run(ctx context.Context, u auth.User, args map[st
                 Status: "pending", CreatedAt: time.Now(),
         }
         t.S.CreateAbsence(a)
+        c := auth.TeamContacts(u.TeamID)
         return Result{
                 OK:      true,
                 Message: "Заявка на отгул создана и отправлена руководителю",
                 Data: map[string]any{
                         "absence_id": a.ID, "status": a.Status,
                         "dateFrom": from, "dateTo": to,
-                        "manager_name":         "Мария Сидорова",
-                        "buddy_name":           "Иван Петров",
-                        "suggest_notify_buddy": true,
+                        "manager_name":         c.Manager,
+                        "buddy_name":           c.Buddy,
+                        "suggest_notify_buddy": u.Role == auth.RoleIntern,
                 },
         }, nil</span>
 }
@@ -4096,14 +4470,16 @@ func (t *AbsenceGetPolicy) Run(ctx context.Context, u auth.User, _ map[string]st
         if !auth.Can(u, t.RequiredPermission()) </span><span class="cov0" title="0">{
                 return Result{}, ErrForbidden
         }</span>
-        <span class="cov8" title="1">return Result{
+        // Имена — по команде пользователя; наставнику и руководителю не советуем предупреждать наставника.
+        <span class="cov8" title="1">c := auth.TeamContacts(u.TeamID)
+        return Result{
                 OK:      true,
                 Message: "Порядок оформления отгула",
                 Data: map[string]any{
                         "policy":               "Согласовать с руководителем, затем создать заявку в системе отсутствий.",
-                        "manager_name":         "Мария Сидорова",
-                        "buddy_name":           "Иван Петров",
-                        "suggest_notify_buddy": true,
+                        "manager_name":         c.Manager,
+                        "buddy_name":           c.Buddy,
+                        "suggest_notify_buddy": u.Role == auth.RoleIntern,
                 },
         }, nil</span>
 }

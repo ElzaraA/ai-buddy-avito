@@ -31,15 +31,16 @@ func (t *AbsenceCreateRequest) Run(ctx context.Context, u auth.User, args map[st
 		Status: "pending", CreatedAt: time.Now(),
 	}
 	t.S.CreateAbsence(a)
+	c := auth.TeamContacts(u.TeamID)
 	return Result{
 		OK:      true,
 		Message: "Заявка на отгул создана и отправлена руководителю",
 		Data: map[string]any{
 			"absence_id": a.ID, "status": a.Status,
 			"dateFrom": from, "dateTo": to,
-			"manager_name":         "Мария Сидорова",
-			"buddy_name":           "Иван Петров",
-			"suggest_notify_buddy": true,
+			"manager_name":         c.Manager,
+			"buddy_name":           c.Buddy,
+			"suggest_notify_buddy": u.Role == auth.RoleIntern,
 		},
 	}, nil
 }

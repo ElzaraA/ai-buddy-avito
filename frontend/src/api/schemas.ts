@@ -66,6 +66,8 @@ export const SourceSchema = z.object({
   id: z.string(),
   source: z.string().optional(),
   stage: z.string().optional(),
+  /** заголовок раздела базы знаний */
+  title: z.string().optional(),
 });
 export type Source = z.infer<typeof SourceSchema>;
 
@@ -82,6 +84,8 @@ export const AgentResponseSchema = z.object({
   text: z.string().optional(),
   action: z.string().optional(),
   args: z.record(z.string()).optional(),
+  /** имя выполненного инструмента для type=action */
+  tool: z.string().optional(),
   result: ToolResultSchema.optional(),
   sources: z.array(SourceSchema).optional(),
   buddy_name: z.string().optional(),
@@ -139,7 +143,11 @@ export const TeamSummarySchema = z.object({
 });
 export type TeamSummary = z.infer<typeof TeamSummarySchema>;
 
-export const KnowledgeGapSchema =z.object({ question: z.string(), count: z.number() });
+export const KnowledgeGapSchema = z.object({
+  question: z.string(),
+  count: z.number(),
+  last_at: z.string().optional(),
+});
 export const KnowledgeGapsSchema = z.array(KnowledgeGapSchema).nullable().transform((v) => v ?? []);
 
 export const ApiErrorSchema = z.object({

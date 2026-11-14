@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"strings"
 
 	"github.com/ElzaraA/ai-buddy-avito/internal/auth"
 	"github.com/ElzaraA/ai-buddy-avito/internal/tools"
@@ -71,6 +72,19 @@ func toolFail(msg string) mcpToolResult {
 	return mcpToolResult{Content: []mcpContent{{Type: "text", Text: msg}}, IsError: true}
 }
 
+// mcpMethodLabel — значение метки method метрики: только из фиксированного набора, иначе "other".
+// Имя метода приходит от клиента, и без этого каждый выдуманный метод заводил бы новый временной ряд.
+func mcpMethodLabel(method string) string {
+	switch method {
+	case "initialize", "ping", "tools/list", "tools/call":
+		return method
+	}
+	if strings.HasPrefix(method, "notifications/") {
+		return "notifications"
+	}
+	return "other"
+}
+
 // MCP обрабатывает один JSON-RPC запрос.
 func (h *Handlers) MCP(w http.ResponseWriter, r *http.Request) {
 	u, _ := auth.FromCtx(r.Context())
@@ -83,12 +97,12 @@ func (h *Handlers) MCP(w http.ResponseWriter, r *http.Request) {
 		writeRPC(w, req.ID, nil, &rpcError{rpcInvalidRequest, "invalid request"})
 		return
 	}
+	h.Metrics.Inc("buddy_mcp_requests_total", "Запросы к MCP-эндпоинту", "method", mcpMethodLabel(req.Method))
 	// Уведомления (без id) ответа не требуют.
 	if req.ID == nil {
 		w.WriteHeader(http.StatusAccepted)
 		return
 	}
-	h.Metrics.Inc("buddy_mcp_requests_total", "Запросы к MCP-эндпоинту", "method", req.Method)
 
 	switch req.Method {
 	case "initialize":
@@ -156,7 +170,7 @@ func (h *Handlers) mcpCall(r *http.Request, u auth.User, name string, raw map[st
 	}
 	if t.RequiresConfirmation() {
 		// Тот же путь, что у агента: черновик, который пользователь подтверждает сам.
-		resp := h.Agent.DraftFor("", name, args)
+		resp := h.Agent.DraftFor(u, "", name, args)
 		if resp.Type != "draft" {
 			return toolFail(resp.Text)
 		}

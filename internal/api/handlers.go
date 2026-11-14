@@ -5,6 +5,7 @@ import (
 	"errors"
 	"io"
 	"net/http"
+	"time"
 	"unicode/utf8"
 
 	"github.com/ElzaraA/ai-buddy-avito/internal/agent"
@@ -78,6 +79,12 @@ func observe(m *metrics.Registry, st *store.Store, u auth.User, question string,
 	}
 }
 
+// observeRun учитывает запуск агента и его длительность — одинаково для чата и синхронного /ask.
+func observeRun(m *metrics.Registry, start time.Time) {
+	m.Add("buddy_agent_duration_seconds_sum", "Суммарное время работы агента", time.Since(start).Seconds())
+	m.Inc("buddy_agent_runs_total", "Запуски агента")
+}
+
 // Ask — синхронный вариант чата (удобен для проверки curl'ом).
 func (h *Handlers) Ask(w http.ResponseWriter, r *http.Request) {
 	u, ok := auth.FromCtx(r.Context())
@@ -93,7 +100,9 @@ func (h *Handlers) Ask(w http.ResponseWriter, r *http.Request) {
 	if !validQuestion(w, body.Q()) {
 		return
 	}
+	start := time.Now()
 	resp, err := h.Agent.Ask(r.Context(), u, body.Q())
+	observeRun(h.Metrics, start)
 	if err != nil {
 		h.Metrics.Inc("buddy_agent_errors_total", "Сбои агента (LLM недоступна)")
 		writeError(w, http.StatusBadGateway, "agent_error", "Помощник временно недоступен, попробуйте ещё раз")
