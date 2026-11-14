@@ -98,7 +98,7 @@ describe('AssistantMessage', () => {
   it('action: неуспех и пустой результат', () => {
     renderWithQuery(<AssistantMessage response={{ type: 'action', result: { ok: false, message: '' } }} />);
     expect(screen.getByText(/Действие выполнено/)).toBeInTheDocument();
-    expect(screen.getByRole('status')).toHaveClass('card--error');
+    expect(screen.getByRole('status')).toHaveClass('msg--fail');
   });
 
   it('draft: показывает черновик', () => {

@@ -18,7 +18,8 @@ describe('App', () => {
       { match: '/api/v1/onboarding/progress', body: { items: [], next_step: '' } },
     ]);
     renderWithQuery(<App />);
-    expect(await screen.findByText('Стажёр Backend · backend')).toBeInTheDocument();
+    expect(await screen.findByText('Стажёр Backend', { selector: '.me__name' })).toBeInTheDocument();
+    expect(screen.getByText('команда backend')).toBeInTheDocument();
     expect(screen.getByLabelText('Чат с AI-buddy')).toBeInTheDocument();
     expect(await screen.findByText('Моя адаптация')).toBeInTheDocument();
     expect(screen.getByText(/не являются регламентами Авито/)).toBeInTheDocument();

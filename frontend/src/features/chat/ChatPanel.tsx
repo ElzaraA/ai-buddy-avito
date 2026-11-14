@@ -29,21 +29,20 @@ export function ChatPanel() {
   };
 
   return (
-    <section className="panel chat" aria-label="Чат с AI-buddy">
-      <header className="panel__header">
-        <h2>AI-buddy</h2>
-        <span className="muted">отвечает по базе знаний команды и помогает с заявками</span>
-      </header>
-
+    <section className="chat" aria-label="Чат с AI-buddy">
       <div className="chat__messages" aria-live="polite">
         {messages.length === 0 && (
           <div className="empty">
-            <p>Привет! Я помогу освоиться в команде. Например:</p>
+            <h1 className="empty__title">Спросите о команде, процессах и доступах</h1>
+            <p className="empty__text">
+              Помощник отвечает по базе знаний вашей команды и готовит заявки на отгул и доступы. Заявка уходит
+              только после вашего подтверждения.
+            </p>
             <div className="suggestions">
               {SUGGESTIONS.map((s) => (
                 <button
                   key={s}
-                  className="chip chip--button"
+                  className="suggestion"
                   onClick={() => void send(s)}
                   // повторный клик, пока уходит первый вопрос, не отправляет его второй раз
                   disabled={sending}
@@ -64,20 +63,20 @@ export function ChatPanel() {
           if (m.role === 'user') {
             return (
               <div key={m.id} className="row row--user">
-                <div className="bubble bubble--user">{m.text}</div>
+                <div className="msg msg--user">{m.text}</div>
               </div>
             );
           }
           return (
             <div key={m.id} className="row">
               {m.status === 'pending' && (
-                <div className="bubble bubble--assistant typing" role="status">
-                  Помощник думает<span className="dots" />
+                <div className="msg msg--pending" role="status">
+                  Помощник думает<span className="dots" aria-hidden />
                 </div>
               )}
               {m.status === 'failed' && (
-                <div className="card card--error" role="alert">
-                  ⚠️ {m.error}
+                <div className="msg msg--error" role="alert">
+                  {m.error}
                 </div>
               )}
               {m.status === 'done' && <AssistantMessage response={m.response} />}
@@ -93,15 +92,15 @@ export function ChatPanel() {
         </div>
       )}
 
-      <form className="chat__form" onSubmit={submit}>
+      <form className="composer" onSubmit={submit}>
         <input
           aria-label="Сообщение"
-          placeholder="Спросите что-нибудь о команде, процессах или доступах…"
+          placeholder="Например: где смотреть логи сервиса?"
           value={text}
           onChange={(e) => setText(e.target.value)}
           maxLength={4000}
         />
-        <button type="submit" disabled={!text.trim()}>
+        <button type="submit" className="btn btn--primary" disabled={!text.trim()}>
           Отправить
         </button>
       </form>

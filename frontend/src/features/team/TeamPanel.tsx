@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api, ApiError } from '../../api/client';
+import type { ChecklistItem } from '../../api/schemas';
 import { useChatStore } from '../../store/chat';
 import { actionTitle } from '../progress/MyActions';
 
@@ -10,6 +11,12 @@ export const TEAM_REFRESH_MS = 5000;
 interface Props {
   /** buddy — наставник (только просмотр), lead — руководитель (согласует заявки) */
   role: string;
+}
+
+function segmentClass(it: ChecklistItem) {
+  if (it.done) return 'track__seg track__seg--done';
+  if (it.status === 'waiting') return 'track__seg track__seg--waiting';
+  return 'track__seg';
 }
 
 /**
@@ -28,7 +35,7 @@ export function TeamPanel({ role }: Props) {
   const pending = useQuery({ queryKey: ['team-pending', user], queryFn: api.teamPending, ...opts });
   const progress = useQuery({ queryKey: ['team-progress', user], queryFn: api.teamProgress, ...opts });
   const gaps = useQuery({ queryKey: ['team-gaps', user], queryFn: api.knowledgeGaps, ...opts });
-  // «метрики пользы»: необязательны — если сводка не загрузилась, кабинет работает без плиток
+  // «метрики пользы»: необязательны — если сводка не загрузилась, кабинет работает без неё
   const summary = useQuery({ queryKey: ['team-summary', user], queryFn: api.teamSummary, ...opts });
 
   const refresh = () => {
@@ -51,83 +58,87 @@ export function TeamPanel({ role }: Props) {
 
   if (pending.isError || progress.isError)
     return (
-      <section className="panel progress">
+      <aside className="sheet sheet--state">
         <div className="error" role="alert">
           Не удалось загрузить данные команды.{' '}
-          <button className="link" onClick={() => void Promise.all([pending.refetch(), progress.refetch()])}>
+          <button className="btn btn--link" onClick={() => void Promise.all([pending.refetch(), progress.refetch()])}>
             Повторить
           </button>
         </div>
-      </section>
+      </aside>
     );
   if (pending.isLoading || progress.isLoading)
-    return <section className="panel progress">Загружаю данные команды…</section>;
+    return <aside className="sheet sheet--state">Загружаю данные команды…</aside>;
 
   const interns = progress.data ?? [];
   const nameOf = (id?: string) => interns.find((i) => i.user.id === id)?.user.name ?? id ?? 'стажёр';
   const inbox = pending.data ?? [];
 
   return (
-    <section className="panel progress" aria-label="Кабинет команды">
-      <header className="panel__header">
+    <aside className="sheet" aria-label="Кабинет команды">
+      <header className="sheet__head">
         <h2>Моя команда</h2>
-        <span className="muted">{canDecide ? 'руководитель: согласование заявок' : 'наставник: прогресс стажёров'}</span>
+        <span className="sheet__meta">
+          {canDecide ? 'руководитель: согласование заявок' : 'наставник: прогресс стажёров'}
+        </span>
       </header>
 
       {summary.data && (
-        <div className="tiles" aria-label="Метрики команды">
+        <dl className="summary" aria-label="Метрики команды">
           {[
             { label: 'Стажёров', value: String(summary.data.interns) },
             { label: 'Средний прогресс', value: `${Math.round(summary.data.avg_percent_done)}%` },
             { label: 'Заявок ждут решения', value: String(summary.data.actions.pending ?? 0) },
             { label: 'Вопросов без ответа', value: String(summary.data.unanswered_topics) },
           ].map((t) => (
-            <div key={t.label} className="tile">
-              <div className="tile__value">{t.value}</div>
-              <div className="tile__label">{t.label}</div>
+            <div key={t.label} className="summary__item">
+              <dd className="summary__value">{t.value}</dd>
+              <dt className="summary__label">{t.label}</dt>
             </div>
           ))}
-        </div>
+        </dl>
       )}
 
-      <div className="stage">
-        <h3>Заявки на согласование</h3>
-        {inbox.length === 0 && <div className="muted">Новых заявок нет.</div>}
-        <ul>
+      <section className="block">
+        <h3 className="block__title">Заявки на согласование</h3>
+        {inbox.length === 0 && <p className="block__note">Новых заявок нет.</p>}
+        <ul className="ledger">
           {inbox.map((a) => (
-            <li key={a.id} className="request">
-              <div>
-                <b>{actionTitle(a)}</b> <span className="muted">· {a.id}</span>
-                <div className="muted">{nameOf(a.user_id)}</div>
+            <li key={a.id} className="ledger__row ledger__row--request">
+              <div className="ledger__main">
+                <span className="ledger__title">{actionTitle(a)}</span>
+                <span className="ledger__id">{a.id}</span>
+                <span className="ledger__who">{nameOf(a.user_id)}</span>
               </div>
               {canDecide && (
-                <input
-                  className="comment"
-                  aria-label={`Комментарий к заявке ${a.id}`}
-                  placeholder="Комментарий стажёру к этой заявке (необязательно)"
-                  value={comments[a.id] ?? ''}
-                  onChange={(e) => setComment(a.id, e.target.value)}
-                  maxLength={500}
-                />
-              )}
-              {canDecide && (
-                <div className="card__actions">
-                  <button
-                    onClick={() => decide.mutate({ id: a.id, decision: 'approve', comment: comments[a.id] ?? '' })}
-                    disabled={decide.isPending}
-                    aria-label={`Согласовать ${a.id}`}
-                  >
-                    Согласовать
-                  </button>
-                  <button
-                    className="secondary"
-                    onClick={() => decide.mutate({ id: a.id, decision: 'reject', comment: comments[a.id] ?? '' })}
-                    disabled={decide.isPending}
-                    aria-label={`Отклонить ${a.id}`}
-                  >
-                    Отклонить
-                  </button>
-                </div>
+                <>
+                  <input
+                    className="comment"
+                    aria-label={`Комментарий к заявке ${a.id}`}
+                    placeholder="Комментарий стажёру, необязательно"
+                    value={comments[a.id] ?? ''}
+                    onChange={(e) => setComment(a.id, e.target.value)}
+                    maxLength={500}
+                  />
+                  <div className="ledger__actions">
+                    <button
+                      className="btn btn--small btn--primary"
+                      onClick={() => decide.mutate({ id: a.id, decision: 'approve', comment: comments[a.id] ?? '' })}
+                      disabled={decide.isPending}
+                      aria-label={`Согласовать ${a.id}`}
+                    >
+                      Согласовать
+                    </button>
+                    <button
+                      className="btn btn--small btn--ghost"
+                      onClick={() => decide.mutate({ id: a.id, decision: 'reject', comment: comments[a.id] ?? '' })}
+                      disabled={decide.isPending}
+                      aria-label={`Отклонить ${a.id}`}
+                    >
+                      Отклонить
+                    </button>
+                  </div>
+                </>
               )}
             </li>
           ))}
@@ -137,69 +148,74 @@ export function TeamPanel({ role }: Props) {
             {(decide.error as Error).message}
           </div>
         )}
-      </div>
+      </section>
 
-      <div className="stage">
-        <h3>Стажёры команды</h3>
-        {interns.length === 0 && <div className="muted">В команде пока нет стажёров.</div>}
-        <ul>
+      <section className="block">
+        <h3 className="block__title">Стажёры команды</h3>
+        {interns.length === 0 && <p className="block__note">В команде пока нет стажёров.</p>}
+        <ul className="interns">
           {interns.map((i) => {
             const waiting = i.items.filter((it) => !it.done && it.status === 'waiting').length;
             return (
               <li key={i.user.id} className="intern">
                 <div className="intern__head">
-                  <span>{i.user.name}</span>
-                  <b>{Math.round(i.percent_done)}%</b>
+                  <span className="intern__name">{i.user.name}</span>
+                  <span className="intern__pct">{Math.round(i.percent_done)}%</span>
                 </div>
+                {/* полоска из шагов маршрута: видно, сколько пройдено и что ждёт заявки */}
                 <div
-                  className="progress__bar"
+                  className="track"
                   role="progressbar"
                   aria-label={`Прогресс: ${i.user.name}`}
                   aria-valuenow={Math.round(i.percent_done)}
                   aria-valuemin={0}
                   aria-valuemax={100}
                 >
-                  <div style={{ width: `${i.percent_done}%` }} />
+                  {i.items.map((it) => (
+                    <span key={it.id} className={segmentClass(it)} title={it.title} />
+                  ))}
                 </div>
-                <div className="muted">
+                <p className="intern__next">
                   {i.next_step ? `Следующий шаг: ${i.next_step}` : 'Все шаги выполнены'}
-                  {waiting > 0 && ` · ждёт заявок: ${waiting}`}
-                </div>
+                  {waiting > 0 && `; ждёт заявок: ${waiting}`}
+                </p>
               </li>
             );
           })}
         </ul>
-      </div>
+      </section>
 
-      <div className="stage">
-        <h3>Чего нет в базе знаний</h3>
+      <section className="block">
+        <h3 className="block__title">Чего нет в базе знаний</h3>
         {gaps.isError ? (
           <div className="error" role="alert">
             Не удалось загрузить вопросы без ответа.{' '}
-            <button className="link" onClick={() => void gaps.refetch()}>
+            <button className="btn btn--link" onClick={() => void gaps.refetch()}>
               Повторить
             </button>
           </div>
         ) : gaps.isLoading ? (
-          <div className="muted">Загружаю вопросы без ответа…</div>
+          <p className="block__note">Загружаю вопросы без ответа…</p>
         ) : (gaps.data ?? []).length === 0 ? (
-          <div className="muted">Помощник пока ответил на все вопросы стажёров.</div>
+          <p className="block__note">Помощник пока ответил на все вопросы стажёров.</p>
         ) : (
           <>
-            <div className="muted">
-              Вопросы, на которые помощник не нашёл ответа (без автора, персональные данные маскируются):
-            </div>
-            <ul>
+            <p className="block__note">
+              Вопросы, на которые помощник не нашёл ответа. Автор не сохраняется, персональные данные скрыты.
+            </p>
+            <ul className="gaps">
               {(gaps.data ?? []).slice(0, 5).map((g) => (
-                <li key={g.question} className="step">
-                  <span className="step__title">{g.question}</span>
-                  <span className="badge">×{g.count}</span>
+                <li key={g.question} className="gap">
+                  <span className="gap__q">{g.question}</span>
+                  <span className="gap__count" title="Сколько раз спрашивали">
+                    ×{g.count}
+                  </span>
                 </li>
               ))}
             </ul>
           </>
         )}
-      </div>
-    </section>
+      </section>
+    </aside>
   );
 }

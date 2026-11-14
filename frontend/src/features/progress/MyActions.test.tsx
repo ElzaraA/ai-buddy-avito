@@ -44,7 +44,7 @@ describe('MyActions', () => {
     expect(screen.getByText(/«Выдали»/)).toBeInTheDocument();
     const drafts = screen.getByLabelText('Ждут вашего подтверждения');
     expect(drafts).toHaveTextContent('ABS-000003');
-    expect(drafts).toHaveTextContent(/внешним агентом/);
+    expect(drafts).toHaveTextContent(/внешнего агента/);
     expect(screen.getByLabelText('Мои заявки')).not.toHaveTextContent('ABS-000003');
     // отменить можно только ожидающую заявку; у черновика — «отправить» и «отменить»
     expect(screen.getAllByRole('button')).toHaveLength(3);

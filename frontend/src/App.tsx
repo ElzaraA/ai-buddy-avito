@@ -15,15 +15,26 @@ export function App() {
   useEffect(() => setDemoUser(user), [user]);
 
   const me = useQuery({ queryKey: ['me', user], queryFn: api.me });
+  const role = me.data?.role;
+  const isTeamView = role === 'buddy' || role === 'lead';
 
   return (
     <div className="app">
       <header className="topbar">
-        <div className="logo">
-          AI-buddy <span className="muted">· помощник стажёра</span>
+        <div className="brand">
+          <span className="brand__name">AI-buddy</span>
+          <span className="brand__tagline">помощник стажёра</span>
         </div>
+
+        {me.data && (
+          <div className="me">
+            <span className="me__name">{me.data.name}</span>
+            <span className="me__team">команда {me.data.team_id}</span>
+          </div>
+        )}
+
         <label className="user-switch">
-          <span className="muted">Тестовый пользователь:</span>
+          <span>Войти как</span>
           <select value={user} onChange={(e) => setUser(e.target.value)} aria-label="Тестовый пользователь">
             {DEMO_USERS.map((u) => (
               <option key={u.login} value={u.login}>
@@ -32,25 +43,16 @@ export function App() {
             ))}
           </select>
         </label>
-        {me.data && (
-          <div className="me">
-            {me.data.name} · {me.data.team_id}
-          </div>
-        )}
       </header>
 
       <main className="layout">
         <ChatPanel key={`chat-${user}`} />
         {/* наставник и руководитель видят кабинет команды, стажёр — свой план адаптации */}
-        {me.data && (me.data.role === 'buddy' || me.data.role === 'lead') ? (
-          <TeamPanel key={`team-${user}`} role={me.data.role} />
-        ) : (
-          <ProgressPanel />
-        )}
+        {isTeamView ? <TeamPanel key={`team-${user}`} role={role} /> : <ProgressPanel />}
       </main>
 
-      <footer className="footer muted">
-        Прототип. Данные синтетические, инструкции тестовые и не являются регламентами Авито.
+      <footer className="footer">
+        Прототип на синтетических данных. Инструкции тестовые и не являются регламентами Авито.
       </footer>
     </div>
   );
