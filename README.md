@@ -132,6 +132,12 @@ curl -s $API/api/v1/team/knowledge-gaps -H 'X-Demo-User: mentor.backend'        
 curl -s $API/api/v1/team/summary        -H 'X-Demo-User: lead.backend'            # сводка метрик пользы
 curl -s $API/api/v1/team/progress                                                 # 403 — стажёру недоступно
 
+# «Пульс», «Сэкономлено наставнику», «Достижения»
+curl -s $API/api/v1/pulse -H "$H" -d '{"mood":2,"note":"не понимаю задачу"}'      # отметка за сегодня (1..5; повторная перезаписывает)
+curl -s $API/api/v1/pulse/me                                                      # последние 14 отметок
+curl -s $API/api/v1/team/pulse          -H 'X-Demo-User: mentor.backend'          # «Пульс команды»: risk + причина, сначала «нужно внимание»
+curl -s $API/api/v1/achievements                                                  # достижения стажёра
+
 # Другая команда: наставник и руководитель — свои
 OTH=$(curl -s $API/api/ask -H "$H" -H 'X-Demo-User: intern.other' -d '{"question":"Хочу взять отгул 2027-03-16"}' | id)
 #   buddy_name=Анна Козлова, manager_name=Дмитрий Орлов
@@ -310,6 +316,8 @@ flowchart LR
 | Пробелы базы знаний | `buddy_knowledge_gaps_total`; список вопросов — `GET /api/v1/team/knowledge-gaps` |
 | Скорость получения доступов | история заявки `REQ-…` (`history`: подтверждение → согласование) и статус шага «Получить доступы» в `GET /api/v1/team/progress` |
 | Прогресс адаптации команды | `GET /api/v1/team/summary`: `avg_percent_done`, `steps_waiting`, `actions`, `unanswered_topics` |
+| Сэкономлено наставнику | `GET /api/v1/team/summary`: `questions_closed`, `signals_total`, `closed_share`, `mentor_minutes_saved` = закрытые × 5 мин (допущение `MinutesPerQuestion`); `buddy_questions_closed_total` |
+| Самочувствие стажёров | `GET /api/v1/team/pulse` (риск: сегодня ≤ 2, две из трёх последних ≤ 2 или среднее за 7 дней ≤ 2,5); `buddy_pulse_checkins_total` по `mood` |
 | Надёжность LLM | `buddy_llm_fallback_total`, `buddy_agent_degraded_total`, `buddy_agent_errors_total` |
 
 ## Команда и владение

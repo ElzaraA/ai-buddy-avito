@@ -462,6 +462,78 @@ ul, ol { list-style: none; margin: 0; padding: 0; }
 .gap:last-child { border-bottom: 0; }
 .gap__count { color: var(--ink-3); }
 
+/* ---------- Рабочий стол: «Пульс» и «Достижения» ---------- */
+.desk { display: flex; flex-direction: column; gap: 14px; }
+
+.pulse {
+  display: flex; flex-direction: column; gap: 8px;
+  padding: 12px 16px; border-radius: var(--r-lg); background: var(--peach); box-shadow: var(--shadow-sm);
+}
+.pulse__row { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 16px; }
+.pulse__title { font-size: 16px; font-weight: 700; letter-spacing: -0.01em; }
+.pulse__moods { display: flex; flex-wrap: wrap; gap: 6px; }
+.mood-btn {
+  display: inline-flex; align-items: center; gap: 6px;
+  font: inherit; font-size: 13px; font-weight: 550; color: var(--ink); cursor: pointer;
+  padding: 4px 12px 4px 5px; border-radius: 999px; border: 1px solid transparent; background: rgba(255, 255, 255, .75);
+}
+.mood-btn:hover:not(:disabled) { border-color: var(--ink-3); }
+.mood-btn:disabled { cursor: default; }
+.mood-btn--on, .mood-btn--on:hover:not(:disabled) { background: var(--ink); color: #fff; border-color: var(--ink); }
+.mood-face { flex: none; display: block; }
+.pulse__feedback:empty { display: none; }
+.pulse__msg { font-size: 13px; color: var(--ink-2); line-height: 1.45; }
+.pulse__today { font-weight: 650; color: var(--ink); }
+.pulse__actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+
+.achievements { display: flex; flex-direction: column; gap: 6px; }
+.achievements__head { display: flex; align-items: baseline; gap: 10px; }
+.achievements__title { font-size: 16px; font-weight: 700; letter-spacing: -0.01em; }
+.achievements__count { font-size: 12px; color: var(--ink-3); }
+.achievements__next { font-size: 13px; color: var(--ink-2); }
+.achievements__next strong { color: var(--ink); font-weight: 650; }
+/* одна прокручиваемая строка значков: рабочий стол не вытесняет чат */
+.achievements__list { display: flex; gap: 8px; overflow-x: auto; padding: 2px 2px 6px; scroll-snap-type: x proximity; }
+.badge-card {
+  flex: 0 0 172px; display: flex; align-items: flex-start; gap: 8px; scroll-snap-align: start;
+  padding: 10px 12px; border-radius: var(--r-md); border: 1px dashed var(--rule-input); background: var(--side); color: var(--ink-3);
+}
+.badge-card--on { border: 1px solid transparent; background: var(--green); color: var(--ink); }
+.badge-card--on:nth-child(3n+2) { background: var(--blue); }
+.badge-card--on:nth-child(3n+3) { background: var(--pink); }
+.badge-card--next { border: 1.5px solid var(--ink); background: var(--sheet); color: var(--ink-2); }
+.badge-card svg { flex: none; margin-top: 1px; }
+.badge-card__text { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+.badge-card__title { font-size: 13px; font-weight: 650; line-height: 1.25; }
+.badge-card__state { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .03em; }
+.badge-card__hint {
+  font-size: 12px; line-height: 1.35;
+  display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden;
+}
+
+/* ---------- Кабинет: «Сэкономлено наставнику» и «Пульс команды» ---------- */
+.saved-hero {
+  margin-top: 16px; padding: 16px 18px; border-radius: var(--r-lg);
+  background: linear-gradient(120deg, var(--green) 0%, var(--blue) 100%);
+}
+.saved-hero__value { font-size: 24px; font-weight: 750; letter-spacing: -0.02em; line-height: 1.2; }
+.saved-hero__sub { margin-top: 4px; font-size: 13px; color: var(--ink-2); }
+
+.badge--risk { background: var(--stop-soft); color: var(--stop); }
+.pulse-team { display: flex; flex-direction: column; gap: 10px; }
+.pulse-row { padding: 10px 12px; border: 1px solid var(--rule-soft); border-radius: var(--r-md); font-size: 14px; }
+.pulse-row--risk { border-color: #e8b7ae; background: #fff8f6; }
+.pulse-row__head { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; }
+.pulse-row__name { font-weight: 600; }
+.pulse-row__today { display: inline-flex; align-items: center; gap: 5px; font-size: 13px; color: var(--ink-2); }
+.pulse-row__head .badge--risk { margin-left: auto; }
+.pulse-dots { display: flex; gap: 5px; margin: 8px 0 4px; }
+.pulse-dot { width: 14px; height: 14px; border-radius: 50%; border: 1px solid rgba(31, 29, 43, .3); }
+.pulse-dot--empty { background: transparent; border-style: dashed; }
+.pulse-row__meta { font-size: 12px; color: var(--ink-3); }
+.pulse-row__reason { margin-top: 4px; font-size: 13px; color: var(--stop); font-weight: 550; }
+.pulse-row__note { margin-top: 4px; font-size: 13px; color: var(--ink-2); font-style: italic; }
+
 /* ---------- Адаптив: меню сворачивается в верхнюю панель ---------- */
 @media (max-width: 1100px) {
   .desk-card__title { font-size: 16px; }
@@ -508,6 +580,12 @@ ul, ol { list-style: none; margin: 0; padding: 0; }
   .desk-card__title { font-size: 14px; margin: 0; flex: 1; min-width: 0; }
   .desk-card__text, .desk-card__meter, .desk-card__foot .pill { display: none; }
   .desk-card__foot { margin: 0; padding: 0; flex: none; }
+  .desk { gap: 10px; }
+  .pulse { padding: 10px 12px; }
+  .mood-btn { padding: 3px 10px 3px 4px; font-size: 12px; }
+  .badge-card { flex-basis: 150px; }
+  .badge-card__hint { display: none; }
+  .saved-hero__value { font-size: 20px; }
   .chat-card, .chat-card--full { height: 72vh; min-height: 420px; padding: 14px 12px 12px; }
   .sheet { padding: 18px 16px; }
   .empty__title { font-size: 21px; }

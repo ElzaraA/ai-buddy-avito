@@ -27,6 +27,21 @@ describe('Desk', () => {
     expect(screen.getByText('пройдено 50%')).toBeInTheDocument();
   });
 
+  it('на рабочем столе — «Как вы сегодня?» и «Достижения»', async () => {
+    mockFetch([
+      { match: '/api/v1/onboarding/progress', body: progress },
+      { match: '/api/v1/actions', body: [] },
+      { match: '/api/v1/pulse/me', body: { today: '2026-11-15', entries: [] } },
+      {
+        match: '/api/v1/achievements',
+        body: [{ id: 'first_question', title: 'Первый вопрос', description: 'd', unlocked: false, hint: 'Спросите Бадди' }],
+      },
+    ]);
+    renderWithQuery(<Desk onOpenPlan={noop} onOpenActions={noop} onReport={noop} />);
+    expect(await screen.findByRole('group', { name: 'Как вы сегодня?' })).toBeInTheDocument();
+    expect(await screen.findByText('Следующее: Первый вопрос.')).toBeInTheDocument();
+  });
+
   it('пока заявки грузятся — не пишет «Заявок пока нет»; при ошибке — честно говорит об этом', async () => {
     mockFetch([{ match: '/api/v1/onboarding/progress', body: progress }]); // /actions → 404
     renderWithQuery(<Desk onOpenPlan={noop} onOpenActions={noop} onReport={noop} />);

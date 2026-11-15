@@ -1,7 +1,11 @@
 import { z } from 'zod';
 import {
   AbsenceSchema,
+  AchievementsSchema,
   ActionListSchema,
+  MyPulseSchema,
+  PulseEntrySchema,
+  TeamPulseSchema,
   ApiErrorSchema,
   KnowledgeGapsSchema,
   ProgressSchema,
@@ -126,6 +130,13 @@ export const api = {
     request(`/api/v1/team/signals/${encodeURIComponent(id)}/resolve`, z.unknown(), { method: 'POST' }),
   /** Сводка «метрик пользы» по команде. */
   teamSummary: () => request('/api/v1/team/summary', TeamSummarySchema),
+  /** «Пульс команды» — самочувствие стажёров своей команды. */
+  teamPulse: () => request('/api/v1/team/pulse', TeamPulseSchema),
+  /** «Пульс» стажёра: отметка за сегодня (повторная — перезаписывает). */
+  submitPulse: (mood: number, note = '') =>
+    request('/api/v1/pulse', PulseEntrySchema, { method: 'POST', body: JSON.stringify({ mood, note }) }),
+  myPulse: () => request('/api/v1/pulse/me', MyPulseSchema),
+  achievements: () => request('/api/v1/achievements', AchievementsSchema),
   decideAction: (id: string, decision: 'approve' | 'reject', comment = '') =>
     request(`/api/v1/actions/${encodeURIComponent(id)}/${decision}`, AbsenceSchema, {
       method: 'POST',

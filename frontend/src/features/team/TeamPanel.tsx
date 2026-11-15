@@ -4,6 +4,7 @@ import { api, ApiError } from '../../api/client';
 import type { ChecklistItem } from '../../api/schemas';
 import { useChatStore } from '../../store/chat';
 import { actionTitle } from '../progress/MyActions';
+import { TeamPulse } from './TeamPulse';
 
 /** Как часто перечитываем кабинет: новые заявки и вопросы стажёров появляются сами. */
 export const TEAM_REFRESH_MS = 5000;
@@ -113,6 +114,18 @@ export function TeamPanel({ role }: Props) {
       </header>
 
       {summary.data && (
+        <section className="saved-hero" aria-label="Сэкономлено наставнику">
+          <p className="saved-hero__value">
+            Бадди сэкономил наставнику ≈ {summary.data.mentor_minutes_saved.toLocaleString('ru-RU')} мин
+          </p>
+          <p className="saved-hero__sub">
+            закрыто вопросов: {summary.data.questions_closed} · передано наставнику: {summary.data.signals_total} ·
+            оценка: {summary.data.minutes_per_question} мин на вопрос
+          </p>
+        </section>
+      )}
+
+      {summary.data && (
         <dl className="summary" aria-label="Метрики команды">
           {[
             { label: 'Стажёров', value: String(summary.data.interns) },
@@ -164,6 +177,8 @@ export function TeamPanel({ role }: Props) {
           )}
         </section>
       )}
+
+      <TeamPulse refetchInterval={TEAM_REFRESH_MS} />
 
       <section className="block">
         <h3 className="block__title">Заявки на согласование</h3>

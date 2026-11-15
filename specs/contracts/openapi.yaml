@@ -261,6 +261,93 @@ paths:
                   actions: { type: object, additionalProperties: { type: integer }, description: число заявок по статусам }
                   unanswered_topics: { type: integer }
                   unanswered_requests: { type: integer }
+                  questions_closed: { type: integer, description: вопросы стажёров, закрытые Бадди без человека (answer / action / draft) }
+                  signals_total: { type: integer, description: сообщения стажёров, переданные наставнику }
+                  refusals_total: { type: integer, description: отказы Бадди (нет в базе, нет прав) }
+                  mentor_minutes_saved: { type: integer, description: 'оценка: questions_closed × minutes_per_question' }
+                  minutes_per_question: { type: integer, description: 'допущение оценки: 5 минут наставника на типовой вопрос' }
+                  closed_share: { type: number, description: 'closed / (closed + signals + refusals), 0..1' }
+        '403': { $ref: '#/components/responses/Error' }
+
+  /team/pulse:
+    get:
+      summary: «Пульс команды» — самочувствие стажёров своей команды за 7 дней; сначала те, кому нужно внимание (стажёру — 403)
+      description: |
+        risk = сегодня ≤ 2, или две из трёх последних отметок за 7 дней ≤ 2, или среднее за 7 дней ≤ 2.5.
+        trend — последняя отметка окна против среднего предыдущих (±0.5). Заметку видят только наставник и руководитель команды.
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    user: { $ref: '#/components/schemas/User' }
+                    today: { type: integer, nullable: true, minimum: 1, maximum: 5 }
+                    avg7: { type: number, nullable: true }
+                    trend: { type: string, enum: [up, down, flat] }
+                    risk: { type: boolean }
+                    risk_reason: { type: string, description: причина по-русски, например «сегодня отметил(а) «Тяжело»» }
+                    days: { type: array, items: { type: object, properties: { date: { type: string, format: date }, mood: { type: integer, nullable: true } } } }
+                    note: { type: string, description: последняя заметка за 7 дней (персональные данные маскируются) }
+                    note_date: { type: string, format: date }
+        '403': { $ref: '#/components/responses/Error' }
+
+  /pulse:
+    post:
+      summary: «Пульс» — отметка самочувствия стажёра за сегодня (повторная отметка перезаписывает сегодняшнюю; не стажёру — 403)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [mood]
+              properties:
+                mood: { type: integer, minimum: 1, maximum: 5, description: '1 Тяжело, 2 Так себе, 3 Нормально, 4 Хорошо, 5 Отлично' }
+                note: { type: string, maxLength: 300 }
+      responses:
+        '200': { description: OK, content: { application/json: { schema: { $ref: '#/components/schemas/PulseEntry' } } } }
+        '400': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+
+  /pulse/me:
+    get:
+      summary: Последние 14 отметок «Пульса» стажёра (старые первыми) и сегодняшняя дата сервера
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  today: { type: string, format: date }
+                  entries: { type: array, items: { $ref: '#/components/schemas/PulseEntry' } }
+        '403': { $ref: '#/components/responses/Error' }
+
+  /achievements:
+    get:
+      summary: Достижения стажёра (выводятся из состояния; порядок — от простых к сложным; не стажёру — 403)
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    id: { type: string, enum: [first_question, first_action, brave_ask, pulse_streak, access_done, half_way, week1_done] }
+                    title: { type: string }
+                    description: { type: string }
+                    unlocked: { type: boolean }
+                    unlocked_at: { type: string, format: date-time }
+                    hint: { type: string }
         '403': { $ref: '#/components/responses/Error' }
 
   /ask:
@@ -287,6 +374,13 @@ components:
       content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } }
 
   schemas:
+    PulseEntry:
+      type: object
+      properties:
+        date: { type: string, format: date }
+        mood: { type: integer, minimum: 1, maximum: 5 }
+        note: { type: string }
+        at: { type: string, format: date-time }
     Error:
       type: object
       required: [error]

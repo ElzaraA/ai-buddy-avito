@@ -60,6 +60,12 @@ func NewRouterWithOrigins(h *Handlers, origins []string) *chi.Mux {
 			r.Get("/team/summary", h.TeamSummary)
 			r.Get("/team/signals", h.TeamSignals)
 			r.Post("/team/signals/{id}/resolve", h.ResolveSignal)
+			r.Get("/team/pulse", h.TeamPulse)
+
+			// «Пульс» и достижения стажёра
+			r.With(h.WriteLimiter.Middleware).Post("/pulse", h.SubmitPulse)
+			r.Get("/pulse/me", h.MyPulse)
+			r.Get("/achievements", h.MyAchievements)
 
 			if h.Chat != nil {
 				r.With(h.WriteLimiter.Middleware).Post("/chat/sessions", h.Chat.CreateSession)

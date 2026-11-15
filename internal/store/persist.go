@@ -19,7 +19,10 @@ type snapshot struct {
 	Seq       map[string]int64           `json:"seq"`
 	Gaps      map[string]map[string]*Gap `json:"gaps"`
 	Signals   map[string][]Signal        `json:"signals,omitempty"`
-	Sessions map[string]Session         `json:"sessions"`
+	Pulse     map[string][]PulseEntry    `json:"pulse,omitempty"`
+	TeamStats map[string]*TeamStats      `json:"team_stats,omitempty"`
+	UserStats map[string]*UserStats      `json:"user_stats,omitempty"`
+	Sessions  map[string]Session         `json:"sessions"`
 	Messages  map[string]Message         `json:"messages"`
 	BySess    map[string][]string        `json:"by_session"`
 }
@@ -71,6 +74,15 @@ func (p *Persister) Load() error {
 	if snap.Signals != nil {
 		s.signals = snap.Signals
 	}
+	if snap.Pulse != nil {
+		s.pulse = snap.Pulse
+	}
+	if snap.TeamStats != nil {
+		s.teamStats = snap.TeamStats
+	}
+	if snap.UserStats != nil {
+		s.userStats = snap.UserStats
+	}
 	s.mu.Unlock()
 
 	m := p.Msgs
@@ -107,6 +119,7 @@ func (p *Persister) Save() error {
 	raw, err := json.Marshal(snapshot{
 		V: snapshotVersion, SavedAt: time.Now(),
 		Actions: s.absences, Checklist: s.checklist, Seq: s.seq, Gaps: s.gaps, Signals: s.signals,
+		Pulse: s.pulse, TeamStats: s.teamStats, UserStats: s.userStats,
 		Sessions: m.sessions, Messages: m.messages, BySess: m.bySess,
 	})
 	m.mu.RUnlock()

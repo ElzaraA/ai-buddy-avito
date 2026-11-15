@@ -126,6 +126,9 @@ func Can(u User, action string) bool {
 	case "team.read":
 		// Прогресс стажёров, заявки команды и пробелы базы знаний видят наставник и руководитель.
 		return u.Role == RoleBuddy || u.Role == RoleLead
+	case "pulse.write", "achievements.read":
+		// «Пульс» и достижения — личные инструменты стажёра.
+		return u.Role == RoleIntern
 	case "absence.read.all":
 		return u.Role == RoleLead || u.Role == RoleHRBP
 	default:

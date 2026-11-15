@@ -90,7 +90,29 @@ describe('api client', () => {
       actions: { pending: 1 },
       unanswered_topics: 0,
       unanswered_requests: 0,
+      questions_closed: 0,
+      signals_total: 0,
+      refusals_total: 0,
+      mentor_minutes_saved: 0,
+      minutes_per_question: 5,
+      closed_share: 0,
     });
+  });
+
+  it('«Пульс» и достижения: POST /pulse с оценкой, team/pulse с null вместо отметок', async () => {
+    const spy = mockFetch([
+      { method: 'POST', match: '/api/v1/pulse', body: { date: '2026-11-15', mood: 2 } },
+      {
+        match: '/api/v1/team/pulse',
+        body: [{ user: { id: 'intern-1', name: 'С', role: 'intern', team_id: 'backend' }, today: null, avg7: null, trend: '?', risk: false, days: null }],
+      },
+      { match: '/api/v1/achievements', body: null },
+    ]);
+    expect((await api.submitPulse(2, 'устал')).mood).toBe(2);
+    expect(JSON.parse(spy.mock.calls[0][1]?.body as string)).toEqual({ mood: 2, note: 'устал' });
+    const [p] = await api.teamPulse();
+    expect(p).toMatchObject({ today: null, avg7: null, trend: 'flat', days: [], risk_reason: '' });
+    expect(await api.achievements()).toEqual([]);
   });
 
   it('ошибка без JSON-тела — общий текст', async () => {

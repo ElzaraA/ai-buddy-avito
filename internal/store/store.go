@@ -82,7 +82,10 @@ type Store struct {
 	seq       map[string]int64
 	gaps      map[string]map[string]*Gap // team → нормализованный вопрос → счётчик
 	signals   map[string][]Signal        // team → сообщения стажёров наставнику «что-то не так»
-	version  atomic.Int64               // растёт при каждом изменении (для сохранения на диск)
+	pulse     map[string][]PulseEntry    // user → отметки «Пульса», старые первыми
+	teamStats map[string]*TeamStats      // team → счётчики «Сэкономлено наставнику»
+	userStats map[string]*UserStats      // user → личные счётчики (вопросы Бадди)
+	version   atomic.Int64               // растёт при каждом изменении (для сохранения на диск)
 	now       func() time.Time
 	saveNow   chan struct{} // сигнал Persister'у «сохранить сейчас» (буфер 1)
 }
@@ -94,7 +97,10 @@ func New() *Store {
 		seq:       map[string]int64{},
 		gaps:      map[string]map[string]*Gap{},
 		signals:   map[string][]Signal{},
-		now:      time.Now,
+		pulse:     map[string][]PulseEntry{},
+		teamStats: map[string]*TeamStats{},
+		userStats: map[string]*UserStats{},
+		now:       time.Now,
 		saveNow:   make(chan struct{}, 1),
 	}
 }

@@ -77,6 +77,25 @@ func observe(m *metrics.Registry, st *store.Store, u auth.User, question string,
 		st.RecordGap(u.TeamID, question)
 		m.Inc("buddy_knowledge_gaps_total", "Вопросы, на которые в базе знаний нет ответа")
 	}
+	if u.Role == auth.RoleIntern {
+		outcome := outcomeOf(resp)
+		st.RecordQuestion(u.TeamID, u.ID, outcome)
+		if outcome == store.OutcomeClosed {
+			m.Inc("buddy_questions_closed_total", "Вопросы стажёров, закрытые Бадди без наставника")
+		}
+	}
+}
+
+// outcomeOf — чем закончился вопрос стажёра: закрыт Бадди, передан наставнику или отказ.
+func outcomeOf(resp agent.Response) string {
+	switch {
+	case resp.Signal != "":
+		return store.OutcomeSignal
+	case resp.Type == "answer" || resp.Type == "action" || resp.Type == "draft":
+		return store.OutcomeClosed
+	default:
+		return store.OutcomeRefusal
+	}
 }
 
 // saveSignal сохраняет сообщение стажёра наставнику и дописывает его номер в ответ.

@@ -38,6 +38,7 @@ func (s *Store) AddSignal(teamID, userID, topic, text string) Signal {
 		list = list[len(list)-maxSignalsPerTeam:]
 	}
 	s.signals[teamID] = list
+	s.teamStatsLocked(teamID).Signals++
 	s.touch()
 	return sig
 }

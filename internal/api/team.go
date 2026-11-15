@@ -90,6 +90,7 @@ type teamSummary struct {
 	Actions            map[string]int `json:"actions"`
 	UnansweredTopics   int            `json:"unanswered_topics"`
 	UnansweredRequests int            `json:"unanswered_requests"`
+	savedStats
 }
 
 // TeamSummary — сводка «метрик пользы» по команде для руководителя.
@@ -98,7 +99,7 @@ func (h *Handlers) TeamSummary(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	s := teamSummary{Actions: map[string]int{}}
+	s := teamSummary{Actions: map[string]int{}, savedStats: savedOf(h.Store.TeamStatsOf(u.TeamID))}
 	total := 0
 	for _, intern := range auth.TeamInterns(u.TeamID) {
 		p := progressOf(h.Store.Checklist(intern.ID))
