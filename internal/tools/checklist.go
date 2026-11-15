@@ -2,6 +2,7 @@ package tools
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/ElzaraA/ai-buddy-avito/internal/auth"
 	"github.com/ElzaraA/ai-buddy-avito/internal/store"
@@ -18,16 +19,35 @@ func (t *ChecklistGet) Run(ctx context.Context, u auth.User, _ map[string]string
 		return Result{}, ErrForbidden
 	}
 	items := t.S.Checklist(u.ID)
-	next := ""
+	next, how, done := "", "", 0
 	for _, it := range items {
-		if !it.Done {
+		if it.Done {
+			done++
+			continue
+		}
+		if next == "" {
 			next = it.Title
-			break
+			how = stepHowTo(it)
 		}
 	}
-	return Result{
-		OK:      true,
-		Message: "Текущий статус чек-листа",
-		Data:    map[string]any{"items": items, "next_step": next},
-	}, nil
+	data := map[string]any{"items": items, "next_step": next}
+	msg := "Все шаги адаптации пройдены"
+	if next != "" {
+		msg = "Ваш следующий шаг"
+		data["how_to"] = how
+		data["progress"] = fmt.Sprintf("%d из %d шагов", done, len(items))
+	}
+	return Result{OK: true, Message: msg, Data: data}, nil
+}
+
+// stepHowTo — короткая подсказка, как закрыть шаг самому, без вопроса наставнику.
+func stepHowTo(it store.ChecklistItem) string {
+	switch {
+	case it.Status == store.StepWaiting:
+		return "Заявка уже отправлена и ждёт руководителя. Шаг закроется сам после согласования — ничего делать не нужно."
+	case it.Kind == store.ActionAccess:
+		return "Напишите здесь, к какой системе нужен доступ, например «Запроси доступ в GitLab». Помощник заполнит заявку, вы нажмёте «Отправить»."
+	default:
+		return "Выполните шаг и нажмите «Готово» напротив него в плане справа. Если непонятно, с чего начать, спросите здесь своими словами."
+	}
 }

@@ -120,7 +120,7 @@ describe('DraftCard', () => {
     renderWithQuery(<DraftCard action="access" args={{}} />);
     expect(screen.getByText('Черновик заявки на доступ')).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Отправить заявку' })).not.toBeInTheDocument();
-    expect(screen.getByText(/не вернул номер черновика/)).toBeInTheDocument();
+    expect(screen.getByText(/Не получилось подготовить заявку/)).toBeInTheDocument();
   });
 
   it('доступ: ресурс берётся из args, если бэк его не вернул', async () => {

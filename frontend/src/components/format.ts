@@ -24,6 +24,8 @@ const FIELD_LABELS: Record<string, string> = {
   owner: 'Ответственный',
   resource: 'Система',
   next_step: 'Следующий шаг',
+  how_to: 'Как сделать',
+  progress: 'Пройдено',
   manager_name: 'Руководитель',
   buddy_name: 'Наставник',
   policy: 'Порядок',

@@ -79,7 +79,23 @@ export function DraftCard({ action = 'absence', args, text }: Props) {
             <dd>{statusLabel(a.status)}</dd>
           </div>
         </dl>
-        {!isAccess && <p className="form__hint">Предупредите наставника лично.</p>}
+        <div className="next">
+          <div className="next__title">Что дальше</div>
+          <ol className="next__list">
+            {isAccess ? (
+              <>
+                <li>Руководитель получит заявку и согласует доступ — писать ему не нужно.</li>
+                <li>Шаг «Получить доступы» в плане справа закроется сам.</li>
+              </>
+            ) : (
+              <>
+                <li>Руководитель получит заявку и согласует её — писать ему не нужно.</li>
+                <li>Коротко предупредите наставника, что вас не будет в эти дни.</li>
+              </>
+            )}
+            <li>Статус заявки смотрите справа в блоке «Мои заявки» — он обновится сам.</li>
+          </ol>
+        </div>
       </div>
     );
   }
@@ -102,6 +118,9 @@ export function DraftCard({ action = 'absence', args, text }: Props) {
               </div>
             </dl>
           )}
+          <p className="form__hint">
+            Проверьте данные и нажмите «Отправить заявку». Пока вы не нажали, заявка никуда не уходит.
+          </p>
           {confirm.isError && (
             <div className="error" role="alert">
               Не удалось отправить: {(confirm.error as Error).message}
@@ -122,7 +141,7 @@ export function DraftCard({ action = 'absence', args, text }: Props) {
           </div>
         </>
       ) : isAccess ? (
-        <p className="form__hint">Сервер не вернул номер черновика. Повторите запрос в чате.</p>
+        <p className="form__hint">Не получилось подготовить заявку. Напишите ещё раз, например «Запроси доступ в GitLab».</p>
       ) : (
         <p className="form__hint">Напишите дату отгула, например «в пятницу» или «завтра».</p>
       )}

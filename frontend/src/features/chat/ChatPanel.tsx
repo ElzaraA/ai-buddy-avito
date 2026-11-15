@@ -3,13 +3,29 @@ import { AssistantMessage } from '../../components/AssistantMessage';
 import { useChatStore } from '../../store/chat';
 import { useChat } from './useChat';
 
-export const SUGGESTIONS = [
-  'Как оформить отгул?',
-  'Хочу взять отгул в пятницу',
-  'Какой следующий шаг по чек-листу?',
-  'Запроси доступ в GitLab',
-  'Как у нас устроено код-ревью?',
+/** Подсказки сгруппированы по задачам стажёра: узнать правило, оформить заявку, понять следующий шаг. */
+export const SUGGESTION_GROUPS: { title: string; hint: string; items: string[] }[] = [
+  {
+    title: 'Мой план',
+    hint: 'что делать прямо сейчас',
+    items: ['Какой следующий шаг по чек-листу?'],
+  },
+  {
+    title: 'Оформить заявку',
+    hint: 'помощник заполнит её за вас',
+    items: ['Хочу взять отгул в пятницу', 'Запроси доступ в GitLab'],
+  },
+  {
+    title: 'Узнать, как принято в команде',
+    hint: 'ответ со ссылкой на документ',
+    items: ['Как оформить отгул?', 'Как у нас устроено код-ревью?'],
+  },
 ];
+
+export const SUGGESTIONS = SUGGESTION_GROUPS.flatMap((g) => g.items);
+
+/** Быстрые вопросы под перепиской: стажёру не нужно придумывать, что спросить дальше. */
+export const FOLLOW_UPS = ['Что мне делать дальше?', 'Как оформить отгул?', 'Запроси доступ в GitLab'];
 
 export function ChatPanel() {
   const messages = useChatStore((s) => s.messages);
@@ -33,22 +49,32 @@ export function ChatPanel() {
       <div className="chat__messages" aria-live="polite">
         {messages.length === 0 && (
           <div className="empty">
-            <h1 className="empty__title">Спросите о команде, процессах и доступах</h1>
+            <h1 className="empty__title">Спросите здесь — до того, как писать наставнику</h1>
             <p className="empty__text">
-              Помощник отвечает по базе знаний вашей команды и готовит заявки на отгул и доступы. Заявка уходит
-              только после вашего подтверждения.
+              Помощник знает правила вашей команды и отвечает со ссылкой на документ. Заявки на отгул и доступы он
+              заполнит сам — вам останется проверить и нажать «Отправить». Если ответа в базе нет, помощник скажет,
+              к кому обратиться.
             </p>
-            <div className="suggestions">
-              {SUGGESTIONS.map((s) => (
-                <button
-                  key={s}
-                  className="suggestion"
-                  onClick={() => void send(s)}
-                  // повторный клик, пока уходит первый вопрос, не отправляет его второй раз
-                  disabled={sending}
-                >
-                  {s}
-                </button>
+            <div className="suggestion-groups">
+              {SUGGESTION_GROUPS.map((g) => (
+                <div key={g.title} className="suggestion-group">
+                  <div className="suggestion-group__title">
+                    {g.title} <span className="muted">— {g.hint}</span>
+                  </div>
+                  <div className="suggestions">
+                    {g.items.map((s) => (
+                      <button
+                        key={s}
+                        className="suggestion"
+                        onClick={() => void send(s)}
+                        // повторный клик, пока уходит первый вопрос, не отправляет его второй раз
+                        disabled={sending}
+                      >
+                        {s}
+                      </button>
+                    ))}
+                  </div>
+                </div>
               ))}
             </div>
             {sending && (
@@ -92,10 +118,20 @@ export function ChatPanel() {
         </div>
       )}
 
+      {messages.length > 0 && (
+        <div className="followups" aria-label="Быстрые вопросы">
+          {FOLLOW_UPS.map((s) => (
+            <button key={s} className="suggestion suggestion--small" onClick={() => void send(s)} disabled={sending}>
+              {s}
+            </button>
+          ))}
+        </div>
+      )}
+
       <form className="composer" onSubmit={submit}>
         <input
           aria-label="Сообщение"
-          placeholder="Например: где смотреть логи сервиса?"
+          placeholder="Напишите вопрос своими словами, например: как попасть на код-ревью?"
           value={text}
           onChange={(e) => setText(e.target.value)}
           maxLength={4000}
