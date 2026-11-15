@@ -1,0 +1,20 @@
+# Онлайн-демо интерфейса на Netlify. Бэкенд размещён отдельно (render.yaml в корне репозитория),
+# поэтому интерфейс ходит в API по явному адресу из VITE_API_URL (см. src/api/client.ts).
+[build]
+  command = "npm ci && npm run build"
+  publish = "dist"
+
+[build.environment]
+  NODE_VERSION = "22"
+  VITE_API_URL = "https://ai-buddy-avito-api.onrender.com"
+
+# Одностраничное приложение: любой путь отдаёт index.html.
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
+
+[[headers]]
+  for = "/assets/*"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"

@@ -1,0 +1,31 @@
+# Онлайн-демо бэкенда на Render (Blueprint): https://render.com/docs/blueprint-spec
+# Деплой: https://dashboard.render.com/blueprint/new?repo=https://github.com/ElzaraA/ai-buddy-avito
+# Бесплатный план: сервис засыпает без запросов, первое обращение будит его ~1 минуту;
+# диска нет, поэтому состояние живёт в памяти и сбрасывается при перезапуске (это демо-стенд).
+services:
+  - type: web
+    name: ai-buddy-avito-api
+    runtime: docker
+    plan: free
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    healthCheckPath: /health
+    autoDeploy: true
+    envVars:
+      # Render направляет трафик на PORT; сервер слушает тот же порт, что в Dockerfile (EXPOSE 8080).
+      - key: PORT
+        value: "8080"
+      - key: ADDR
+        value: ":8080"
+      # Демо работает на детерминированной mock-LLM: ключ не нужен.
+      # Для реальной модели: LLM_MOCK=false и LLM_API_KEY в настройках сервиса (не в репозитории).
+      - key: LLM_MOCK
+        value: "true"
+      - key: LLM_FALLBACK
+        value: "true"
+      - key: RATE_LIMIT_PER_MIN
+        value: "60"
+      # Адрес фронтенда на Netlify: без него браузер получит ошибку CORS,
+      # а запросы на запись — 403 «cross-origin request blocked».
+      - key: CORS_ORIGINS
+        value: "https://ai-buddy-avito.netlify.app"
