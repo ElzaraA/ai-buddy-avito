@@ -108,6 +108,21 @@ ul, ol { list-style: none; margin: 0; padding: 0; }
 
 .msg { max-width: min(640px, 88%); padding: 12px 16px; border-radius: var(--r-md); }
 .msg p + p { margin-top: 6px; }
+/* ответы помощника приходят со списками через перевод строки */
+.msg--answer p, .msg--refusal p, .kv dd { white-space: pre-line; }
+
+/* «Что-то не так?» — постоянный и спокойный вход к наставнику */
+.help-row { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 8px; margin-top: 10px; font-size: 13px; }
+.help-row__btn { font-size: 13px; font-weight: 600; }
+
+/* Кабинет: сообщения стажёров наставнику */
+.signals { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
+.signal { padding: 8px 10px; border: 1px solid var(--rule-soft); border-left: 3px solid var(--warn, #e0a800); border-radius: var(--r-md); }
+.signal--done { opacity: .55; border-left-color: var(--rule); }
+.signal__head { display: flex; flex-wrap: wrap; gap: 6px 10px; font-size: 12px; color: var(--ink-3); }
+.signal__who { font-weight: 600; color: var(--ink); }
+.signal__text { margin: 4px 0; font-size: 14px; }
+.signals__count { margin-left: 8px; }
 .msg--user { background: var(--ink); color: #fff; border-bottom-right-radius: 4px; max-width: min(480px, 80%); }
 .msg--answer, .msg--result, .msg--refusal, .msg--muted {
   background: var(--sheet); border: 1px solid var(--rule-soft); border-top-left-radius: 4px;

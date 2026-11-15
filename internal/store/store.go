@@ -81,7 +81,8 @@ type Store struct {
 	checklist map[string][]ChecklistItem
 	seq       map[string]int64
 	gaps      map[string]map[string]*Gap // team → нормализованный вопрос → счётчик
-	version   atomic.Int64               // растёт при каждом изменении (для сохранения на диск)
+	signals   map[string][]Signal        // team → сообщения стажёров наставнику «что-то не так»
+	version  atomic.Int64               // растёт при каждом изменении (для сохранения на диск)
 	now       func() time.Time
 	saveNow   chan struct{} // сигнал Persister'у «сохранить сейчас» (буфер 1)
 }
@@ -92,7 +93,8 @@ func New() *Store {
 		checklist: map[string][]ChecklistItem{},
 		seq:       map[string]int64{},
 		gaps:      map[string]map[string]*Gap{},
-		now:       time.Now,
+		signals:   map[string][]Signal{},
+		now:      time.Now,
 		saveNow:   make(chan struct{}, 1),
 	}
 }

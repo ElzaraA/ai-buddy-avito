@@ -58,6 +58,8 @@ func NewRouterWithOrigins(h *Handlers, origins []string) *chi.Mux {
 			r.Get("/team/actions", h.TeamActions)
 			r.Get("/team/knowledge-gaps", h.TeamKnowledgeGaps)
 			r.Get("/team/summary", h.TeamSummary)
+			r.Get("/team/signals", h.TeamSignals)
+			r.Post("/team/signals/{id}/resolve", h.ResolveSignal)
 
 			if h.Chat != nil {
 				r.With(h.WriteLimiter.Middleware).Post("/chat/sessions", h.Chat.CreateSession)

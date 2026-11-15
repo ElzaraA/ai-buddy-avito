@@ -127,6 +127,11 @@ type Response struct {
 	Degraded bool              `json:"degraded,omitempty"` // ответ дан резервной моделью
 	// NoSource — отказ из-за отсутствия ответа в базе (сигнал «пробел в базе знаний»).
 	NoSource bool `json:"-"`
+	// Suggestions — готовые следующие реплики стажёра (кнопки под ответом).
+	Suggestions []string `json:"suggestions,omitempty"`
+	// Signal — сообщение наставнику, которое API сохранит в кабинет команды.
+	Signal      string `json:"-"`
+	SignalTopic string `json:"-"`
 }
 
 func (a *Agent) now() time.Time {
@@ -174,8 +179,27 @@ func (a *Agent) AskWithHistory(ctx context.Context, user auth.User, question str
 		return Response{Type: "answer", Text: c.supportText(), Buddy: c.Buddy}, nil
 	}
 	// Приветствие, «спасибо», «ок», «отмени» — не вопрос к базе знаний: отвечаем сразу, без LLM и без отказа.
+	// «Передай наставнику: …» — стажёр сам решил позвать человека: передаём без вопросов.
+	if !c.staff {
+		if text, ok := signalRequest(question); ok {
+			return c.signalResponse(text, signalTopic(text)), nil
+		}
+	}
 	if reply := smallTalk(question); reply != "" {
-		return Response{Type: "answer", Text: reply, Buddy: c.Buddy}, nil
+		r := Response{Type: "answer", Text: reply, Buddy: c.Buddy}
+		if !c.staff {
+			r.Suggestions = []string{chipNext}
+			if reply == greetReply {
+				r.Suggestions = []string{chipNext, chipAbsence, chipAccess, chipRules}
+			}
+		}
+		return r, nil
+	}
+	// «Помоги», «с чего начать?» — стажёр не знает, что спросить: предлагаем выбор.
+	if !c.staff && isVague(question) {
+		r := Response{Type: "answer", Text: c.menuText(), Buddy: c.Buddy,
+			Suggestions: []string{chipNext, chipAbsence, chipAccess, chipRules}}
+		return r, nil
 	}
 
 	hits := a.Index.Search(question, user.TeamID, string(user.Role), 4)
@@ -200,7 +224,7 @@ func (a *Agent) AskWithHistory(ctx context.Context, user auth.User, question str
 	if err != nil {
 		return Response{}, err
 	}
-	resp := a.interpret(ctx, user, question, raw, srcs, restricted)
+	resp := c.coach(question, a.interpret(ctx, user, question, raw, srcs, restricted))
 	resp.Degraded = degraded
 	return resp, nil
 }

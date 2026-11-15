@@ -79,6 +79,18 @@ func observe(m *metrics.Registry, st *store.Store, u auth.User, question string,
 	}
 }
 
+// saveSignal сохраняет сообщение стажёра наставнику и дописывает его номер в ответ.
+func saveSignal(st *store.Store, m *metrics.Registry, u auth.User, resp *agent.Response) {
+	if resp.Signal == "" {
+		return
+	}
+	sig := st.AddSignal(u.TeamID, u.ID, resp.SignalTopic, resp.Signal)
+	if resp.Result != nil && resp.Result.Data != nil {
+		resp.Result.Data["signal_id"] = sig.ID
+	}
+	m.Inc("buddy_mentor_signals_total", "Сообщения стажёров наставнику «что-то не так»", "topic", sig.Topic)
+}
+
 // observeRun учитывает запуск агента и его длительность — одинаково для чата и синхронного /ask.
 func observeRun(m *metrics.Registry, start time.Time) {
 	m.Add("buddy_agent_duration_seconds_sum", "Суммарное время работы агента", time.Since(start).Seconds())
@@ -109,6 +121,7 @@ func (h *Handlers) Ask(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	saveDraft(h.Store, u, &resp)
+	saveSignal(h.Store, h.Metrics, u, &resp)
 	observe(h.Metrics, h.Store, u, body.Q(), resp)
 	writeJSON(w, http.StatusOK, resp)
 }

@@ -203,6 +203,7 @@ func (h *ChatHandlers) runAgent(sessionID, msgID, question string, history []llm
 		return
 	}
 	saveDraft(h.Store, u, &resp)
+	saveSignal(h.Store, h.Metrics, u, &resp)
 	observe(h.Metrics, h.Store, u, question, resp)
 
 	if resp.Type == "action" && resp.Result != nil {

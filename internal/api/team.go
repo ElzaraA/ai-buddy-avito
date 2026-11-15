@@ -3,6 +3,8 @@ package api
 import (
 	"net/http"
 
+	"github.com/go-chi/chi/v5"
+
 	"github.com/ElzaraA/ai-buddy-avito/internal/auth"
 	"github.com/ElzaraA/ai-buddy-avito/internal/store"
 )
@@ -57,6 +59,28 @@ func (h *Handlers) TeamKnowledgeGaps(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusOK, h.Store.Gaps(u.TeamID))
+}
+
+// TeamSignals — сообщения стажёров «что-то не так», адресованные наставнику (именные, новые сверху).
+func (h *Handlers) TeamSignals(w http.ResponseWriter, r *http.Request) {
+	u, ok := h.teamUser(w, r)
+	if !ok {
+		return
+	}
+	writeJSON(w, http.StatusOK, h.Store.Signals(u.TeamID))
+}
+
+// ResolveSignal — наставник отмечает сообщение разобранным.
+func (h *Handlers) ResolveSignal(w http.ResponseWriter, r *http.Request) {
+	u, ok := h.teamUser(w, r)
+	if !ok {
+		return
+	}
+	if !h.Store.ResolveSignal(u.TeamID, chi.URLParam(r, "id")) {
+		writeError(w, http.StatusNotFound, "not_found", "signal not found")
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]bool{"ok": true})
 }
 
 type teamSummary struct {

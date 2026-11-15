@@ -23,6 +23,20 @@ function segmentClass(it: ChecklistItem) {
  * Кабинет наставника и руководителя: заявки на согласование, прогресс стажёров команды
  * и вопросы, на которые помощник не нашёл ответа в базе знаний.
  */
+const TOPIC_LABELS: Record<string, string> = {
+  tech: 'не работает',
+  blocked: 'застрял',
+  unclear: 'непонятно',
+  other: 'вопрос',
+};
+
+function timeLabel(iso: string) {
+  const d = new Date(iso);
+  return Number.isNaN(d.getTime())
+    ? ''
+    : d.toLocaleString('ru-RU', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+}
+
 export function TeamPanel({ role }: Props) {
   const user = useChatStore((s) => s.user);
   const qc = useQueryClient();
@@ -37,6 +51,12 @@ export function TeamPanel({ role }: Props) {
   const gaps = useQuery({ queryKey: ['team-gaps', user], queryFn: api.knowledgeGaps, ...opts });
   // «метрики пользы»: необязательны — если сводка не загрузилась, кабинет работает без неё
   const summary = useQuery({ queryKey: ['team-summary', user], queryFn: api.teamSummary, ...opts });
+  // сообщения стажёров «что-то не так»: необязательный блок, кабинет работает и без него
+  const signals = useQuery({ queryKey: ['team-signals', user], queryFn: api.teamSignals, ...opts });
+  const resolve = useMutation({
+    mutationFn: api.resolveSignal,
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['team-signals', user] }),
+  });
 
   const refresh = () => {
     qc.invalidateQueries({ queryKey: ['team-pending', user] });
@@ -73,6 +93,7 @@ export function TeamPanel({ role }: Props) {
   const interns = progress.data ?? [];
   const nameOf = (id?: string) => interns.find((i) => i.user.id === id)?.user.name ?? id ?? 'стажёр';
   const inbox = pending.data ?? [];
+  const openSignals = (signals.data ?? []).filter((s) => !s.done).length;
 
   return (
     <aside className="sheet" aria-label="Кабинет команды">
@@ -97,6 +118,43 @@ export function TeamPanel({ role }: Props) {
             </div>
           ))}
         </dl>
+      )}
+
+      {signals.data && (
+        <section className="block">
+          <h3 className="block__title">
+            Стажёры просят помощи
+            {openSignals > 0 && <span className="badge badge--pending signals__count">{openSignals}</span>}
+          </h3>
+          {signals.data.length === 0 ? (
+            <p className="block__note">Сообщений нет: стажёры справляются сами.</p>
+          ) : (
+            <ul className="signals">
+              {signals.data.slice(0, 6).map((s) => (
+                <li key={s.id} className={`signal${s.done ? ' signal--done' : ''}`}>
+                  <div className="signal__head">
+                    <span className="signal__who">{nameOf(s.user_id)}</span>
+                    <span className="signal__topic">{TOPIC_LABELS[s.topic] ?? TOPIC_LABELS.other}</span>
+                    {s.at && <span className="signal__at">{timeLabel(s.at)}</span>}
+                  </div>
+                  <p className="signal__text">{s.text}</p>
+                  {!s.done ? (
+                    <button
+                      className="btn btn--link"
+                      onClick={() => resolve.mutate(s.id)}
+                      disabled={resolve.isPending}
+                      aria-label={`Отметить ${s.id} разобранным`}
+                    >
+                      Разобрано
+                    </button>
+                  ) : (
+                    <span className="muted">разобрано</span>
+                  )}
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
       )}
 
       <section className="block">

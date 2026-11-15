@@ -23,6 +23,25 @@ const base = [
 ];
 
 describe('TeamPanel', () => {
+  it('наставник видит, кто из стажёров просит помощи, и отмечает сообщение разобранным', async () => {
+    const spy = mockFetch([
+      ...base,
+      { match: '/api/v1/team/actions?status=pending', body: [] },
+      {
+        match: '/api/v1/team/signals',
+        body: [{ id: 'SIG-000001', user_id: 'intern-1', text: 'не работает VPN', topic: 'tech', done: false }],
+      },
+      { method: 'POST', match: '/api/v1/team/signals/SIG-000001/resolve', body: { ok: true } },
+    ]);
+    renderWithQuery(<TeamPanel role="buddy" />);
+    expect(await screen.findByText('не работает VPN')).toBeInTheDocument();
+    expect(screen.getByText('Стажёры просят помощи')).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'Отметить SIG-000001 разобранным' }));
+    await waitFor(() =>
+      expect(spy.mock.calls.some(([u]) => String(u).endsWith('/api/v1/team/signals/SIG-000001/resolve'))).toBe(true),
+    );
+  });
+
   it('руководитель видит заявки, прогресс стажёров и пробелы базы; согласует с комментарием', async () => {
     const spy = mockFetch([
       ...base,

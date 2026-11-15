@@ -92,8 +92,22 @@ export const AgentResponseSchema = z.object({
   manager_name: z.string().optional(),
   /** ответ дан резервной моделью: основная LLM недоступна */
   degraded: z.boolean().optional(),
+  /** готовые следующие реплики стажёра — кнопки под ответом */
+  suggestions: z.array(z.string()).nullable().optional(),
 });
 export type AgentResponse = z.infer<typeof AgentResponseSchema>;
+
+/** GET /api/v1/team/signals — сообщения стажёров наставнику «что-то не так». */
+export const SignalSchema = z.object({
+  id: z.string(),
+  user_id: z.string().default(''),
+  text: z.string().default(''),
+  topic: z.string().default('other'),
+  at: z.string().optional(),
+  done: z.boolean().default(false),
+});
+export type Signal = z.infer<typeof SignalSchema>;
+export const SignalsSchema = z.array(SignalSchema).nullable().transform((v) => v ?? []);
 
 /** Запись истории заявки: кто и когда перевёл её в статус. */
 export const ActionEventSchema = z.object({

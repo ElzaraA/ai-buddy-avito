@@ -5,6 +5,7 @@ import {
   ApiErrorSchema,
   KnowledgeGapsSchema,
   ProgressSchema,
+  SignalsSchema,
   TeamProgressSchema,
   TeamSummarySchema,
   SendMessageResponseSchema,
@@ -119,6 +120,10 @@ export const api = {
   teamProgress: () => request('/api/v1/team/progress', TeamProgressSchema),
   teamPending: () => request('/api/v1/team/actions?status=pending', ActionListSchema),
   knowledgeGaps: () => request('/api/v1/team/knowledge-gaps', KnowledgeGapsSchema),
+  /** Сообщения стажёров наставнику «что-то не так». */
+  teamSignals: () => request('/api/v1/team/signals', SignalsSchema),
+  resolveSignal: (id: string) =>
+    request(`/api/v1/team/signals/${encodeURIComponent(id)}/resolve`, z.unknown(), { method: 'POST' }),
   /** Сводка «метрик пользы» по команде. */
   teamSummary: () => request('/api/v1/team/summary', TeamSummarySchema),
   decideAction: (id: string, decision: 'approve' | 'reject', comment = '') =>

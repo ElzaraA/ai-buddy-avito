@@ -27,11 +27,25 @@ export const SUGGESTIONS = SUGGESTION_GROUPS.flatMap((g) => g.items);
 /** Быстрые вопросы под перепиской: стажёру не нужно придумывать, что спросить дальше. */
 export const FOLLOW_UPS = ['Что мне делать дальше?', 'Как оформить отгул?', 'Запроси доступ в GitLab'];
 
+export const PROBLEM_PREFIX = 'Передай наставнику: ';
+
 export function ChatPanel() {
   const messages = useChatStore((s) => s.messages);
   const { send, connectError, sending } = useChat();
   const [text, setText] = useState('');
   const endRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  // Подсказки следующего шага присылает сервер вместе с ответом; если их нет — общий набор.
+  const last = [...messages].reverse().find((m) => m.role !== 'user');
+  const fromServer = last && last.status === 'done' ? (last.response.suggestions ?? []) : [];
+  const followUps = fromServer.length > 0 ? fromServer : FOLLOW_UPS;
+
+  // «Что-то не так?» — готовим сообщение наставнику: стажёру остаётся дописать, что случилось.
+  const reportProblem = () => {
+    setText(PROBLEM_PREFIX);
+    inputRef.current?.focus();
+  };
 
   useEffect(() => {
     endRef.current?.scrollIntoView?.({ behavior: 'smooth' });
@@ -119,8 +133,8 @@ export function ChatPanel() {
       )}
 
       {messages.length > 0 && (
-        <div className="followups" aria-label="Быстрые вопросы">
-          {FOLLOW_UPS.map((s) => (
+        <div className="followups" aria-label="Что можно сделать дальше">
+          {followUps.map((s) => (
             <button key={s} className="suggestion suggestion--small" onClick={() => void send(s)} disabled={sending}>
               {s}
             </button>
@@ -128,15 +142,27 @@ export function ChatPanel() {
         </div>
       )}
 
+      <div className="help-row">
+        <button type="button" className="btn btn--link help-row__btn" onClick={reportProblem}>
+          Что-то не так? Сообщить наставнику
+        </button>
+        <span className="muted">— это нормально, помощник передаст ваше сообщение</span>
+      </div>
+
       <form className="composer" onSubmit={submit}>
         <input
+          ref={inputRef}
           aria-label="Сообщение"
           placeholder="Спросите своими словами"
           value={text}
           onChange={(e) => setText(e.target.value)}
           maxLength={4000}
         />
-        <button type="submit" className="btn btn--primary" disabled={!text.trim()}>
+        <button
+          type="submit"
+          className="btn btn--primary"
+          disabled={!text.trim() || text.trim() === PROBLEM_PREFIX.trim()}
+        >
           Отправить
         </button>
       </form>
