@@ -39,6 +39,10 @@ func (s *Store) AddSignal(teamID, userID, topic, text string) Signal {
 	}
 	s.signals[teamID] = list
 	s.teamStatsLocked(teamID).Signals++
+	if us := s.userStatsLocked(userID); us.FirstSignalAt == nil {
+		at := sig.At
+		us.FirstSignalAt, us.FirstSignalTeam = &at, teamID
+	}
 	s.touch()
 	return sig
 }

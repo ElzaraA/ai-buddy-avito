@@ -45,6 +45,35 @@ interface ChatState {
 
 let nonce = 0;
 
+/** Роль переживает перезагрузку вкладки (sessionStorage), новая вкладка начинает со стажёра. */
+const USER_KEY = 'ai-buddy.user';
+const DEFAULT_USER = 'intern.backend';
+const isDemoUser = (login: string | null): login is string => DEMO_USERS.some((u) => u.login === login);
+
+export function loadUser(): string {
+  try {
+    const saved = sessionStorage.getItem(USER_KEY);
+    return isDemoUser(saved) ? saved : DEFAULT_USER;
+  } catch {
+    return DEFAULT_USER;
+  }
+}
+
+function saveUser(login: string) {
+  try {
+    sessionStorage.setItem(USER_KEY, login);
+  } catch {
+    // приватный режим или запрет хранилища — роль просто не запомнится
+  }
+}
+
+/**
+ * Роль по логину, пока /me ещё грузится: сразу после переключения на наставника
+ * не мелькает стол стажёра (и не уходят запросы стажёра, на которые сервер ответит 403).
+ */
+export const guessRole = (login: string) =>
+  login.startsWith('lead.') ? 'lead' : login.startsWith('mentor.') ? 'buddy' : 'intern';
+
 const toMessage = (id: string, o: Outcome): ChatMessage =>
   o.kind === 'done'
     ? { id, role: 'assistant', status: 'done', response: o.response }
@@ -60,14 +89,16 @@ export const useChatStore = create<ChatState>((set) => {
     });
 
   return {
-    user: 'intern.backend',
+    user: loadUser(),
     sessionId: null,
     messages: [],
     early: {},
     composer: null,
     queued: null,
-    setUser: (login) =>
-      set({ user: login, sessionId: null, messages: [], early: {}, composer: null, queued: null }),
+    setUser: (login) => {
+      saveUser(login);
+      set({ user: login, sessionId: null, messages: [], early: {}, composer: null, queued: null });
+    },
     prefill: (text) => set({ composer: { text, nonce: ++nonce } }),
     ask: (text) => set({ queued: { text, nonce: ++nonce } }),
     takeQueued: () => set({ queued: null }),

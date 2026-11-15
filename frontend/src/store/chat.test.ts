@@ -1,4 +1,4 @@
-import { useChatStore } from './chat';
+import { guessRole, loadUser, useChatStore } from './chat';
 
 const answer = { type: 'answer' as const, text: 'ok' };
 
@@ -45,5 +45,18 @@ describe('chat store', () => {
     useChatStore.getState().addUser('u2', 'y');
     useChatStore.getState().reset();
     expect(useChatStore.getState().messages).toEqual([]);
+  });
+
+  it('роль переживает перезагрузку вкладки; мусор в хранилище — снова стажёр', () => {
+    useChatStore.getState().setUser('lead.backend');
+    expect(loadUser()).toBe('lead.backend');
+    sessionStorage.setItem('ai-buddy.user', 'hacker');
+    expect(loadUser()).toBe('intern.backend');
+  });
+
+  it('роль по логину, пока /me не ответил', () => {
+    expect(guessRole('lead.frontend')).toBe('lead');
+    expect(guessRole('mentor.backend')).toBe('buddy');
+    expect(guessRole('intern.other')).toBe('intern');
   });
 });

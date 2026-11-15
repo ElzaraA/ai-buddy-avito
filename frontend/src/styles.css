@@ -47,7 +47,8 @@
 }
 
 * { box-sizing: border-box; }
-body { margin: 0; background: var(--bg-grad) fixed, var(--paper); }
+/* длинная ссылка или слово без пробелов переносится, а не растягивает карточку вбок */
+body { margin: 0; background: var(--bg-grad) fixed, var(--paper); overflow-wrap: break-word; }
 p { margin: 0; }
 h1, h2, h3 { margin: 0; font-weight: 600; letter-spacing: -0.01em; }
 ul, ol { list-style: none; margin: 0; padding: 0; }
@@ -185,14 +186,14 @@ ul, ol { list-style: none; margin: 0; padding: 0; }
 }
 
 /* Рабочая область */
-.workspace { display: flex; flex-direction: column; min-width: 0; min-height: 0; overflow-y: auto; padding: 26px 32px 12px; }
+.workspace { display: flex; flex-direction: column; min-width: 0; min-height: 0; overflow-y: auto; padding: 22px 32px 6px; }
 .workspace__head {
   display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 14px 24px;
-  margin-bottom: 22px;
+  margin-bottom: 16px;
 }
-.workspace__title { font-size: 30px; font-weight: 700; line-height: 1.15; letter-spacing: -0.03em; }
+.workspace__title { font-size: 28px; font-weight: 700; line-height: 1.15; letter-spacing: -0.03em; }
 .workspace__subtitle { margin-top: 4px; font-size: 14px; color: var(--ink-3); }
-.workspace__body { flex: 1 0 auto; display: flex; flex-direction: column; gap: 22px; }
+.workspace__body { flex: 1 0 auto; display: flex; flex-direction: column; gap: 16px; }
 
 /*
  * Рабочий стол и чат помещаются в окно: чат забирает оставшуюся высоту, поле ввода
@@ -204,7 +205,40 @@ ul, ol { list-style: none; margin: 0; padding: 0; }
   .workspace__body--chat > .chat-card { flex: 1 1 0; height: auto; min-height: 340px; contain: size; }
 }
 
-.footer { padding: 16px 0 4px; text-align: center; font-size: 12px; color: var(--ink-3); }
+/*
+ * Широкий экран: «Пульс» — полосой сверху, карточки и «Достижения» — колонкой слева, чат — справа
+ * на всю оставшуюся высоту. Поле ввода видно сразу (1280×760 без прокрутки), длинные ответы читаются.
+ */
+@media (min-width: 1100px) {
+  .workspace__body--desk {
+    display: grid; grid-template-columns: minmax(260px, min(34%, 350px)) minmax(0, 1fr);
+    /* высоту задаёт окно, а не содержимое колонки: min-height 0, колонка прокручивается сама */
+    grid-template-rows: auto minmax(300px, 1fr); column-gap: 18px; row-gap: 0; min-height: 0;
+  }
+  .workspace__body--desk > .desk-slot, .workspace__body--desk .desk { display: contents; }
+  .workspace__body--desk .pulse { grid-column: 1 / -1; grid-row: 1; margin-bottom: 14px; }
+  .workspace__body--desk > .chat-card { grid-column: 2; grid-row: 2; min-height: 0; }
+  .workspace__body--desk .desk__rail {
+    grid-column: 1; grid-row: 2; min-height: 0; overflow-y: auto; scrollbar-width: thin;
+    display: flex; flex-direction: column; gap: 12px;
+    /* поля под тень и наклон карточек: прокручиваемая колонка их не обрезает */
+    margin: -4px -6px 0; padding: 4px 6px 6px;
+  }
+  .desk__rail .desk-cards { grid-template-columns: 1fr; gap: 10px; }
+  .desk__rail .desk-card--blue { transform: rotate(-.6deg); }
+  .desk__rail .desk-card__btn { padding: 11px 14px 10px; gap: 5px; }
+  .desk__rail .desk-card__title { font-size: 16px; }
+  /* в колонке оставляем только ключевое: шаг и прогресс, статус последней заявки, вход к наставнику */
+  .desk__rail .desk-card--green .desk-card__text, .desk__rail .desk-card--pink .desk-card__text { display: none; }
+  .desk__rail .achievements__bar { flex-wrap: wrap; padding: 8px 8px 9px 12px; }
+  .desk__rail .achievements__toggle { order: 1; margin-left: auto; }
+  .desk__rail .achievements__recent { order: 2; flex: 1 1 100%; }
+  .desk__rail .achievements__next { order: 3; flex: 1 1 100%; }
+  .desk__rail .achievements__list { flex-direction: column; overflow: visible; }
+  .desk__rail .badge-card { flex: none; }
+}
+
+.footer { padding: 10px 0 2px; text-align: center; font-size: 12px; color: var(--ink-3); }
 
 /* ---------- Рабочий стол: пастельные карточки ---------- */
 .desk-cards { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 18px; }
@@ -214,15 +248,19 @@ ul, ol { list-style: none; margin: 0; padding: 0; }
 .desk-card--pink { background: var(--pink); }
 .desk-card:hover { transform: translateY(-2px); box-shadow: 0 2px 4px rgba(31, 29, 43, .05), 0 14px 30px rgba(31, 29, 43, .09); }
 .desk-card__btn {
-  display: flex; flex-direction: column; gap: 8px; width: 100%; height: 100%; min-height: 176px;
+  display: flex; flex-direction: column; gap: 6px; width: 100%; height: 100%; min-height: 0;
   font: inherit; text-align: left; color: var(--ink); cursor: pointer;
-  padding: 16px 18px; border: 0; border-radius: inherit; background: none;
+  padding: 14px 16px 12px; border: 0; border-radius: inherit; background: none;
 }
-.desk-card__title { font-size: 18px; font-weight: 700; line-height: 1.25; letter-spacing: -0.015em; margin-top: 4px; }
-.desk-card__text { font-size: 13px; font-style: italic; color: var(--ink-2); line-height: 1.4; }
+.desk-card__btn .chip { align-self: flex-start; }
+.desk-card__title { font-size: 17px; font-weight: 700; line-height: 1.25; letter-spacing: -0.015em; margin-top: 2px; }
+.desk-card__text {
+  font-size: 13px; font-style: italic; color: var(--ink-2); line-height: 1.4;
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+}
 .desk-card__meter { display: block; height: 4px; border-radius: 2px; background: rgba(31, 29, 43, .12); overflow: hidden; }
 .desk-card__meter span { display: block; height: 100%; background: var(--ink); border-radius: 2px; }
-.desk-card__foot { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: auto; padding-top: 6px; }
+.desk-card__foot { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: auto; padding-top: 4px; }
 .desk-card__meta { font-size: 12px; font-weight: 550; color: var(--ink-2); }
 
 /* Чат — отдельная белая карточка под рабочим столом */
@@ -275,7 +313,7 @@ ul, ol { list-style: none; margin: 0; padding: 0; }
 .row { display: flex; }
 .row--user { justify-content: flex-end; }
 
-.msg { max-width: min(640px, 88%); padding: 12px 16px; border-radius: var(--r-md); }
+.msg { max-width: min(640px, 88%); padding: 12px 16px; border-radius: var(--r-md); overflow-wrap: anywhere; }
 .msg p + p { margin-top: 6px; }
 /* ответы помощника приходят со списками через перевод строки */
 .msg--answer p, .msg--refusal p, .kv dd { white-space: pre-line; }
@@ -342,6 +380,7 @@ ul, ol { list-style: none; margin: 0; padding: 0; }
 .suggestion-group__title .muted { font-weight: 400; }
 
 /* Быстрые вопросы под перепиской */
+.chat__sending { margin-top: 6px; }
 .followups { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
 .suggestion--small { font-size: 13px; color: var(--ink-2); padding: 4px 12px; }
 
@@ -466,11 +505,15 @@ ul, ol { list-style: none; margin: 0; padding: 0; }
 .desk { display: flex; flex-direction: column; gap: 14px; }
 
 .pulse {
-  display: flex; flex-direction: column; gap: 8px;
-  padding: 12px 16px; border-radius: var(--r-lg); background: var(--peach); box-shadow: var(--shadow-sm);
+  display: flex; flex-direction: column; gap: 6px;
+  padding: 10px 14px 10px 16px; border-radius: var(--r-lg); background: var(--peach); box-shadow: var(--shadow-sm);
 }
 .pulse__row { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 16px; }
 .pulse__title { font-size: 16px; font-weight: 700; letter-spacing: -0.01em; }
+/* ответ и кнопки — одной строкой под отметкой: «Пульс» не вытесняет чат */
+.pulse__feedback { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 14px; }
+.pulse__feedback > .pulse__msg { flex: 1 1 340px; min-width: 0; }
+.pulse__feedback > .error { margin-top: 0; }
 .pulse__moods { display: flex; flex-wrap: wrap; gap: 6px; }
 .mood-btn {
   display: inline-flex; align-items: center; gap: 6px;
@@ -484,15 +527,37 @@ ul, ol { list-style: none; margin: 0; padding: 0; }
 .pulse__feedback:empty { display: none; }
 .pulse__msg { font-size: 13px; color: var(--ink-2); line-height: 1.45; }
 .pulse__today { font-weight: 650; color: var(--ink); }
-.pulse__actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+.pulse__actions { display: flex; flex-wrap: wrap; gap: 8px; }
 
-.achievements { display: flex; flex-direction: column; gap: 6px; }
-.achievements__head { display: flex; align-items: baseline; gap: 10px; }
-.achievements__title { font-size: 16px; font-weight: 700; letter-spacing: -0.01em; }
-.achievements__count { font-size: 12px; color: var(--ink-3); }
-.achievements__next { font-size: 13px; color: var(--ink-2); }
+/* «Достижения» свёрнуты в одну строку: свежие значки, следующее, «Все достижения» */
+.achievements { display: flex; flex-direction: column; gap: 8px; }
+.achievements__bar {
+  display: flex; align-items: center; gap: 6px 10px; min-width: 0;
+  padding: 7px 8px 7px 14px; border-radius: var(--r-md);
+  background: var(--sheet); border: 1px solid var(--rule-soft); box-shadow: var(--shadow-sm);
+}
+.achievements__title { flex: none; font-size: 14px; font-weight: 700; letter-spacing: -0.01em; }
+.achievements__count { flex: none; font-size: 12px; color: var(--ink-3); white-space: nowrap; }
+.achievements__recent { display: flex; gap: 6px; min-width: 0; flex: 0 1 auto; overflow: hidden; }
+.ach-chip {
+  flex: none; display: inline-flex; align-items: center; gap: 4px; white-space: nowrap;
+  font-size: 12px; font-weight: 600; line-height: 1; padding: 4px 10px 4px 6px; border-radius: 999px;
+  background: var(--green); color: var(--ink);
+}
+.ach-chip:nth-child(3n+2) { background: var(--blue); }
+.ach-chip:nth-child(3n+3) { background: var(--pink); }
+.achievements__next {
+  flex: 1 1 180px; min-width: 0; font-size: 13px; color: var(--ink-2);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
 .achievements__next strong { color: var(--ink); font-weight: 650; }
-/* одна прокручиваемая строка значков: рабочий стол не вытесняет чат */
+.achievements__toggle {
+  flex: none; font: inherit; font-size: 12px; font-weight: 600; color: var(--ink); cursor: pointer; white-space: nowrap;
+  padding: 5px 12px; border-radius: 999px; border: 1px solid var(--rule); background: var(--sheet);
+}
+.achievements__caret { display: inline-block; margin-left: 4px; font-size: 10px; }
+.achievements__toggle:hover { border-color: var(--ink-3); }
+/* раскрытый список — строка карточек с прокруткой вбок */
 .achievements__list { display: flex; gap: 8px; overflow-x: auto; padding: 2px 2px 6px; scroll-snap-type: x proximity; }
 .badge-card {
   flex: 0 0 172px; display: flex; align-items: flex-start; gap: 8px; scroll-snap-align: start;
@@ -585,6 +650,11 @@ ul, ol { list-style: none; margin: 0; padding: 0; }
   .mood-btn { padding: 3px 10px 3px 4px; font-size: 12px; }
   .badge-card { flex-basis: 150px; }
   .badge-card__hint { display: none; }
+  .achievements__bar { flex-wrap: wrap; padding: 8px 8px 8px 12px; }
+  .achievements__toggle { order: 1; margin-left: auto; }
+  .achievements__recent { order: 2; flex: 1 1 100%; flex-wrap: wrap; }
+  .achievements__next { order: 3; flex: 1 1 100%; white-space: normal; }
+  .pulse__feedback > .pulse__msg { flex-basis: 100%; }
   .saved-hero__value { font-size: 20px; }
   .chat-card, .chat-card--full { height: 72vh; min-height: 420px; padding: 14px 12px 12px; }
   .sheet { padding: 18px 16px; }

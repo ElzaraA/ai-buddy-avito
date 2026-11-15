@@ -23,6 +23,10 @@ type TeamStats struct {
 type UserStats struct {
 	Questions       int64     `json:"questions"`
 	FirstQuestionAt time.Time `json:"first_question_at,omitempty"`
+	// FirstSignalAt — первое сообщение наставнику. Хранится отдельно от списка сигналов команды:
+	// тот ограничен maxSignalsPerTeam, и при вытеснении старых сигналов достижение «Смелость спросить» пропадало.
+	FirstSignalAt   *time.Time `json:"first_signal_at,omitempty"`
+	FirstSignalTeam string     `json:"first_signal_team,omitempty"`
 }
 
 // RecordQuestion учитывает вопрос стажёра и его исход. Исход signal здесь не считается:
@@ -30,11 +34,7 @@ type UserStats struct {
 func (s *Store) RecordQuestion(teamID, userID, outcome string) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	us := s.userStats[userID]
-	if us == nil {
-		us = &UserStats{}
-		s.userStats[userID] = us
-	}
+	us := s.userStatsLocked(userID)
 	us.Questions++
 	if us.FirstQuestionAt.IsZero() {
 		us.FirstQuestionAt = s.now()
@@ -78,10 +78,24 @@ func (s *Store) UserStatsOf(userID string) UserStats {
 	return UserStats{}
 }
 
+func (s *Store) userStatsLocked(userID string) *UserStats {
+	us := s.userStats[userID]
+	if us == nil {
+		us = &UserStats{}
+		s.userStats[userID] = us
+	}
+	return us
+}
+
 // FirstSignalAt — когда пользователь впервые написал наставнику (nil — ещё не писал).
 func (s *Store) FirstSignalAt(teamID, userID string) *time.Time {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
+	if us := s.userStats[userID]; us != nil && us.FirstSignalAt != nil && us.FirstSignalTeam == teamID {
+		at := *us.FirstSignalAt
+		return &at
+	}
+	// Снимки состояния до появления поля first_signal_at — ищем в списке сигналов команды.
 	for _, sig := range s.signals[teamID] {
 		if sig.UserID == userID {
 			at := sig.At

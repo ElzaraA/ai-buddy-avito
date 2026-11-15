@@ -1,6 +1,6 @@
 import { act, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { ChatPanel, SUGGESTIONS } from './ChatPanel';
+import { ChatPanel, SLOW_SEND_MS, SLOW_SEND_TEXT, SUGGESTIONS } from './ChatPanel';
 import { AGENT_TIMEOUT_MS } from './useChat';
 import { useChatStore } from '../../store/chat';
 import { FakeEventSource, mockFetch, renderWithQuery } from '../../test/utils';
@@ -126,6 +126,31 @@ describe('ChatPanel', () => {
     // технический текст бэка не показываем — только понятный пользователю
     expect(await screen.findByRole('alert')).toHaveTextContent('Не найдено, обновите страницу');
     expect(spy).toHaveBeenCalledTimes(1);
+  });
+
+  it('холодный старт сервера: пока вопрос не принят, видно, что он в пути и почему долго', async () => {
+    let release!: () => void;
+    const gate = new Promise<void>((r) => (release = r));
+    const routes = chatRoutes();
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+        const url = String(input);
+        if (url.endsWith('/chat/sessions')) await gate;
+        const route = routes.find((r) => url.endsWith(r.match) && r.method === (init?.method ?? 'GET'));
+        return new Response(JSON.stringify(route?.body ?? {}), { status: route?.status ?? 404 });
+      }),
+    );
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    useChatStore.getState().addUser('u0', 'прошлый вопрос'); // переписка уже есть — подсказок пустого чата нет
+    renderWithQuery(<ChatPanel />);
+    await ask('помоги');
+    expect(await screen.findByText('Отправляю вопрос…')).toBeInTheDocument();
+    act(() => vi.advanceTimersByTime(SLOW_SEND_MS + 10));
+    expect(await screen.findByText(SLOW_SEND_TEXT)).toBeInTheDocument();
+    release();
+    await waitFor(() => expect(screen.queryByText(SLOW_SEND_TEXT)).not.toBeInTheDocument());
+    expect(screen.getByText(/Бадди думает/)).toBeInTheDocument();
   });
 
   it('двойной клик по подсказке: одна сессия, один поток, ни один ответ не теряется', async () => {

@@ -125,7 +125,7 @@ func (h *Handlers) Ask(w http.ResponseWriter, r *http.Request) {
 	}
 	var body askReq
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
-		writeError(w, http.StatusBadRequest, "bad_request", "invalid json")
+		badBody(w, err)
 		return
 	}
 	if !validQuestion(w, body.Q()) {
@@ -197,7 +197,7 @@ func (h *Handlers) OnboardingStepUpdate(w http.ResponseWriter, r *http.Request) 
 	// Тело необязательно; если передан status — поддерживаем только done.
 	var body stepReq
 	if err := decodeOptional(r, &body); err != nil {
-		writeError(w, http.StatusBadRequest, "bad_request", "invalid json")
+		badBody(w, err)
 		return
 	}
 	if body.Status != "" && body.Status != store.StepDone {

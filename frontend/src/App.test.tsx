@@ -75,6 +75,17 @@ describe('App', () => {
     }
   });
 
+  it('пока /me не ответил, наставнику не показывается стол стажёра (роль — по логину)', async () => {
+    useChatStore.getState().setUser('mentor.backend');
+    const spy = mockFetch([{ match: '/api/v1/team/progress', body: [] }]); // /me → 404
+    renderWithQuery(<App />);
+    expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent('Кабинет команды');
+    expect(screen.queryByRole('button', { name: /Открыть план/ })).not.toBeInTheDocument();
+    await waitFor(() => expect(spy).toHaveBeenCalled());
+    // запросы стажёра (на них сервер ответил бы наставнику 403) не уходят
+    expect(spy.mock.calls.some(([u]) => /\/pulse\/me|\/achievements|\/onboarding\/progress/.test(String(u)))).toBe(false);
+  });
+
   it('руководителю вместо плана адаптации показывается кабинет команды', async () => {
     useChatStore.getState().setUser('lead.backend');
     mockFetch([

@@ -25,8 +25,16 @@ func (t *AbsenceCreateRequest) Run(ctx context.Context, u auth.User, args map[st
 	if from == "" || to == "" {
 		return Result{}, errors.New("dateFrom and dateTo required")
 	}
+	// Прямой вызов инструмента (в обход черновика) проверяется теми же правилами, что и POST /actions,
+	// и заявка привязывается к команде: без team_id руководитель её не увидит и не согласует.
+	if err := store.ValidateAbsenceDates(from, to, time.Now()); err != nil {
+		return Result{}, err
+	}
+	if len([]rune(args["reason"])) > store.MaxReasonRunes {
+		return Result{}, errors.New("reason too long (max 500 chars)")
+	}
 	a := store.Absence{
-		ID: t.S.NextAbsenceID(), UserID: u.ID,
+		ID: t.S.NextAbsenceID(), UserID: u.ID, TeamID: u.TeamID, Type: store.ActionAbsence,
 		DateFrom: from, DateTo: to, Reason: args["reason"],
 		Status: "pending", CreatedAt: time.Now(),
 	}

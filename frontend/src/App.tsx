@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { api, setDemoUser } from './api/client';
 import { ChatPanel, PROBLEM_PREFIX } from './features/chat/ChatPanel';
@@ -9,7 +9,7 @@ import { ProgressPanel } from './features/progress/ProgressPanel';
 import { Sidebar } from './features/shell/Sidebar';
 import { defaultView, viewsFor, type ViewId } from './features/shell/views';
 import { TeamPanel } from './features/team/TeamPanel';
-import { useChatStore } from './store/chat';
+import { guessRole, useChatStore } from './store/chat';
 
 const SUBTITLES: Partial<Record<ViewId, string>> = {
   desk: 'Начните с карточки или спросите Бадди своими словами',
@@ -30,7 +30,8 @@ export function App() {
   useEffect(() => setDemoUser(user), [user]);
 
   const me = useQuery({ queryKey: ['me', user], queryFn: api.me });
-  const role = me.data?.role;
+  // пока /me грузится после смены учётки — роль по логину, чтобы не мелькал чужой экран
+  const role = me.data?.role ?? guessRole(user);
   const isTeamView = role === 'buddy' || role === 'lead';
 
   // раздел; при смене учётки возвращаемся на стартовый (чат стажёра или кабинет команды)
@@ -41,6 +42,21 @@ export function App() {
   const current = views.find((v) => v.id === active) ?? views[0];
   const chatView: ViewId = isTeamView ? 'chat' : 'desk';
   const chatVisible = active === chatView;
+
+  // смена раздела или учётки — рабочая область с начала: после кабинета руководителя
+  // стол стажёра не должен открываться прокрученным к чату
+  const workspaceRef = useRef<HTMLElement>(null);
+  useEffect(() => {
+    const ws = workspaceRef.current;
+    if (!ws) return;
+    ws.scrollTop = 0;
+    if (window.scrollY > 0) window.scrollTo(0, 0);
+    // «Сообщить наставнику» ставит фокус в поле ввода — оно должно остаться на экране
+    const focused = document.activeElement;
+    if (focused instanceof HTMLElement && focused !== document.body && ws.contains(focused)) {
+      focused.scrollIntoView?.({ block: 'nearest' });
+    }
+  }, [active, user]);
 
   const openChat = (text = '') => {
     setView(chatView);
@@ -65,7 +81,7 @@ export function App() {
           onReport={report}
         />
 
-        <main className="workspace">
+        <main className="workspace" ref={workspaceRef}>
           {/* Навигация — только боковое меню: вкладки над контентом дублировали его один в один */}
           <header className="workspace__head">
             <div className="workspace__titles">
@@ -74,9 +90,13 @@ export function App() {
             </div>
           </header>
 
-          <div className={`workspace__body${chatVisible ? ' workspace__body--chat' : ''}`}>
+          <div
+            className={`workspace__body${chatVisible ? ' workspace__body--chat' : ''}${
+              active === 'desk' && !isTeamView ? ' workspace__body--desk' : ''
+            }`}
+          >
             {!isTeamView && (
-              <div hidden={active !== 'desk'}>
+              <div className="desk-slot" hidden={active !== 'desk'}>
                 <Desk onOpenPlan={() => setView('plan')} onOpenActions={() => setView('actions')} onReport={report} />
               </div>
             )}

@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api, ApiError } from '../../api/client';
 import type { ChecklistItem } from '../../api/schemas';
+import { useGuard } from '../../components/useGuard';
 import { useChatStore } from '../../store/chat';
 import { actionTitle } from '../progress/MyActions';
 import { TeamPulse } from './TeamPulse';
@@ -85,6 +86,11 @@ export function TeamPanel({ role }: Props) {
     },
   });
 
+  // двойной клик по «Согласовать» / «Разобрано» не отправляет решение дважды (второе — 409 и ошибка)
+  const guard = useGuard();
+  const decideOnce = (id: string, title: string, decision: 'approve' | 'reject') =>
+    guard((done) => decide.mutate({ id, title, decision, comment: comments[id] ?? '' }, { onSettled: done }));
+
   if (pending.isError || progress.isError)
     return (
       <aside className="sheet sheet--state">
@@ -103,6 +109,67 @@ export function TeamPanel({ role }: Props) {
   const nameOf = (id?: string) => interns.find((i) => i.user.id === id)?.user.name ?? id ?? 'стажёр';
   const inbox = pending.data ?? [];
   const openSignals = (signals.data ?? []).filter((s) => !s.done).length;
+
+  // руководителю заявки — сразу под сводкой: решение в один клик без прокрутки; наставнику — после сигналов
+  const approvals = (
+    <section className="block">
+      <h3 className="block__title">Заявки на согласование</h3>
+      {!canDecide && inbox.length > 0 && (
+        <p className="block__note">Решение принимает руководитель команды — здесь видно, что ждёт согласования.</p>
+      )}
+      {inbox.length === 0 && <p className="block__note">Новых заявок нет.</p>}
+      <ul className="ledger">
+        {inbox.map((a) => (
+          <li key={a.id} className="ledger__row ledger__row--request">
+            <div className="ledger__main">
+              <span className="ledger__title">{actionTitle(a)}</span>
+              <span className="ledger__id">{a.id}</span>
+              <span className="ledger__who">{nameOf(a.user_id)}</span>
+            </div>
+            {canDecide && (
+              <>
+                <input
+                  className="comment"
+                  aria-label={`Комментарий к заявке ${a.id}`}
+                  placeholder="Комментарий стажёру, необязательно"
+                  value={comments[a.id] ?? ''}
+                  onChange={(e) => setComment(a.id, e.target.value)}
+                  maxLength={500}
+                />
+                <div className="ledger__actions">
+                  <button
+                    className="btn btn--small btn--primary"
+                    onClick={() => decideOnce(a.id, actionTitle(a), 'approve')}
+                    disabled={decide.isPending}
+                    aria-label={`Согласовать ${a.id}`}
+                  >
+                    Согласовать
+                  </button>
+                  <button
+                    className="btn btn--small btn--ghost"
+                    onClick={() => decideOnce(a.id, actionTitle(a), 'reject')}
+                    disabled={decide.isPending}
+                    aria-label={`Отклонить ${a.id}`}
+                  >
+                    Отклонить
+                  </button>
+                </div>
+              </>
+            )}
+          </li>
+        ))}
+      </ul>
+      {/* живой регион есть всегда — так экранный диктор надёжно озвучит появившийся текст */}
+      <p className="decided" role="status">
+        {decided}
+      </p>
+      {decide.isError && (
+        <div className="error" role="alert">
+          {(decide.error as Error).message}
+        </div>
+      )}
+    </section>
+  );
 
   return (
     <aside className="sheet" aria-label="Кабинет команды">
@@ -141,6 +208,8 @@ export function TeamPanel({ role }: Props) {
         </dl>
       )}
 
+      {canDecide && approvals}
+
       {signals.data && (
         <section className="block">
           <h3 className="block__title">
@@ -162,7 +231,7 @@ export function TeamPanel({ role }: Props) {
                   {!s.done ? (
                     <button
                       className="btn btn--link"
-                      onClick={() => resolve.mutate(s.id)}
+                      onClick={() => guard((done) => resolve.mutate(s.id, { onSettled: done }))}
                       disabled={resolve.isPending}
                       aria-label={`Отметить ${s.id} разобранным`}
                     >
@@ -180,67 +249,7 @@ export function TeamPanel({ role }: Props) {
 
       <TeamPulse refetchInterval={TEAM_REFRESH_MS} />
 
-      <section className="block">
-        <h3 className="block__title">Заявки на согласование</h3>
-        {!canDecide && inbox.length > 0 && (
-          <p className="block__note">Решение принимает руководитель команды — здесь видно, что ждёт согласования.</p>
-        )}
-        {inbox.length === 0 && <p className="block__note">Новых заявок нет.</p>}
-        <ul className="ledger">
-          {inbox.map((a) => (
-            <li key={a.id} className="ledger__row ledger__row--request">
-              <div className="ledger__main">
-                <span className="ledger__title">{actionTitle(a)}</span>
-                <span className="ledger__id">{a.id}</span>
-                <span className="ledger__who">{nameOf(a.user_id)}</span>
-              </div>
-              {canDecide && (
-                <>
-                  <input
-                    className="comment"
-                    aria-label={`Комментарий к заявке ${a.id}`}
-                    placeholder="Комментарий стажёру, необязательно"
-                    value={comments[a.id] ?? ''}
-                    onChange={(e) => setComment(a.id, e.target.value)}
-                    maxLength={500}
-                  />
-                  <div className="ledger__actions">
-                    <button
-                      className="btn btn--small btn--primary"
-                      onClick={() =>
-                        decide.mutate({ id: a.id, title: actionTitle(a), decision: 'approve', comment: comments[a.id] ?? '' })
-                      }
-                      disabled={decide.isPending}
-                      aria-label={`Согласовать ${a.id}`}
-                    >
-                      Согласовать
-                    </button>
-                    <button
-                      className="btn btn--small btn--ghost"
-                      onClick={() =>
-                        decide.mutate({ id: a.id, title: actionTitle(a), decision: 'reject', comment: comments[a.id] ?? '' })
-                      }
-                      disabled={decide.isPending}
-                      aria-label={`Отклонить ${a.id}`}
-                    >
-                      Отклонить
-                    </button>
-                  </div>
-                </>
-              )}
-            </li>
-          ))}
-        </ul>
-        {/* живой регион есть всегда — так экранный диктор надёжно озвучит появившийся текст */}
-        <p className="decided" role="status">
-          {decided}
-        </p>
-        {decide.isError && (
-          <div className="error" role="alert">
-            {(decide.error as Error).message}
-          </div>
-        )}
-      </section>
+      {!canDecide && approvals}
 
       <section className="block">
         <h3 className="block__title">Стажёры команды</h3>

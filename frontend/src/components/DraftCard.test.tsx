@@ -1,4 +1,4 @@
-import { screen, waitFor } from '@testing-library/react';
+import { fireEvent, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { DraftCard } from './DraftCard';
 import { mockFetch, renderWithQuery } from '../test/utils';
@@ -38,6 +38,18 @@ describe('DraftCard', () => {
       date_from: '2026-11-20',
       date_to: '2026-11-21',
     });
+  });
+
+  it('двойной клик по «Отправить заявку» подтверждает черновик один раз (без 409 и ошибки)', async () => {
+    const spy = mockFetch([
+      { method: 'POST', match: '/api/v1/actions/REQ-000001/confirm', body: { ...absence('pending'), id: 'REQ-000001', type: 'access', resource: 'gitlab' } },
+    ]);
+    renderWithQuery(<DraftCard action="access" args={{ resource: 'gitlab', action_id: 'REQ-000001' }} />);
+    const btn = screen.getByRole('button', { name: 'Отправить заявку' });
+    fireEvent.click(btn);
+    fireEvent.click(btn); // второй клик того же двойного клика — до перерисовки
+    expect(await screen.findByText(/Заявка REQ-000001 отправлена/)).toBeInTheDocument();
+    expect(spy).toHaveBeenCalledTimes(1);
   });
 
   it('однодневный отгул: date_to берётся из date_from', async () => {

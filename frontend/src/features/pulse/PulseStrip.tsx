@@ -1,5 +1,7 @@
+import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '../../api/client';
+import { useGuard } from '../../components/useGuard';
 import { useChatStore } from '../../store/chat';
 import { PROBLEM_PREFIX } from '../chat/ChatPanel';
 import { MOODS, MoodFace, moodLabel } from './mood';
@@ -10,6 +12,9 @@ export const LOW_MOOD_TEXT =
   'Спасибо, что честно. Так бывает — давайте разгрузим день: расскажите наставнику, что мешает, или выберем с Бадди один следующий шаг.';
 export const HIGH_MOOD_TEXT = 'Здорово! Хороший день, чтобы закрыть следующий шаг плана.';
 export const MID_MOOD_TEXT = 'Принято. Если день изменится — отметьте заново.';
+/** Подтверждение после «Рассказать наставнику»: что наставник уже видит и что сделать дальше. */
+export const TOLD_TEXT =
+  'Наставник уже видит вашу отметку в «Пульсе команды». Допишите в чате, что мешает, — Бадди передаст сообщение.';
 
 /**
  * «Пульс» на рабочем столе: одна отметка самочувствия в день (можно поменять).
@@ -29,6 +34,9 @@ export function PulseStrip() {
       void qc.invalidateQueries({ queryKey: ['achievements', user] });
     },
   });
+
+  const guard = useGuard();
+  const [told, setTold] = useState(false);
 
   if (pulse.isError || pulse.isLoading || !pulse.data) return null;
 
@@ -50,7 +58,10 @@ export function PulseStrip() {
               className={`mood-btn${today === m.value ? ' mood-btn--on' : ''}`}
               aria-pressed={today === m.value}
               disabled={submit.isPending}
-              onClick={() => submit.mutate(m.value)}
+              onClick={() => {
+                setTold(false);
+                guard((done) => submit.mutate(m.value, { onSettled: done }));
+              }}
             >
               <MoodFace mood={m.value} size={22} />
               <span>{m.label}</span>
@@ -64,11 +75,18 @@ export function PulseStrip() {
           <>
             <p className="pulse__msg">
               <span className="pulse__today">Сегодня: {moodLabel(today)}.</span>{' '}
-              {today <= 2 ? LOW_MOOD_TEXT : today >= 4 ? HIGH_MOOD_TEXT : MID_MOOD_TEXT}
+              {today <= 2 ? (told ? TOLD_TEXT : LOW_MOOD_TEXT) : today >= 4 ? HIGH_MOOD_TEXT : MID_MOOD_TEXT}
             </p>
             {today <= 2 && (
               <div className="pulse__actions">
-                <button type="button" className="btn btn--small btn--primary" onClick={() => prefill(PROBLEM_PREFIX)}>
+                <button
+                  type="button"
+                  className="btn btn--small btn--primary"
+                  onClick={() => {
+                    setTold(true);
+                    prefill(PROBLEM_PREFIX);
+                  }}
+                >
                   Рассказать наставнику
                 </button>
                 <button type="button" className="btn btn--small btn--ghost" onClick={() => ask(NEXT_STEP_QUESTION)}>

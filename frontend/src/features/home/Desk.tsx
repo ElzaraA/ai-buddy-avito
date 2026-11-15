@@ -99,43 +99,46 @@ export function Desk({ onOpenPlan, onOpenActions, onReport }: Props) {
     <div className="desk">
       {/* «Пульс» и «Достижения» необязательны: если сервер их не отдаёт, блоки просто не показываются */}
       <PulseStrip />
-      <ul className="desk-cards" aria-label="Коротко о главном">
-        <DeskCard
-          tone="green"
-          tag="Мой план"
-          title={nextTitle}
-          text={p ? 'Следующий шаг в плане адаптации' : 'Чек-лист первых недель'}
-          pill="Открыть план"
-          meta={p ? `пройдено ${pct}%` : ''}
-          label={`Следующий шаг: ${nextTitle}. Открыть план`}
-          onClick={onOpenPlan}
-        >
-          <span className="desk-card__meter" aria-hidden>
-            <span style={{ width: `${pct}%` }} />
-          </span>
-        </DeskCard>
-        <DeskCard
-          tone="blue"
-          tag="Мои заявки"
-          title={actionsTitle}
-          text={actionsText}
-          pill={drafts > 0 ? 'Проверить' : 'Открыть'}
-          meta={actions.data ? `всего ${list.length}` : ''}
-          label={`Мои заявки: ${actionsTitle}. Открыть заявки`}
-          onClick={onOpenActions}
-        />
-        <DeskCard
-          tone="pink"
-          tag="Нужна помощь?"
-          title="Застряли или что-то не работает"
-          text="Напишите пару слов — Бадди передаст наставнику"
-          pill="Сообщить"
-          meta="наставнику"
-          label="Нужна помощь? Сообщить наставнику"
-          onClick={onReport}
-        />
-      </ul>
-      <Achievements />
+      {/* на широком экране — колонка слева от чата, чтобы поле ввода было видно без прокрутки */}
+      <div className="desk__rail">
+        <ul className="desk-cards" aria-label="Коротко о главном">
+          <DeskCard
+            tone="green"
+            tag="Мой план"
+            title={nextTitle}
+            text={p ? 'Следующий шаг в плане адаптации' : 'Чек-лист первых недель'}
+            pill="Открыть план"
+            meta={p ? `пройдено ${pct}%` : ''}
+            label={`Следующий шаг: ${nextTitle}. Открыть план`}
+            onClick={onOpenPlan}
+          >
+            <span className="desk-card__meter" aria-hidden>
+              <span style={{ width: `${pct}%` }} />
+            </span>
+          </DeskCard>
+          <DeskCard
+            tone="blue"
+            tag="Мои заявки"
+            title={actionsTitle}
+            text={actionsText}
+            pill={drafts > 0 ? 'Проверить' : 'Открыть'}
+            meta={actions.data ? `всего ${list.length}` : ''}
+            label={`Мои заявки: ${actionsTitle}. Открыть заявки`}
+            onClick={onOpenActions}
+          />
+          <DeskCard
+            tone="pink"
+            tag="Нужна помощь?"
+            title="Застряли или что-то не работает"
+            text="Напишите пару слов — Бадди передаст наставнику"
+            pill="Сообщить"
+            meta="наставнику"
+            label="Нужна помощь? Сообщить наставнику"
+            onClick={onReport}
+          />
+        </ul>
+        <Achievements />
+      </div>
     </div>
   );
 }

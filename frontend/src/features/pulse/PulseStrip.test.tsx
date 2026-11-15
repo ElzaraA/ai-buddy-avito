@@ -1,6 +1,6 @@
 import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { PulseStrip } from './PulseStrip';
+import { PulseStrip, TOLD_TEXT } from './PulseStrip';
 import { useChatStore } from '../../store/chat';
 import { mockFetch, renderWithQuery } from '../../test/utils';
 
@@ -32,6 +32,8 @@ describe('PulseStrip', () => {
 
     await userEvent.click(screen.getByRole('button', { name: 'Рассказать наставнику' }));
     expect(useChatStore.getState().composer?.text).toBe('Передай наставнику: ');
+    // подтверждение: наставник уже видит отметку, подробности — по желанию стажёра
+    expect(screen.getByText(TOLD_TEXT)).toBeInTheDocument();
     await userEvent.click(screen.getByRole('button', { name: 'Что мне делать дальше?' }));
     expect(useChatStore.getState().queued?.text).toBe('Что мне делать дальше?');
   });

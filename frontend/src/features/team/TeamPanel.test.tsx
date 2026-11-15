@@ -1,4 +1,4 @@
-import { screen, waitFor } from '@testing-library/react';
+import { fireEvent, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { TeamPanel } from './TeamPanel';
 import { mockFetch, renderWithQuery } from '../../test/utils';
@@ -77,6 +77,39 @@ describe('TeamPanel', () => {
     expect(screen.getByRole('status')).toHaveTextContent(
       'Отгул 15.01.2030 – 16.01.2030 (ABS-000001) согласована. Стажёр увидит решение и ваш комментарий',
     );
+  });
+
+  it('руководителю заявки на согласование — выше сигналов; наставнику — после них', async () => {
+    const routes = [
+      ...base,
+      { match: '/api/v1/team/actions?status=pending', body: [absence] },
+      { match: '/api/v1/team/signals', body: [] },
+    ];
+    const order = async (role: string) => {
+      mockFetch(routes);
+      const { unmount } = renderWithQuery(<TeamPanel role={role} />);
+      await screen.findByText('Стажёры просят помощи');
+      const titles = screen.getAllByRole('heading', { level: 3 }).map((h) => h.textContent ?? '');
+      unmount();
+      return titles.indexOf('Заявки на согласование') < titles.findIndex((t) => t.startsWith('Стажёры просят помощи'));
+    };
+    expect(await order('lead')).toBe(true);
+    expect(await order('buddy')).toBe(false);
+  });
+
+  it('двойной клик по «Согласовать» отправляет решение один раз', async () => {
+    const spy = mockFetch([
+      ...base,
+      { match: '/api/v1/team/actions?status=pending', body: [absence] },
+      { method: 'POST', match: '/api/v1/actions/ABS-000001/approve', body: { ...absence, status: 'approved' } },
+    ]);
+    renderWithQuery(<TeamPanel role="lead" />);
+    const btn = await screen.findByRole('button', { name: 'Согласовать ABS-000001' });
+    fireEvent.click(btn);
+    fireEvent.click(btn);
+    await waitFor(() => expect(screen.getByRole('status')).toHaveTextContent('(ABS-000001) согласована'));
+    expect(spy.mock.calls.filter(([u]) => String(u).endsWith('/approve'))).toHaveLength(1);
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
   });
 
   it('комментарий уходит только с той заявкой, у которой он написан', async () => {

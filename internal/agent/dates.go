@@ -136,6 +136,37 @@ func InvalidISODate(q string) string {
 	return ""
 }
 
+// InvalidDate — несуществующая дата из запроса в любом поддерживаемом виде: «2026-02-30», «30.02», «31 апреля».
+// Без неё стажёр на «отгул 30.02» получал вопрос «на какую дату?» без объяснения, что не так.
+func InvalidDate(q string) string {
+	if bad := InvalidISODate(q); bad != "" {
+		return bad
+	}
+	low := strings.ToLower(q)
+	exists := func(day, month int) bool {
+		if month < 1 || month > 12 || day < 1 || day > 31 {
+			return false
+		}
+		// 2024 — високосный: 29 февраля существует хотя бы в некоторые годы.
+		d := time.Date(2024, time.Month(month), day, 0, 0, 0, 0, time.UTC)
+		return d.Day() == day
+	}
+	for _, m := range dotDateRe.FindAllStringSubmatchIndex(low, -1) {
+		day, month := atoi(low[m[2]:m[3]]), atoi(low[m[4]:m[5]])
+		if month >= 1 && month <= 12 && !exists(day, month) {
+			return low[m[2]:m[5]]
+		}
+	}
+	for _, m := range monthDateRe.FindAllStringSubmatchIndex(low, -1) {
+		month := monthIndex(low[m[6]:m[7]])
+		day := atoi(low[m[2]:m[3]])
+		if !exists(day, month) {
+			return strconv.Itoa(day) + " " + monthGenitive[month-1]
+		}
+	}
+	return ""
+}
+
 func firstTwo(valid []string) (string, string) {
 	switch len(valid) {
 	case 0:

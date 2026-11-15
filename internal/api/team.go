@@ -45,8 +45,14 @@ func (h *Handlers) TeamActions(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	status := r.URL.Query().Get("status")
-	if status == store.StatusDraft {
+	switch status {
+	case "", store.StatusPending, store.StatusApproved, store.StatusRejected, store.StatusCancelled:
+	case store.StatusDraft:
 		writeError(w, http.StatusForbidden, "forbidden", "drafts are private")
+		return
+	default:
+		// Опечатка в фильтре («?status=pendng») раньше молча давала пустой список — как будто входящих нет.
+		writeError(w, http.StatusBadRequest, "bad_request", "status must be one of: pending, approved, rejected, cancelled")
 		return
 	}
 	writeJSON(w, http.StatusOK, h.Store.ListByTeam(u.TeamID, status))

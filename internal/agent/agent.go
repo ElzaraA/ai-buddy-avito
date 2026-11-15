@@ -491,7 +491,7 @@ func (a *Agent) absenceDraft(c contacts, question string, args map[string]string
 		base.Args = map[string]string{"reason": "personal"}
 		example := HumanDate(a.now().AddDate(0, 0, 7))
 		base.Text = "На какую дату оформить отгул? Напишите, например, «" + example + "», «20.11» или «в пятницу». Согласует руководитель — " + c.Manager + "."
-		if bad := InvalidISODate(question); bad != "" {
+		if bad := InvalidDate(question); bad != "" {
 			base.Text = "Даты " + bad + " не существует. " + base.Text
 		}
 		return base
@@ -504,6 +504,10 @@ func (a *Agent) absenceDraft(c contacts, question string, args map[string]string
 	// Те же правила, что у POST /actions: отгул не длиннее 30 дней.
 	if err := store.ValidateAbsenceDates(from, to, a.now()); err != nil {
 		base.Args = map[string]string{"reason": "personal"}
+		if errors.Is(err, store.ErrTooFarAhead) {
+			base.Text = "Дата " + from + " слишком далеко: отгул можно оформить не дальше чем на 5 лет вперёд. Проверьте год — на какую дату оформить отгул?"
+			return base
+		}
 		base.Text = "Отгул можно оформить не больше чем на 30 дней подряд. Для более долгого отсутствия обратитесь к руководителю — " + c.Manager + ". На какие даты оформить отгул?"
 		return base
 	}

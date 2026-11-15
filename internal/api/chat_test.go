@@ -330,8 +330,12 @@ func TestChatBadInput(t *testing.T) {
 func TestBodyLimit(t *testing.T) {
 	srv := newChatServer(t)
 	big := `{"question":"` + strings.Repeat("a", maxBodyBytes+10) + `"}`
-	if res, _ := call(t, "POST", srv.URL+"/api/ask", "intern.backend", big); res.StatusCode != 400 {
-		t.Fatalf("want 400 for oversized body, got %d", res.StatusCode)
+	// Слишком большое тело — 413 payload_too_large (а не «invalid json»), на всех маршрутах с телом.
+	for _, p := range []string{"/api/ask", "/api/v1/actions", "/api/v1/pulse"} {
+		res, body := call(t, "POST", srv.URL+p, "intern.backend", big)
+		if res.StatusCode != 413 || !strings.Contains(string(body), `"code":"payload_too_large"`) {
+			t.Fatalf("%s: want 413 payload_too_large for oversized body, got %d %s", p, res.StatusCode, body)
+		}
 	}
 }
 

@@ -127,7 +127,7 @@ func (h *ChatHandlers) SendMessage(w http.ResponseWriter, r *http.Request) {
 	}
 	var body sendMessageReq
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
-		writeError(w, http.StatusBadRequest, "bad_request", "invalid json")
+		badBody(w, err)
 		return
 	}
 	text := strings.TrimSpace(body.Q())

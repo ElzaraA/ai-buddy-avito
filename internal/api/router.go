@@ -15,6 +15,9 @@ func NewRouter(h *Handlers) *chi.Mux {
 
 func NewRouterWithOrigins(h *Handlers, origins []string) *chi.Mux {
 	r := chi.NewRouter()
+	// Неизвестный маршрут и метод — в общем формате {error:{code,message}} (задаётся до Route, чтобы унаследовали подроутеры).
+	r.NotFound(notFound)
+	r.MethodNotAllowed(methodNotAllowed)
 	r.Use(middleware.RequestID)
 	r.Use(middleware.Recoverer)
 	r.Use(Observe(h.Metrics))
@@ -42,16 +45,18 @@ func NewRouterWithOrigins(h *Handlers, origins []string) *chi.Mux {
 			r.Get("/me", h.Me)
 
 			r.Get("/onboarding/progress", h.OnboardingProgress)
-			r.Patch("/onboarding/steps/{id}", h.OnboardingStepUpdate)
+			// Все изменяющие маршруты — под WriteLimiter (защита от «залипшей» кнопки и флуда).
+			wl := h.WriteLimiter.Middleware
+			r.With(wl).Patch("/onboarding/steps/{id}", h.OnboardingStepUpdate)
 
 			// Действия: черновик → подтверждение → решение руководителя
 			r.Get("/actions", h.ListActions)
-			r.With(h.WriteLimiter.Middleware).Post("/actions", h.CreateAction)
+			r.With(wl).Post("/actions", h.CreateAction)
 			r.Get("/actions/{id}", h.GetAction)
-			r.Post("/actions/{id}/confirm", h.ConfirmAction)
-			r.Post("/actions/{id}/cancel", h.CancelAction)
-			r.Post("/actions/{id}/approve", h.ApproveAction)
-			r.Post("/actions/{id}/reject", h.RejectAction)
+			r.With(wl).Post("/actions/{id}/confirm", h.ConfirmAction)
+			r.With(wl).Post("/actions/{id}/cancel", h.CancelAction)
+			r.With(wl).Post("/actions/{id}/approve", h.ApproveAction)
+			r.With(wl).Post("/actions/{id}/reject", h.RejectAction)
 
 			// Кабинет наставника и руководителя
 			r.Get("/team/progress", h.TeamProgress)
@@ -59,7 +64,7 @@ func NewRouterWithOrigins(h *Handlers, origins []string) *chi.Mux {
 			r.Get("/team/knowledge-gaps", h.TeamKnowledgeGaps)
 			r.Get("/team/summary", h.TeamSummary)
 			r.Get("/team/signals", h.TeamSignals)
-			r.Post("/team/signals/{id}/resolve", h.ResolveSignal)
+			r.With(wl).Post("/team/signals/{id}/resolve", h.ResolveSignal)
 			r.Get("/team/pulse", h.TeamPulse)
 
 			// «Пульс» и достижения стажёра

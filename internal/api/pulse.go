@@ -43,7 +43,7 @@ func (h *Handlers) SubmitPulse(w http.ResponseWriter, r *http.Request) {
 	}
 	var body pulseReq
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
-		writeError(w, http.StatusBadRequest, "bad_request", "invalid json")
+		badBody(w, err)
 		return
 	}
 	if body.Mood < store.MinMood || body.Mood > store.MaxMood {

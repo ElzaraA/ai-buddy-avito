@@ -41,6 +41,8 @@ export function useChat() {
             if (result.type === 'action') qc.invalidateQueries({ queryKey: ['progress'] });
             // черновик заявки уже сохранён на сервере — карточка «Мои заявки» на столе должна обновиться сразу
             if (result.type === 'action' || result.type === 'draft') qc.invalidateQueries({ queryKey: ['actions'] });
+            // «Первый вопрос», «Смелость спросить» загораются сразу после ответа, а не через интервал опроса
+            qc.invalidateQueries({ queryKey: ['achievements'] });
           } else if (status !== 'done') {
             fail(message_id, 'Бадди не смог ответить. Попробуйте ещё раз.');
           }

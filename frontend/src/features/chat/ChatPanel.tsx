@@ -29,6 +29,9 @@ export const FOLLOW_UPS = ['Что мне делать дальше?', 'Как �
 
 export const PROBLEM_PREFIX = 'Передай наставнику: ';
 
+export const SLOW_SEND_MS = 4000;
+export const SLOW_SEND_TEXT = 'Отправляю вопрос… Сервер просыпается после простоя — это может занять до минуты.';
+
 /** staff — наставник или руководитель: подсказки и вход «сообщить наставнику» нужны только стажёру. */
 export function ChatPanel({ staff = false }: { staff?: boolean }) {
   const messages = useChatStore((s) => s.messages);
@@ -72,6 +75,17 @@ export function ChatPanel({ staff = false }: { staff?: boolean }) {
     if (!list || messages.length === 0) return;
     list.scrollTop = list.scrollHeight;
   }, [messages]);
+
+  // сервер не принял вопрос за SLOW_SEND_MS — скорее всего, бесплатный хостинг просыпается
+  const [slow, setSlow] = useState(false);
+  useEffect(() => {
+    if (!sending) {
+      setSlow(false);
+      return;
+    }
+    const t = setTimeout(() => setSlow(true), SLOW_SEND_MS);
+    return () => clearTimeout(t);
+  }, [sending]);
 
   const submit = (e: FormEvent) => {
     e.preventDefault();
@@ -122,11 +136,6 @@ export function ChatPanel({ staff = false }: { staff?: boolean }) {
                 </div>
               ))}
             </div>
-            {sending && (
-              <p className="muted" role="status">
-                Отправляю вопрос…
-              </p>
-            )}
           </div>
         )}
 
@@ -155,6 +164,13 @@ export function ChatPanel({ staff = false }: { staff?: boolean }) {
           );
         })}
       </div>
+
+      {/* вопрос ещё не принят сервером (поле уже очищено) — показываем, что он в пути, и при холодном старте */}
+      {sending && (
+        <p className="muted chat__sending" role="status">
+          {slow ? SLOW_SEND_TEXT : 'Отправляю вопрос…'}
+        </p>
+      )}
 
       {connectError && (
         <div className="error" role="alert">

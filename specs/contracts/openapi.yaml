@@ -13,7 +13,9 @@ info:
     запросы без `Origin` (curl, MCP-клиенты) и GET не затрагиваются.
     Тестовые логины: intern.backend, intern.junior, intern.other, mentor.backend, lead.backend, lead.frontend.
 
-    Ошибки всегда в формате `{"error":{"code","message"}}`.
+    Ошибки всегда в формате `{"error":{"code","message"}}` — в том числе неизвестный маршрут (404 not_found),
+    неподдерживаемый метод (405 method_not_allowed) и тело больше 64 KiB (413 payload_too_large).
+    Все изменяющие маршруты ограничены по частоте на пользователя (RATE_LIMIT_PER_MIN) — 429 rate_limited с Retry-After.
 servers:
   - url: http://localhost:8080/api/v1
 
@@ -97,6 +99,8 @@ paths:
                   status: { type: string, enum: [pending] }
         '400': { $ref: '#/components/responses/Error' }
         '403': { $ref: '#/components/responses/Error' }
+        '413': { $ref: '#/components/responses/Error' }
+        '429': { description: 'rate_limited (лимит в минуту или 3 ответа уже в работе) или session_full (200 сообщений)', content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
 
   /chat/sessions/{sessionId}/events:
     get:
@@ -129,13 +133,15 @@ paths:
               required: [type]
               properties:
                 type: { type: string, enum: [absence, access] }
-                date_from: { type: string, format: date, description: обязательно для absence }
-                date_to: { type: string, format: date, description: обязательно для absence, >= date_from }
+                date_from: { type: string, format: date, description: 'обязательно для absence; не в прошлом и не дальше 5 лет вперёд' }
+                date_to: { type: string, format: date, description: 'обязательно для absence, >= date_from' }
                 resource: { type: string, description: обязательно для access }
                 reason: { type: string }
       responses:
         '201': { description: Created, content: { application/json: { schema: { $ref: '#/components/schemas/Action' } } } }
         '400': { $ref: '#/components/responses/Error' }
+        '413': { $ref: '#/components/responses/Error' }
+        '429': { description: 'rate_limited или too_many_drafts (больше 50 неподтверждённых черновиков)', content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
 
   /actions/{actionId}:
     get:
@@ -151,11 +157,13 @@ paths:
     post:
       summary: |
         Подтвердить черновик (draft → pending). Атомарно: при параллельных запросах успешен ровно один,
-        остальные — 409. Проверяются владелец (403) и право роли (absence.create / access.request).
+        остальные — 409 (также 409 для отменённого черновика). Проверяются владелец (403) и право роли
+        (absence.create / access.request); устаревший черновик (дата уже прошла) — 400.
       parameters:
         - { name: actionId, in: path, required: true, schema: { type: string } }
       responses:
         '200': { description: OK, content: { application/json: { schema: { $ref: '#/components/schemas/Action' } } } }
+        '400': { $ref: '#/components/responses/Error' }
         '403': { $ref: '#/components/responses/Error' }
         '404': { $ref: '#/components/responses/Error' }
         '409': { $ref: '#/components/responses/Error' }
@@ -198,7 +206,9 @@ paths:
         content: { application/json: { schema: { $ref: '#/components/schemas/Decision' } } }
       responses:
         '200': { description: OK, content: { application/json: { schema: { $ref: '#/components/schemas/Action' } } } }
+        '400': { $ref: '#/components/responses/Error' }
         '403': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
         '409': { $ref: '#/components/responses/Error' }
 
   /team/progress:
@@ -224,7 +234,41 @@ paths:
         - { name: status, in: query, required: false, schema: { type: string, enum: [pending, approved, rejected, cancelled] } }
       responses:
         '200': { description: OK, content: { application/json: { schema: { type: array, items: { $ref: '#/components/schemas/Action' } } } } }
+        '400': { description: неизвестный status, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+        '403': { description: 'стажёру; или status=draft (черновики приватны)', content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+
+  /team/signals:
+    get:
+      summary: Сообщения стажёров своей команды наставнику «что-то не так» (именные; открытые сверху, затем разобранные; стажёру — 403)
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  required: [id, user_id, text, topic, at, done]
+                  properties:
+                    id: { type: string, example: SIG-000001 }
+                    user_id: { type: string }
+                    text: { type: string, description: 'до 500 символов, персональные данные маскируются' }
+                    topic: { type: string, enum: [blocked, tech, unclear, other] }
+                    at: { type: string, format: date-time }
+                    done: { type: boolean }
         '403': { $ref: '#/components/responses/Error' }
+
+  /team/signals/{signalId}/resolve:
+    post:
+      summary: Наставник или руководитель отмечает сообщение своей команды разобранным (сигнал чужой команды — 404)
+      parameters:
+        - { name: signalId, in: path, required: true, schema: { type: string } }
+      responses:
+        '200': { description: OK, content: { application/json: { schema: { type: object, properties: { ok: { type: boolean } } } } } }
+        '403': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+        '429': { $ref: '#/components/responses/Error' }
 
   /team/knowledge-gaps:
     get:
@@ -313,6 +357,8 @@ paths:
         '200': { description: OK, content: { application/json: { schema: { $ref: '#/components/schemas/PulseEntry' } } } }
         '400': { $ref: '#/components/responses/Error' }
         '403': { $ref: '#/components/responses/Error' }
+        '413': { $ref: '#/components/responses/Error' }
+        '429': { $ref: '#/components/responses/Error' }
 
   /pulse/me:
     get:
@@ -359,6 +405,7 @@ paths:
       responses:
         '200': { description: OK, content: { application/json: { schema: { $ref: '#/components/schemas/AgentResponse' } } } }
         '400': { $ref: '#/components/responses/Error' }
+        '413': { $ref: '#/components/responses/Error' }
         '429': { $ref: '#/components/responses/Error' }
         '502': { $ref: '#/components/responses/Error' }
 
@@ -389,7 +436,7 @@ components:
           type: object
           required: [code, message]
           properties:
-            code: { type: string, enum: [bad_request, unauthorized, forbidden, not_found, conflict, rate_limited, agent_error, sse_unsupported] }
+            code: { type: string, enum: [bad_request, unauthorized, forbidden, not_found, method_not_allowed, conflict, payload_too_large, rate_limited, too_many_drafts, session_full, agent_error, sse_unsupported] }
             message: { type: string }
 
     Decision:

@@ -1,5 +1,6 @@
 import { screen, waitFor, within } from '@testing-library/react';
-import { Achievements } from './Achievements';
+import userEvent from '@testing-library/user-event';
+import { Achievements, recentUnlocked } from './Achievements';
 import { useChatStore } from '../../store/chat';
 import { mockFetch, renderWithQuery } from '../../test/utils';
 
@@ -31,8 +32,15 @@ describe('Achievements', () => {
     expect(await screen.findByRole('heading', { name: 'Достижения' })).toBeInTheDocument();
     expect(screen.getByText('получено 1 из 3')).toBeInTheDocument();
     expect(screen.getByText('Следующее: Первая заявка.')).toBeInTheDocument();
+    // свёрнуто: полученное видно значком в строке, полный список — по кнопке
+    expect(within(screen.getByRole('list', { name: 'Последние полученные' })).getByText('Первый вопрос')).toBeInTheDocument();
+    expect(screen.queryByRole('list', { name: 'Все достижения' })).not.toBeInTheDocument();
+    const toggle = screen.getByRole('button', { name: 'Все достижения' });
+    expect(toggle).toHaveAttribute('aria-expanded', 'false');
+    await userEvent.click(toggle);
+    expect(screen.getByRole('button', { name: 'Свернуть достижения' })).toHaveAttribute('aria-expanded', 'true');
 
-    const items = screen.getAllByRole('listitem');
+    const items = within(screen.getByRole('list', { name: 'Все достижения' })).getAllByRole('listitem');
     expect(items[0]).toHaveClass('badge-card--on');
     expect(within(items[0]).getByText(/^получено/)).toBeInTheDocument();
     expect(items[1]).toHaveClass('badge-card--next');
@@ -47,6 +55,17 @@ describe('Achievements', () => {
     renderWithQuery(<Achievements />);
     expect(await screen.findByText('Все достижения получены!')).toBeInTheDocument();
     expect(screen.queryByText(/Следующее:/)).not.toBeInTheDocument();
+  });
+
+  it('в свёрнутой строке — самые свежие полученные, не больше трёх', () => {
+    const list = [
+      { ...a('q', 'Первый вопрос', true), unlocked_at: '2026-11-10T10:00:00Z' },
+      { ...a('f', 'Первая заявка', true), unlocked_at: '2026-11-11T10:00:00Z' },
+      a('x', 'Закрытое', false),
+      { ...a('acc', 'Доступы получены', true), unlocked_at: '2026-11-12T10:00:00Z' },
+      { ...a('half', 'Половина пути', true), unlocked_at: '2026-11-12T10:00:00Z' },
+    ];
+    expect(recentUnlocked(list).map((x) => x.id)).toEqual(['acc', 'half', 'f']);
   });
 
   it('сервер без достижений — блок не показывается', async () => {

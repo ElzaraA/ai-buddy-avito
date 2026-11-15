@@ -3,6 +3,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../api/client';
 import type { Absence } from '../api/schemas';
 import { formatDate, resourceLabel, statusLabel } from './format';
+import { useGuard } from './useGuard';
 
 interface Props {
   /** absence | access */
@@ -43,6 +44,8 @@ export function DraftCard({ action = 'absence', args, text }: Props) {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['progress'] });
       qc.invalidateQueries({ queryKey: ['actions'] });
+      // «Первая заявка» загорается сразу, а не через интервал опроса
+      qc.invalidateQueries({ queryKey: ['achievements'] });
     },
   });
 
@@ -54,7 +57,11 @@ export function DraftCard({ action = 'absence', args, text }: Props) {
       qc.invalidateQueries({ queryKey: ['actions'] });
     },
   });
-  const onCancel = () => (actionId ? cancel.mutate() : setCancelled(true));
+  // один замок на обе кнопки: двойной клик или «Отправить» + «Отменить» подряд не уходят дважды
+  const guard = useGuard();
+  const onConfirm = () => guard((done) => confirm.mutate(undefined, { onSettled: done }));
+  const onCancel = () =>
+    actionId ? guard((done) => cancel.mutate(undefined, { onSettled: done })) : setCancelled(true);
   const busy = confirm.isPending || cancel.isPending;
 
   if (confirm.data) {
@@ -134,7 +141,7 @@ export function DraftCard({ action = 'absence', args, text }: Props) {
             </div>
           )}
           <div className="form__actions">
-            <button className="btn btn--primary" onClick={() => confirm.mutate()} disabled={busy}>
+            <button className="btn btn--primary" onClick={onConfirm} disabled={busy}>
               {confirm.isPending ? 'Отправляю…' : 'Отправить заявку'}
             </button>
             <button className="btn btn--ghost" onClick={onCancel} disabled={busy}>
