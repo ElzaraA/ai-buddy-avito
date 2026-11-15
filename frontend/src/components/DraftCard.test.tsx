@@ -106,12 +106,12 @@ describe('DraftCard', () => {
       },
     ]);
     renderWithQuery(<DraftCard action="access" args={{ action_id: 'REQ-000001', resource: 'gitlab' }} />);
-    expect(screen.getByText(/Черновик заявки на доступ к gitlab/)).toBeInTheDocument();
+    expect(screen.getByText(/Черновик заявки на доступ к GitLab/)).toBeInTheDocument();
     expect(screen.queryByText(/Даты:/)).not.toBeInTheDocument();
     await userEvent.click(screen.getByRole('button', { name: 'Отправить заявку' }));
     expect(await screen.findByText(/Заявка REQ-000001 отправлена/)).toBeInTheDocument();
     expect(screen.getByText('Доступ')).toBeInTheDocument();
-    expect(screen.getByText('gitlab')).toBeInTheDocument();
+    expect(screen.getByText('GitLab')).toBeInTheDocument();
     expect(screen.queryByText(/наставника лично/)).not.toBeInTheDocument();
     expect(spy).toHaveBeenCalledTimes(1);
   });
@@ -130,6 +130,6 @@ describe('DraftCard', () => {
     renderWithQuery(<DraftCard action="access" args={{ action_id: 'REQ-2', resource: 'jira' }} />);
     await userEvent.click(screen.getByRole('button', { name: 'Отправить заявку' }));
     await screen.findByText(/Заявка REQ-2 отправлена/);
-    expect(screen.getByText('jira')).toBeInTheDocument();
+    expect(screen.getByText('Jira')).toBeInTheDocument();
   });
 });

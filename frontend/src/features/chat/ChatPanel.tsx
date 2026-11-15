@@ -12,7 +12,7 @@ export const SUGGESTION_GROUPS: { title: string; hint: string; items: string[] }
   },
   {
     title: 'Оформить заявку',
-    hint: 'помощник заполнит её за вас',
+    hint: 'Бадди заполнит её за вас',
     items: ['Хочу взять отгул в пятницу', 'Запроси доступ в GitLab'],
   },
   {
@@ -34,7 +34,7 @@ export function ChatPanel({ staff = false }: { staff?: boolean }) {
   const messages = useChatStore((s) => s.messages);
   const { send, connectError, sending } = useChat();
   const [text, setText] = useState('');
-  const endRef = useRef<HTMLDivElement>(null);
+  const listRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
   // Подсказки следующего шага присылает сервер вместе с ответом; если их нет — общий набор.
@@ -65,8 +65,12 @@ export function ChatPanel({ staff = false }: { staff?: boolean }) {
     void send(queued.text);
   }, [queued, send, takeQueued]);
 
+  // Прокручиваем только ленту сообщений, а не страницу: scrollIntoView двигал всю рабочую область
+  // (на открытии — к низу пустого чата, при переходах — к полю ввода). Пустой чат не трогаем.
   useEffect(() => {
-    endRef.current?.scrollIntoView?.({ behavior: 'smooth' });
+    const list = listRef.current;
+    if (!list || messages.length === 0) return;
+    list.scrollTop = list.scrollHeight;
   }, [messages]);
 
   const submit = (e: FormEvent) => {
@@ -78,13 +82,13 @@ export function ChatPanel({ staff = false }: { staff?: boolean }) {
 
   return (
     <section className="chat" aria-label="Чат с AI-buddy">
-      <div className="chat__messages" aria-live="polite">
+      <div className="chat__messages" ref={listRef} aria-live="polite">
         {messages.length === 0 && staff && (
           <div className="empty">
-            <h2 className="empty__title">Кабинет команды — в меню слева</h2>
+            <h2 className="empty__title">Проверьте, как Бадди отвечает стажёрам</h2>
             <p className="empty__text">
-              Там стажёры, которые просят помощи, заявки на согласование и вопросы, которых нет в базе знаний. В чате
-              можно проверить, что помощник отвечает стажёрам.
+              Задайте вопрос так, как спросил бы стажёр. Просьбы о помощи, заявки на согласование и вопросы без ответа
+              собраны в разделе «Кабинет команды».
             </p>
           </div>
         )}
@@ -92,9 +96,9 @@ export function ChatPanel({ staff = false }: { staff?: boolean }) {
           <div className="empty">
             <h2 className="empty__title">Спросите здесь — до того, как писать наставнику</h2>
             <p className="empty__text">
-              Помощник знает правила вашей команды и отвечает со ссылкой на документ. Заявки на отгул и доступы он
-              заполнит сам — вам останется проверить и нажать «Отправить». Если ответа в базе нет, помощник скажет,
-              к кому обратиться.
+              Бадди знает правила вашей команды и отвечает со ссылкой на документ. Заявку на отгул или доступ он
+              заполнит сам — вам останется проверить и отправить. Если ответа в базе нет, Бадди скажет, к кому
+              обратиться.
             </p>
             <div className="suggestion-groups">
               {SUGGESTION_GROUPS.map((g) => (
@@ -138,7 +142,7 @@ export function ChatPanel({ staff = false }: { staff?: boolean }) {
             <div key={m.id} className="row">
               {m.status === 'pending' && (
                 <div className="msg msg--pending" role="status">
-                  Помощник думает<span className="dots" aria-hidden />
+                  Бадди думает<span className="dots" aria-hidden />
                 </div>
               )}
               {m.status === 'failed' && (
@@ -150,7 +154,6 @@ export function ChatPanel({ staff = false }: { staff?: boolean }) {
             </div>
           );
         })}
-        <div ref={endRef} />
       </div>
 
       {connectError && (
@@ -171,10 +174,10 @@ export function ChatPanel({ staff = false }: { staff?: boolean }) {
 
       {!staff && (
         <div className="help-row">
+          <span className="muted">Застряли?</span>
           <button type="button" className="btn btn--link help-row__btn" onClick={reportProblem}>
-            Что-то не так? Сообщить наставнику
+            Сообщить наставнику
           </button>
-          <span className="muted">— это нормально, помощник передаст ваше сообщение</span>
         </div>
       )}
 
@@ -182,7 +185,7 @@ export function ChatPanel({ staff = false }: { staff?: boolean }) {
         <input
           ref={inputRef}
           aria-label="Сообщение"
-          placeholder="Спросите своими словами"
+          placeholder={staff ? 'Вопрос от имени стажёра' : 'Спросите Бадди'}
           value={text}
           onChange={(e) => setText(e.target.value)}
           maxLength={4000}

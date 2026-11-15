@@ -63,11 +63,19 @@ export function TeamPanel({ role }: Props) {
     qc.invalidateQueries({ queryKey: ['team-progress', user] });
     qc.invalidateQueries({ queryKey: ['team-summary', user] });
   };
+  // после решения заявка исчезает из списка — подтверждаем словами, что именно произошло
+  const [decided, setDecided] = useState('');
   const decide = useMutation({
-    mutationFn: (v: { id: string; decision: 'approve' | 'reject'; comment: string }) =>
+    mutationFn: (v: { id: string; title: string; decision: 'approve' | 'reject'; comment: string }) =>
       api.decideAction(v.id, v.decision, v.comment.trim()),
+    onMutate: () => setDecided(''),
     onSuccess: (_data, v) => {
       setComments(({ [v.id]: _, ...rest }) => rest);
+      setDecided(
+        `${v.title} (${v.id}) ${v.decision === 'approve' ? 'согласована' : 'отклонена'}. Стажёр увидит решение${
+          v.comment.trim() ? ' и ваш комментарий' : ''
+        } в разделе «Мои заявки».`,
+      );
       refresh();
     },
     // 409: заявку уже отменили или решили — перечитываем список, чтобы она исчезла
@@ -159,6 +167,9 @@ export function TeamPanel({ role }: Props) {
 
       <section className="block">
         <h3 className="block__title">Заявки на согласование</h3>
+        {!canDecide && inbox.length > 0 && (
+          <p className="block__note">Решение принимает руководитель команды — здесь видно, что ждёт согласования.</p>
+        )}
         {inbox.length === 0 && <p className="block__note">Новых заявок нет.</p>}
         <ul className="ledger">
           {inbox.map((a) => (
@@ -181,7 +192,9 @@ export function TeamPanel({ role }: Props) {
                   <div className="ledger__actions">
                     <button
                       className="btn btn--small btn--primary"
-                      onClick={() => decide.mutate({ id: a.id, decision: 'approve', comment: comments[a.id] ?? '' })}
+                      onClick={() =>
+                        decide.mutate({ id: a.id, title: actionTitle(a), decision: 'approve', comment: comments[a.id] ?? '' })
+                      }
                       disabled={decide.isPending}
                       aria-label={`Согласовать ${a.id}`}
                     >
@@ -189,7 +202,9 @@ export function TeamPanel({ role }: Props) {
                     </button>
                     <button
                       className="btn btn--small btn--ghost"
-                      onClick={() => decide.mutate({ id: a.id, decision: 'reject', comment: comments[a.id] ?? '' })}
+                      onClick={() =>
+                        decide.mutate({ id: a.id, title: actionTitle(a), decision: 'reject', comment: comments[a.id] ?? '' })
+                      }
                       disabled={decide.isPending}
                       aria-label={`Отклонить ${a.id}`}
                     >
@@ -201,6 +216,10 @@ export function TeamPanel({ role }: Props) {
             </li>
           ))}
         </ul>
+        {/* живой регион есть всегда — так экранный диктор надёжно озвучит появившийся текст */}
+        <p className="decided" role="status">
+          {decided}
+        </p>
         {decide.isError && (
           <div className="error" role="alert">
             {(decide.error as Error).message}
@@ -255,11 +274,11 @@ export function TeamPanel({ role }: Props) {
         ) : gaps.isLoading ? (
           <p className="block__note">Загружаю вопросы без ответа…</p>
         ) : (gaps.data ?? []).length === 0 ? (
-          <p className="block__note">Помощник пока ответил на все вопросы стажёров.</p>
+          <p className="block__note">Бадди пока ответил на все вопросы стажёров.</p>
         ) : (
           <>
             <p className="block__note">
-              Вопросы, на которые помощник не нашёл ответа. Автор не сохраняется, персональные данные скрыты.
+              Вопросы, на которые Бадди не нашёл ответа. Автор не сохраняется, персональные данные скрыты.
             </p>
             <ul className="gaps">
               {(gaps.data ?? []).slice(0, 5).map((g) => (

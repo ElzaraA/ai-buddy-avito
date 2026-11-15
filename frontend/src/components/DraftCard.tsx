@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../api/client';
 import type { Absence } from '../api/schemas';
-import { formatDate, statusLabel } from './format';
+import { formatDate, resourceLabel, statusLabel } from './format';
 
 interface Props {
   /** absence | access */
@@ -66,7 +66,7 @@ export function DraftCard({ action = 'absence', args, text }: Props) {
           {a.type === 'access' ? (
             <div>
               <dt>Доступ</dt>
-              <dd>{a.resource ?? args.resource}</dd>
+              <dd>{resourceLabel(a.resource ?? args.resource)}</dd>
             </div>
           ) : (
             <div>
@@ -105,7 +105,9 @@ export function DraftCard({ action = 'absence', args, text }: Props) {
   return (
     <div className="form form--draft">
       <div className="form__title">
-        {isAccess ? `Черновик заявки на доступ${args.resource ? ` к ${args.resource}` : ''}` : 'Черновик заявки на отгул'}
+        {isAccess
+          ? `Черновик заявки на доступ${args.resource ? ` к ${resourceLabel(args.resource)}` : ''}`
+          : 'Черновик заявки на отгул'}
       </div>
       {text && <p className="form__text">{text}</p>}
       {ready ? (

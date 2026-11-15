@@ -13,7 +13,14 @@ var (
 	// dotDateRe — «20.11» или «20.11.2026».
 	dotDateRe = regexp.MustCompile(`(?:^|[^\d.])(\d{1,2})\.(\d{1,2})(?:\.(\d{4}|\d{2}))?(?:$|[^\d.]|\.(?:$|\s))`)
 	// monthDateRe — «20 ноября», «20-22 ноября», «с 20 по 22 ноября 2026».
-	monthDateRe = regexp.MustCompile(`(?:^|[^\d])(\d{1,2})(?:\s*(?:-|–|—|по|до)\s*(\d{1,2}))?\s+(январ|феврал|март|апрел|ма[йя]|июн|июл|август|сентябр|октябр|ноябр|декабр)[а-я]*(?:\s+(\d{4}))?`)
+	// Также «20го ноября» и «20 и 21 ноября».
+	monthDateRe = regexp.MustCompile(`(?:^|[^\d])(\d{1,2})(?:-?(?:го|е|ое))?(?:\s*(?:-|–|—|по|до|и)\s*(\d{1,2})(?:-?(?:го|е|ое))?)?\s+(январ|феврал|март|апрел|ма[йя]|июн|июл|август|сентябр|октябр|ноябр|декабр)[а-я]*(?:\s+(\d{4}))?`)
+	// rangeDotRe — «с 20 по 22.11»: месяц указан только у второй даты.
+	rangeDotRe = regexp.MustCompile(`(?:^|[^\d.])(\d{1,2})(?:-?(?:го|е|ое))?\s*(?:-|–|—|по|до)\s*\d{1,2}\.(\d{1,2})`)
+	// dayOnlyRe — «20го», «20-е», «20 числа»: день без месяца (ближайший будущий).
+	dayOnlyRe = regexp.MustCompile(`(?:^|[^\d.:\-])(\d{1,2})(?:-?(?:го|е|ое)|\s+числа)(?:$|[^а-яa-z\d])`)
+	// dayRangeRe — «с 20 по 22»: диапазон дней без месяца.
+	dayRangeRe = regexp.MustCompile(`(?:^|\s)с\s+(\d{1,2})(?:-?(?:го|е|ое))?\s+(?:по|до)\s+(\d{1,2})(?:-?(?:го|е|ое))?(?:$|[^\d.а-я])`)
 )
 
 // monthStems — основы названий месяцев в порядке месяцев.
@@ -73,12 +80,50 @@ func ParseDatesAt(q string, today time.Time) (string, string) {
 		}
 		add(m[2], atoi(q[m[2]:m[3]]), atoi(q[m[4]:m[5]]), year)
 	}
+	for _, m := range rangeDotRe.FindAllStringSubmatchIndex(q, -1) {
+		add(m[2], atoi(q[m[2]:m[3]]), atoi(q[m[4]:m[5]]), "")
+	}
+	// День без месяца — только если полных дат нет: «20го», «с 20 по 22», «20 числа».
+	if len(all) == 0 {
+		addDay := func(pos, day int) {
+			if d, ok := nearestDay(day, today); ok {
+				all = append(all, found{pos, d})
+			}
+		}
+		for _, m := range dayRangeRe.FindAllStringSubmatchIndex(q, -1) {
+			addDay(m[2], atoi(q[m[2]:m[3]]))
+			addDay(m[4], atoi(q[m[4]:m[5]]))
+		}
+		if len(all) == 0 {
+			for _, m := range dayOnlyRe.FindAllStringSubmatchIndex(q, -1) {
+				addDay(m[2], atoi(q[m[2]:m[3]]))
+			}
+		}
+	}
 	sort.SliceStable(all, func(i, j int) bool { return all[i].pos < all[j].pos })
 	dates := make([]string, 0, len(all))
 	for _, f := range all {
 		dates = append(dates, f.date)
 	}
 	return firstTwo(dates)
+}
+
+// nearestDay — ближайшая будущая (или сегодняшняя) дата с этим числом: в этом месяце или в следующих.
+func nearestDay(day int, today time.Time) (string, bool) {
+	if day < 1 || day > 31 {
+		return "", false
+	}
+	for i := 0; i < 3; i++ {
+		m := time.Date(today.Year(), today.Month()+time.Month(i), 1, 0, 0, 0, 0, time.UTC)
+		d := time.Date(m.Year(), m.Month(), day, 0, 0, 0, 0, time.UTC)
+		if d.Month() != m.Month() {
+			continue // 31-го нет в этом месяце
+		}
+		if d.Format("2006-01-02") >= today.Format("2006-01-02") {
+			return d.Format("2006-01-02"), true
+		}
+	}
+	return "", false
 }
 
 // InvalidISODate возвращает дату вида YYYY-MM-DD из запроса, которой не бывает (например, 2026-02-30).

@@ -26,7 +26,7 @@ function NavItem({ v, active, onClick }: { v: ViewDef; active: boolean; onClick:
         onClick={onClick}
       >
         <Icon className="nav__icon" />
-        <span>{v.nav}</span>
+        <span>{v.title}</span>
       </button>
     </li>
   );
@@ -105,7 +105,8 @@ export function Sidebar({ views, view, staff, me, onNavigate, onWrite, onReport 
         )}
         <label className="user-switch">
           <span>Войти как</span>
-          <select value={user} onChange={(e) => setUser(e.target.value)} aria-label="Тестовый пользователь">
+          {/* aria-label задан явно: на телефоне подпись «Войти как» скрыта, а имя поля должно остаться */}
+          <select value={user} onChange={(e) => setUser(e.target.value)} aria-label="Войти как">
             {DEMO_USERS.map((u) => (
               <option key={u.login} value={u.login}>
                 {u.label}

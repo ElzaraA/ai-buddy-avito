@@ -14,6 +14,7 @@
   --side: #fbfaf7;         /* боковое меню */
   --hover: #f3f1ec;
   --rule: #e2dfd8;         /* границы */
+  --rule-input: #8e8a95;   /* рамка полей ввода: контраст ≥ 3:1 с белым (WCAG 1.4.11) */
   --rule-soft: #eeece7;
 
   --green: #ddefc6;        /* пастель карточек и тегов */
@@ -180,7 +181,7 @@ ul, ol { list-style: none; margin: 0; padding: 0; }
 .user-switch { display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: var(--ink-3); }
 .user-switch select {
   font: inherit; font-size: 14px; color: var(--ink); width: 100%; max-width: 100%;
-  padding: 8px 10px; border: 1px solid var(--rule); border-radius: var(--r-sm); background: var(--sheet);
+  padding: 8px 10px; border: 1px solid var(--rule-input); border-radius: var(--r-sm); background: var(--sheet);
 }
 
 /* Рабочая область */
@@ -193,13 +194,15 @@ ul, ol { list-style: none; margin: 0; padding: 0; }
 .workspace__subtitle { margin-top: 4px; font-size: 14px; color: var(--ink-3); }
 .workspace__body { flex: 1 0 auto; display: flex; flex-direction: column; gap: 22px; }
 
-.segmented { display: inline-flex; gap: 2px; padding: 4px; border-radius: 999px; background: var(--hover); }
-.segmented__item {
-  font: inherit; font-size: 13px; font-weight: 550; cursor: pointer; white-space: nowrap;
-  padding: 7px 14px; border: 0; border-radius: 999px; background: none; color: var(--ink-2);
+/*
+ * Рабочий стол и чат помещаются в окно: чат забирает оставшуюся высоту, поле ввода
+ * всегда видно без прокрутки страницы (лента сообщений прокручивается внутри карточки).
+ */
+@media (min-width: 901px) {
+  .workspace__body--chat { flex: 1 1 0; }
+  /* contain: size — длинная переписка не раздувает карточку: её размер задаёт свободное место, не контент */
+  .workspace__body--chat > .chat-card { flex: 1 1 0; height: auto; min-height: 340px; contain: size; }
 }
-.segmented__item:hover { color: var(--ink); }
-.segmented__item--active, .segmented__item--active:hover { background: var(--sheet); color: var(--ink); box-shadow: var(--shadow-sm); }
 
 .footer { padding: 16px 0 4px; text-align: center; font-size: 12px; color: var(--ink-3); }
 
@@ -278,13 +281,15 @@ ul, ol { list-style: none; margin: 0; padding: 0; }
 .msg--answer p, .msg--refusal p, .kv dd { white-space: pre-line; }
 
 /* «Что-то не так?» — постоянный и спокойный вход к наставнику */
-.help-row { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 8px; margin-top: 10px; font-size: 13px; }
+.help-row { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 6px; margin-top: 10px; font-size: 13px; }
 .help-row__btn { font-size: 13px; font-weight: 600; }
 
 /* Кабинет: сообщения стажёров наставнику */
 .signals { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
 .signal { padding: 10px 12px; background: #fffaf0; border: 1px solid var(--rule-soft); border-left: 3px solid var(--warn); border-radius: var(--r-sm); }
-.signal--done { opacity: .6; border-left-color: var(--rule); background: var(--sheet); }
+/* разобранное — приглушаем цветом, а не прозрачностью: opacity роняла контраст текста ниже 4.5:1 */
+.signal--done { border-left-color: var(--rule); background: var(--sheet); }
+.signal--done .signal__who, .signal--done .signal__text { color: var(--ink-2); }
 .signal__head { display: flex; flex-wrap: wrap; gap: 6px 10px; font-size: 12px; color: var(--ink-3); }
 .signal__who { font-weight: 600; color: var(--ink); }
 .signal__text { margin: 4px 0; font-size: 14px; }
@@ -308,7 +313,7 @@ ul, ol { list-style: none; margin: 0; padding: 0; }
 .source { color: var(--ink-2); border-bottom: 1px dotted var(--ink-3); }
 
 .kv { display: grid; gap: 2px; margin: 8px 0 0; font-size: 14px; }
-.kv div { display: grid; grid-template-columns: 110px 1fr; gap: 12px; }
+.kv div { display: grid; grid-template-columns: minmax(110px, max-content) 1fr; gap: 12px; }
 .kv dt { color: var(--ink-3); }
 .kv dd { margin: 0; font-weight: 550; }
 
@@ -328,7 +333,7 @@ ul, ol { list-style: none; margin: 0; padding: 0; }
 /* Что дальше — после отправки заявки стажёр видит, чего ждать, и не идёт с этим к наставнику */
 .next { margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--rule); }
 .next__title { font-size: 13px; font-weight: 600; margin-bottom: 4px; }
-.next__list { margin: 0; padding-left: 18px; font-size: 13px; color: var(--ink-2, var(--ink)); }
+.next__list { margin: 0; padding-left: 18px; font-size: 13px; color: var(--ink-2, var(--ink)); list-style: decimal; }
 .next__list li + li { margin-top: 2px; }
 
 /* Подсказки на старте, сгруппированные по задачам */
@@ -342,7 +347,7 @@ ul, ol { list-style: none; margin: 0; padding: 0; }
 
 .composer {
   display: flex; gap: 8px; padding: 6px 6px 6px 10px; margin-top: 10px;
-  background: var(--sheet); border: 1px solid var(--rule); border-radius: 999px;
+  background: var(--sheet); border: 1px solid var(--rule-input); border-radius: 999px;
 }
 .composer:focus-within { border-color: var(--ink); box-shadow: 0 0 0 3px rgba(31, 29, 43, .08); }
 .composer input { flex: 1; min-width: 0; font: inherit; color: var(--ink); border: 0; padding: 6px 8px; background: none; }
@@ -423,9 +428,15 @@ ul, ol { list-style: none; margin: 0; padding: 0; }
 
 .comment {
   width: 100%; font: inherit; font-size: 13px; color: var(--ink);
-  padding: 8px 12px; border: 1px solid var(--rule); border-radius: var(--r-sm);
+  padding: 8px 12px; border: 1px solid var(--rule-input); border-radius: var(--r-sm);
 }
-.comment:focus { outline: none; border-color: var(--ink); }
+.comment:focus { outline: none; border-color: var(--ink); box-shadow: 0 0 0 2px var(--ink); }
+
+/* подтверждение решения руководителя: заявка ушла из списка, но видно, что произошло */
+.decided:not(:empty) {
+  margin-top: 10px; padding: 8px 12px; font-size: 13px; color: #22634a;
+  background: var(--go-soft); border-radius: var(--r-sm);
+}
 
 /* Сводка команды — пастельные плитки */
 .summary { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; margin: 16px 0 0; }
@@ -489,7 +500,6 @@ ul, ol { list-style: none; margin: 0; padding: 0; }
   .workspace { overflow: visible; padding: 18px 16px 8px; }
   .workspace__head { margin-bottom: 16px; }
   .workspace__title { font-size: 24px; }
-  .segmented { display: none; }
 
   /* на телефоне карточки — компактные строки, чтобы чат был виден сразу */
   .desk-cards { grid-template-columns: 1fr; gap: 8px; }

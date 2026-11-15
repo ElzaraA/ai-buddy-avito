@@ -1,4 +1,4 @@
-import { fieldLabel, fieldValue, formatDate, hasFieldLabel, stageLabel, statusLabel } from './format';
+import { fieldLabel, fieldValue, formatDate, hasFieldLabel, resourceLabel, stageLabel, statusLabel } from './format';
 
 describe('format', () => {
   it('formatDate переводит ISO в дд.мм.гггг', () => {
@@ -21,9 +21,16 @@ describe('format', () => {
     expect(fieldValue('status', 'pending')).toBe('ждёт согласования');
     expect(fieldValue('created_at', '2026-11-10T19:17:28+03:00')).toBe('10.11.2026 19:17');
     expect(fieldValue('created_at', 'нет даты')).toBe('нет даты');
-    expect(fieldValue('resource', 'jira')).toBe('jira');
+    expect(fieldValue('resource', 'jira')).toBe('Jira');
     expect(fieldValue('dateFrom', '2026-11-20')).toBe('20.11.2026');
     expect(fieldValue('date_to', '2026-11-21')).toBe('21.11.2026');
+  });
+
+  it('resourceLabel пишет системы так, как их пишут люди, и не теряет неизвестные', () => {
+    expect(resourceLabel('gitlab')).toBe('GitLab');
+    expect(resourceLabel(' GRAFANA ')).toBe('Grafana');
+    expect(resourceLabel('Внутренняя вики')).toBe('Внутренняя вики');
+    expect(resourceLabel(undefined)).toBe('');
   });
 
   it('hasFieldLabel: policy подписан, служебные флаги — нет', () => {

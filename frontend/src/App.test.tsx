@@ -24,7 +24,7 @@ describe('App', () => {
     expect(await screen.findByText('Моя адаптация')).toBeInTheDocument();
     expect(screen.getByText(/не являются регламентами Авито/)).toBeInTheDocument();
 
-    await userEvent.selectOptions(screen.getByLabelText('Тестовый пользователь'), 'intern.other');
+    await userEvent.selectOptions(screen.getByLabelText('Войти как'), 'intern.other');
     await waitFor(() => expect(getDemoUser()).toBe('intern.other'));
     expect(useChatStore.getState().user).toBe('intern.other');
   });
@@ -36,7 +36,7 @@ describe('App', () => {
     ]);
     renderWithQuery(<App />);
     expect(screen.getByRole('option', { name: 'Руководитель Frontend' })).toHaveValue('lead.frontend');
-    await userEvent.selectOptions(screen.getByLabelText('Тестовый пользователь'), 'lead.frontend');
+    await userEvent.selectOptions(screen.getByLabelText('Войти как'), 'lead.frontend');
     await waitFor(() => expect(getDemoUser()).toBe('lead.frontend'));
   });
 
@@ -46,9 +46,10 @@ describe('App', () => {
       { match: '/api/v1/onboarding/progress', body: { items: [], next_step: 'Прочитать Playbook' } },
     ]);
     renderWithQuery(<App />);
-    expect(screen.getByRole('button', { name: 'Чат с Бадди' })).toHaveAttribute('aria-current', 'page');
+    expect(screen.getByRole('button', { name: 'Рабочий стол' })).toHaveAttribute('aria-current', 'page');
 
-    await userEvent.click(screen.getByRole('button', { name: 'Сообщить наставнику' }));
+    const menu = screen.getByRole('navigation', { name: 'Разделы' });
+    await userEvent.click(within(menu).getByRole('button', { name: 'Сообщить наставнику' }));
     expect(screen.getByLabelText('Сообщение')).toHaveValue('Передай наставнику: ');
     expect(screen.getByLabelText('Сообщение')).toHaveFocus();
 
@@ -56,6 +57,22 @@ describe('App', () => {
     const nav = screen.getByRole('navigation', { name: 'Разделы' });
     expect(within(nav).getByRole('button', { name: 'Мой план' })).toHaveAttribute('aria-current', 'page');
     expect(screen.getByLabelText('Чат с AI-buddy').closest('.chat-card')).not.toBeVisible();
+  });
+
+  it('навигация одна — боковое меню; пункт меню и заголовок раздела называются одинаково', async () => {
+    mockFetch([
+      { match: '/api/v1/me', body: { id: 'intern-1', name: 'Стажёр Backend', role: 'intern', team_id: 'backend' } },
+      { match: '/api/v1/onboarding/progress', body: { items: [], next_step: '' } },
+      { match: '/api/v1/actions', body: [] },
+    ]);
+    renderWithQuery(<App />);
+    expect(screen.queryByRole('group', { name: 'Вкладки' })).not.toBeInTheDocument();
+    const nav = screen.getByRole('navigation', { name: 'Разделы' });
+    for (const name of ['Рабочий стол', 'Мой план', 'Мои заявки', 'Что умеет Бадди']) {
+      await userEvent.click(within(nav).getByRole('button', { name }));
+      expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent(name);
+      expect(screen.getAllByRole('button', { name })).toHaveLength(1);
+    }
   });
 
   it('руководителю вместо плана адаптации показывается кабинет команды', async () => {

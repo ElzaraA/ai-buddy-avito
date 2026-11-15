@@ -58,12 +58,15 @@ var stuckMarkers = []string{
 	"не работает", "не работают", "сломал", "сломалось", "ошибка", "ошибку", "падает", "упал",
 	"застрял", "застряла", "не могу", "не получается", "не выходит", "не запускается", "не открывается",
 	"непонятно", "не понимаю", "не понял", "не поняла", "проблема", "проблемы", "блокер", "заблокирован",
+	"не проходит", "не проходят", "не собирается", "не компилируется", "не билдится", "не пускает", "не грузится",
+	"глючит", "лагает", "не знаю что делать",
 }
 
 func signalTopic(q string) string {
 	w := " " + strings.Join(strings.FieldsFunc(strings.ToLower(q), func(r rune) bool { return !unicode.IsLetter(r) }), " ") + " "
 	switch {
-	case containsWord(w, "не работает", "не работают", "ошибк", "падает", "упал", "сломал", "не запускается", "не открывается"):
+	case containsWord(w, "не работает", "не работают", "ошибк", "падает", "упал", "сломал", "не запускается", "не открывается",
+		"не проходят", "не проходит", "не собирается", "не компилируется", "не билдится", "не пускает", "глючит"):
 		return "tech"
 	case containsWord(w, "застрял", "не могу", "не получается", "не выходит", "блокер", "заблокирован"):
 		return "blocked"
@@ -94,12 +97,14 @@ func hasMarker(q string, markers []string) bool {
 var vagueMarkers = []string{
 	"помоги", "помогите", "помощь", "help", "что ты умеешь", "что умеешь", "что ты можешь", "что можешь",
 	"с чего начать", "с чего мне начать", "не знаю что", "не знаю с чего", "я новенький", "я новенькая",
-	"я новый", "я новая", "я стажер", "я стажёр", "первый день", "меню", "start", "старт", "кто ты",
+	"я новый", "я новая", "я стажер", "я стажёр", "меню", "start", "старт", "кто ты",
+	"хелп", "как ты работаешь",
 }
 
 // isVague — короткий запрос без предмета («помоги», «с чего начать?», «что ты умеешь»).
 func isVague(q string) bool {
-	if hasMarker(q, actionWords) || len(strings.Fields(q)) > 7 {
+	// «тесты не проходят, хз что делать» — это препятствие, а не размытый запрос: помогаем по шагам.
+	if hasMarker(q, actionWords) || len(strings.Fields(q)) > 7 || isStuck(q) {
 		return false
 	}
 	return hasMarker(q, vagueMarkers)
@@ -152,11 +157,12 @@ func quote(q string) string {
 
 // coach дополняет готовый ответ: при препятствии без решения в базе — пошаговая помощь,
 // и всегда — 1–3 подсказки следующего шага, чтобы стажёр не оставался с пустым полем.
-func (c contacts) coach(question string, resp Response) Response {
+// question — исходная реплика (для цитаты в подсказке), norm — её нормальная форма (для распознавания).
+func (c contacts) coach(question, norm string, resp Response) Response {
 	if c.staff {
 		return resp
 	}
-	stuck := isStuck(question)
+	stuck := isStuck(norm)
 	switch {
 	case stuck && resp.Type == "refusal" && resp.NoSource:
 		resp.Type, resp.Text = "answer", c.stuckText()

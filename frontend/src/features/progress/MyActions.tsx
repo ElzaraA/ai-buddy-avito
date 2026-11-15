@@ -1,14 +1,14 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api, ApiError } from '../../api/client';
 import type { Absence } from '../../api/schemas';
-import { formatDate, statusLabel } from '../../components/format';
+import { formatDate, resourceLabel, statusLabel } from '../../components/format';
 import { useChatStore } from '../../store/chat';
 
 /** Как часто перечитываем заявки: решение руководителя появляется без перезагрузки страницы. */
 export const ACTIONS_REFRESH_MS = 5000;
 
 export function actionTitle(a: Absence) {
-  if (a.type === 'access') return `Доступ к ${a.resource ?? 'системе'}`;
+  if (a.type === 'access') return `Доступ к ${resourceLabel(a.resource) || 'системе'}`;
   const to = a.date_to && a.date_to !== a.date_from ? ` – ${formatDate(a.date_to)}` : '';
   return `Отгул ${formatDate(a.date_from)}${to}`;
 }
@@ -88,8 +88,9 @@ export function MyActions() {
         </section>
       )}
       {sent.length > 0 && (
-        <section className="block" aria-label="Мои заявки">
-          <h3 className="block__title">Мои заявки</h3>
+        <section className="block" aria-label="Отправленные">
+          {/* «Мои заявки» — уже заголовок раздела; здесь — только отправленные руководителю */}
+          <h3 className="block__title">Отправленные</h3>
           <ul className="ledger">
             {sent.map((a) => (
               <li key={a.id} className="ledger__row">

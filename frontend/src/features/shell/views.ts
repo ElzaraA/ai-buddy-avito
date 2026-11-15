@@ -6,26 +6,25 @@ export type ViewId = 'desk' | 'plan' | 'actions' | 'skills' | 'team' | 'chat';
 
 export interface ViewDef {
   id: ViewId;
-  /** подпись в боковом меню */
-  nav: string;
-  /** подпись во вкладках над рабочей областью */
-  tab: string;
-  /** заголовок рабочей области */
+  /**
+   * Название раздела: одно и то же в боковом меню и в заголовке рабочей области,
+   * чтобы пункт меню и открывшийся экран назывались одинаково.
+   */
   title: string;
   icon: ComponentType<{ className?: string }>;
   group: 'main' | 'help';
 }
 
 export const INTERN_VIEWS: ViewDef[] = [
-  { id: 'desk', nav: 'Чат с Бадди', tab: 'Рабочий стол', title: 'Рабочий стол', icon: IconChat, group: 'main' },
-  { id: 'plan', nav: 'Мой план', tab: 'Мой план', title: 'Мой план', icon: IconPlan, group: 'main' },
-  { id: 'actions', nav: 'Мои заявки', tab: 'Заявки', title: 'Мои заявки', icon: IconInbox, group: 'main' },
-  { id: 'skills', nav: 'Что умеет Бадди', tab: 'Подсказки', title: 'Что умеет Бадди', icon: IconSpark, group: 'help' },
+  { id: 'desk', title: 'Рабочий стол', icon: IconChat, group: 'main' },
+  { id: 'plan', title: 'Мой план', icon: IconPlan, group: 'main' },
+  { id: 'actions', title: 'Мои заявки', icon: IconInbox, group: 'main' },
+  { id: 'skills', title: 'Что умеет Бадди', icon: IconSpark, group: 'help' },
 ];
 
 export const STAFF_VIEWS: ViewDef[] = [
-  { id: 'team', nav: 'Кабинет команды', tab: 'Кабинет', title: 'Кабинет команды', icon: IconTeam, group: 'main' },
-  { id: 'chat', nav: 'Чат', tab: 'Чат', title: 'Чат с Бадди', icon: IconChat, group: 'main' },
+  { id: 'team', title: 'Кабинет команды', icon: IconTeam, group: 'main' },
+  { id: 'chat', title: 'Чат с Бадди', icon: IconChat, group: 'main' },
 ];
 
 export const viewsFor = (staff: boolean) => (staff ? STAFF_VIEWS : INTERN_VIEWS);

@@ -78,7 +78,7 @@ export function ProgressPanel({ withActions = true }: { withActions?: boolean })
         <span className="sheet__meta">Выполнено {pct}%</span>
       </header>
 
-      <div className="meter" role="progressbar" aria-valuenow={pct} aria-valuemin={0} aria-valuemax={100}>
+      <div className="meter" role="progressbar" aria-label="Пройдено плана адаптации" aria-valuenow={pct} aria-valuemin={0} aria-valuemax={100}>
         <div style={{ width: `${pct}%` }} />
       </div>
 

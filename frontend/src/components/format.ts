@@ -54,6 +54,24 @@ export function hasFieldLabel(key: string) {
   return Object.prototype.hasOwnProperty.call(FIELD_LABELS, key);
 }
 
+/** Системы приходят от агента в нижнем регистре (gitlab) — показываем их так, как их пишут люди. */
+const RESOURCE_LABELS: Record<string, string> = {
+  gitlab: 'GitLab',
+  github: 'GitHub',
+  jira: 'Jira',
+  grafana: 'Grafana',
+  confluence: 'Confluence',
+  git: 'Git',
+  vpn: 'VPN',
+  slack: 'Slack',
+  mattermost: 'Mattermost',
+};
+
+export function resourceLabel(resource: string | undefined): string {
+  if (!resource) return '';
+  return RESOURCE_LABELS[resource.trim().toLowerCase()] ?? resource;
+}
+
 const STATUS_LABELS: Record<string, string> = {
   draft: 'черновик',
   pending: 'ждёт согласования',
@@ -72,6 +90,7 @@ export function statusLabel(s: string) {
 export function fieldValue(key: string, value: unknown): string {
   const v = String(value);
   if (key === 'status') return statusLabel(v);
+  if (key === 'resource') return resourceLabel(v);
   if (/^date_?(from|to)$/i.test(key)) return formatDate(v);
   if (key === 'created_at') {
     const m = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})/.exec(v);

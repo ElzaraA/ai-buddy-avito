@@ -74,9 +74,13 @@ export function Desk({ onOpenPlan, onOpenActions, onReport }: Props) {
   const list = actions.data ?? [];
   const drafts = list.filter((a) => a.status === 'draft').length;
   const pending = list.filter((a) => a.status === 'pending').length;
-  const last = list[list.length - 1];
-  const actionsTitle =
-    drafts > 0
+  // API отдаёт заявки новыми сверху: последняя — первая в списке
+  const last = list[0];
+  const actionsTitle = actions.isLoading
+    ? 'Загружаю заявки…'
+    : actions.isError
+      ? 'Заявки пока недоступны'
+      : drafts > 0
       ? `${drafts} ${plural(drafts, 'черновик ждёт', 'черновика ждут', 'черновиков ждут')} отправки`
       : pending > 0
         ? `${pending} ${plural(pending, 'заявка ждёт', 'заявки ждут', 'заявок ждут')} согласования`
@@ -85,7 +89,9 @@ export function Desk({ onOpenPlan, onOpenActions, onReport }: Props) {
           : 'Заявок пока нет';
   const actionsText = last
     ? `Последняя: ${actionTitle(last)} — ${statusLabel(last.status)}`
-    : 'Попросите Бадди оформить отгул или доступ — он заполнит заявку сам';
+    : actions.isError
+      ? 'Не удалось связаться с сервером — откройте раздел чуть позже'
+      : 'Попросите Бадди оформить отгул или доступ — он заполнит заявку сам';
 
   return (
     <ul className="desk-cards" aria-label="Коротко о главном">
@@ -93,9 +99,9 @@ export function Desk({ onOpenPlan, onOpenActions, onReport }: Props) {
         tone="green"
         tag="Мой план"
         title={nextTitle}
-        text={p ? `Пройдено ${pct}% плана адаптации` : 'Чек-лист первых недель'}
+        text={p ? 'Следующий шаг в плане адаптации' : 'Чек-лист первых недель'}
         pill="Открыть план"
-        meta={`${pct}%`}
+        meta={p ? `пройдено ${pct}%` : ''}
         label={`Следующий шаг: ${nextTitle}. Открыть план`}
         onClick={onOpenPlan}
       >
@@ -109,7 +115,7 @@ export function Desk({ onOpenPlan, onOpenActions, onReport }: Props) {
         title={actionsTitle}
         text={actionsText}
         pill={drafts > 0 ? 'Проверить' : 'Открыть'}
-        meta={`всего ${list.length}`}
+        meta={actions.data ? `всего ${list.length}` : ''}
         label={`Мои заявки: ${actionsTitle}. Открыть заявки`}
         onClick={onOpenActions}
       />

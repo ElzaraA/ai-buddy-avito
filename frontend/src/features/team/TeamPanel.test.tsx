@@ -52,7 +52,7 @@ describe('TeamPanel', () => {
     expect(screen.getByText(/Загружаю данные команды/)).toBeInTheDocument();
 
     expect(await screen.findByText('Отгул 15.01.2030 – 16.01.2030')).toBeInTheDocument();
-    expect(screen.getByText('Доступ к gitlab')).toBeInTheDocument();
+    expect(screen.getByText('Доступ к GitLab')).toBeInTheDocument();
     // автор заявки показан по имени, а не по id
     expect(screen.getAllByText('Стажёр Backend').length).toBeGreaterThan(0);
     expect(screen.getByRole('progressbar', { name: 'Прогресс: Стажёр Backend' })).toHaveAttribute('aria-valuenow', '25');
@@ -73,6 +73,10 @@ describe('TeamPanel', () => {
     // после решения очищается комментарий только этой заявки
     await waitFor(() => expect(screen.getByLabelText('Комментарий к заявке ABS-000001')).toHaveValue(''));
     expect(screen.getByLabelText('Комментарий к заявке REQ-000001')).toHaveValue('Про доступ');
+    // заявка исчезает из списка — руководитель видит словами, что решение ушло
+    expect(screen.getByRole('status')).toHaveTextContent(
+      'Отгул 15.01.2030 – 16.01.2030 (ABS-000001) согласована. Стажёр увидит решение и ваш комментарий',
+    );
   });
 
   it('комментарий уходит только с той заявкой, у которой он написан', async () => {

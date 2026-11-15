@@ -66,27 +66,15 @@ export function App() {
         />
 
         <main className="workspace">
+          {/* Навигация — только боковое меню: вкладки над контентом дублировали его один в один */}
           <header className="workspace__head">
             <div className="workspace__titles">
               <h1 className="workspace__title">{current.title}</h1>
               <p className="workspace__subtitle">{SUBTITLES[active]}</p>
             </div>
-            <div className="segmented" role="group" aria-label="Вкладки">
-              {views.map((v) => (
-                <button
-                  key={v.id}
-                  type="button"
-                  className={`segmented__item${v.id === active ? ' segmented__item--active' : ''}`}
-                  aria-pressed={v.id === active}
-                  onClick={() => setView(v.id)}
-                >
-                  {v.tab}
-                </button>
-              ))}
-            </div>
           </header>
 
-          <div className="workspace__body">
+          <div className={`workspace__body${chatVisible ? ' workspace__body--chat' : ''}`}>
             {!isTeamView && (
               <div hidden={active !== 'desk'}>
                 <Desk onOpenPlan={() => setView('plan')} onOpenActions={() => setView('actions')} onReport={report} />

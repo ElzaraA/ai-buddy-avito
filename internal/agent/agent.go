@@ -174,18 +174,26 @@ func (a *Agent) AskWithHistory(ctx context.Context, user auth.User, question str
 	defer cancel()
 
 	c := contactsFor(user)
+	// nq — реплика в нормальной форме («чё» → «что», «ё» → «е», «пн» → «понедельник»): по ней распознаём намерение.
+	// Исходный текст остаётся для модели, цитат в подсказках и сообщения наставнику.
+	nq := llm.Normalize(question)
 	// «Мне плохо», «я не справляюсь» — не вопрос к базе знаний: поддерживаем и предлагаем живого человека.
-	if isEmotional(question) {
+	if isEmotional(nq) {
 		return Response{Type: "answer", Text: c.supportText(), Buddy: c.Buddy}, nil
 	}
 	// Приветствие, «спасибо», «ок», «отмени» — не вопрос к базе знаний: отвечаем сразу, без LLM и без отказа.
 	// «Передай наставнику: …» — стажёр сам решил позвать человека: передаём без вопросов.
 	if !c.staff {
-		if text, ok := signalRequest(question); ok {
+		text, ok := signalRequest(question)
+		if !ok {
+			// опечатка в «наставнику» — ищем по нормальной форме
+			text, ok = signalRequest(nq)
+		}
+		if ok {
 			return c.signalResponse(text, signalTopic(text)), nil
 		}
 	}
-	if reply := smallTalk(question); reply != "" {
+	if reply := smallTalk(nq); reply != "" {
 		r := Response{Type: "answer", Text: reply, Buddy: c.Buddy}
 		if !c.staff {
 			r.Suggestions = []string{chipNext}
@@ -196,23 +204,30 @@ func (a *Agent) AskWithHistory(ctx context.Context, user auth.User, question str
 		return r, nil
 	}
 	// «Помоги», «с чего начать?» — стажёр не знает, что спросить: предлагаем выбор.
-	if !c.staff && isVague(question) {
+	if !c.staff && isVague(nq) {
 		r := Response{Type: "answer", Text: c.menuText(), Buddy: c.Buddy,
 			Suggestions: []string{chipNext, chipAbsence, chipAccess, chipRules}}
 		return r, nil
 	}
 	// «Что такое MR?», «что значит ретро» — объясняем термин из словаря Бадди (это не пробел базы знаний).
-	if t, alias, ok := glossaryQuestion(question); ok {
+	if t, alias, ok := glossaryQuestion(nq); ok {
 		return a.glossaryResponse(user, c, question, t, alias), nil
 	}
+	// Зарплаты и доходы — чувствительные данные: отказываем явно и подсказываем, к кому идти,
+	// а не общим «не нашёл» (вопрос всё равно попадает в пробелы базы знаний для наставника).
+	if isSalaryQuestion(nq) {
+		r := c.refusal(c.salaryText())
+		r.NoSource = isKnowledgeGap(nq)
+		return c.coach(question, nq, r), nil
+	}
 
-	hits := a.Index.Search(question, user.TeamID, string(user.Role), 4)
+	hits := a.Index.Search(nq, user.TeamID, string(user.Role), 4)
 	srcs := make([]Source, 0, len(hits))
 	for _, h := range hits {
 		srcs = append(srcs, Source{ID: h.Chunk.ID, Source: h.Chunk.Source, Stage: h.Chunk.Stage, Title: h.Chunk.Title})
 	}
 	// Ответ есть, но в материале для другой аудитории (например, «только для наставников»): это не пробел базы.
-	restricted := len(hits) == 0 && a.Index.Restricted(question, user.TeamID, string(user.Role))
+	restricted := len(hits) == 0 && a.Index.Restricted(nq, user.TeamID, string(user.Role))
 
 	// Действия (отгул, доступ, чек-лист) не зависят от базы знаний, поэтому LLM вызываем всегда,
 	// а инвариант «нет источника — нет ответа» проверяем ниже для текстовых ответов.
@@ -228,7 +243,7 @@ func (a *Agent) AskWithHistory(ctx context.Context, user auth.User, question str
 	if err != nil {
 		return Response{}, err
 	}
-	resp := c.coach(question, c.present(a.interpret(ctx, user, question, raw, srcs, restricted), hits))
+	resp := c.coach(question, nq, c.present(a.interpret(ctx, user, nq, raw, srcs, restricted), hits))
 	resp.Degraded = degraded
 	return resp, nil
 }
