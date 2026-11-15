@@ -12,19 +12,21 @@ import (
 
 // snapshot — состояние приложения на диске. Формат версионируется полем V.
 type snapshot struct {
-	V         int                        `json:"v"`
-	SavedAt   time.Time                  `json:"saved_at"`
-	Actions   map[string]Absence         `json:"actions"`
-	Checklist map[string][]ChecklistItem `json:"checklist"`
-	Seq       map[string]int64           `json:"seq"`
-	Gaps      map[string]map[string]*Gap `json:"gaps"`
-	Signals   map[string][]Signal        `json:"signals,omitempty"`
-	Pulse     map[string][]PulseEntry    `json:"pulse,omitempty"`
-	TeamStats map[string]*TeamStats      `json:"team_stats,omitempty"`
-	UserStats map[string]*UserStats      `json:"user_stats,omitempty"`
-	Sessions  map[string]Session         `json:"sessions"`
-	Messages  map[string]Message         `json:"messages"`
-	BySess    map[string][]string        `json:"by_session"`
+	V         int                             `json:"v"`
+	SavedAt   time.Time                       `json:"saved_at"`
+	Actions   map[string]Absence              `json:"actions"`
+	Checklist map[string][]ChecklistItem      `json:"checklist"`
+	Seq       map[string]int64                `json:"seq"`
+	Gaps      map[string]map[string]*Gap      `json:"gaps"`
+	Signals   map[string][]Signal             `json:"signals,omitempty"`
+	Pulse     map[string][]PulseEntry         `json:"pulse,omitempty"`
+	TeamStats map[string]*TeamStats           `json:"team_stats,omitempty"`
+	UserStats map[string]*UserStats           `json:"user_stats,omitempty"`
+	Meetings  map[string]Meeting              `json:"meetings,omitempty"`
+	Reminders map[string]map[string]time.Time `json:"reminder_acks,omitempty"`
+	Sessions  map[string]Session              `json:"sessions"`
+	Messages  map[string]Message              `json:"messages"`
+	BySess    map[string][]string             `json:"by_session"`
 }
 
 const snapshotVersion = 1
@@ -74,6 +76,12 @@ func (p *Persister) Load() error {
 	if snap.Signals != nil {
 		s.signals = snap.Signals
 	}
+	if snap.Meetings != nil {
+		s.meetings = snap.Meetings
+	}
+	if snap.Reminders != nil {
+		s.reminderAcks = snap.Reminders
+	}
 	if snap.Pulse != nil {
 		s.pulse = snap.Pulse
 	}
@@ -120,6 +128,7 @@ func (p *Persister) Save() error {
 		V: snapshotVersion, SavedAt: time.Now(),
 		Actions: s.absences, Checklist: s.checklist, Seq: s.seq, Gaps: s.gaps, Signals: s.signals,
 		Pulse: s.pulse, TeamStats: s.teamStats, UserStats: s.userStats,
+		Meetings: s.meetings, Reminders: s.reminderAcks,
 		Sessions: m.sessions, Messages: m.messages, BySess: m.bySess,
 	})
 	m.mu.RUnlock()

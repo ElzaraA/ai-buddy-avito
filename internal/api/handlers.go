@@ -26,6 +26,10 @@ type Handlers struct {
 	Limiter *RateLimiter      // может быть nil — без ограничения
 	// WriteLimiter — отдельный лимит на создание черновиков, сессий и вызовы MCP (nil — без ограничения).
 	WriteLimiter *RateLimiter
+	// Now — часы для расписания и напоминаний (nil — time.Now); в тестах подменяются.
+	Now func() time.Time
+	// ReminderLead — за сколько до встречи напоминать в чате (0 — DefaultReminderLead).
+	ReminderLead time.Duration
 }
 
 type askReq struct {

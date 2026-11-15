@@ -9,13 +9,25 @@ interface Props {
   staff: boolean;
   me?: User;
   onNavigate: (v: ViewId) => void;
+  /** Счётчики на пунктах меню (например, непрочитанные напоминания у чата). */
+  badges?: Partial<Record<ViewId, number>>;
   /** «Написать Бадди» — открыть чат и поставить фокус в поле ввода */
   onWrite: () => void;
   /** «Сообщить наставнику» — открыть чат с заготовкой сообщения (только стажёр) */
   onReport: () => void;
 }
 
-function NavItem({ v, active, onClick }: { v: ViewDef; active: boolean; onClick: () => void }) {
+function NavItem({
+  v,
+  active,
+  onClick,
+  badge = 0,
+}: {
+  v: ViewDef;
+  active: boolean;
+  onClick: () => void;
+  badge?: number;
+}) {
   const Icon = v.icon;
   return (
     <li>
@@ -27,12 +39,17 @@ function NavItem({ v, active, onClick }: { v: ViewDef; active: boolean; onClick:
       >
         <Icon className="nav__icon" />
         <span>{v.title}</span>
+        {badge > 0 && (
+          <span className="nav__badge" aria-label={`новых напоминаний: ${badge}`}>
+            {badge}
+          </span>
+        )}
       </button>
     </li>
   );
 }
 
-export function Sidebar({ views, view, staff, me, onNavigate, onWrite, onReport }: Props) {
+export function Sidebar({ views, view, staff, me, onNavigate, badges = {}, onWrite, onReport }: Props) {
   const user = useChatStore((s) => s.user);
   const setUser = useChatStore((s) => s.setUser);
   const main = views.filter((v) => v.group === 'main');
@@ -69,7 +86,7 @@ export function Sidebar({ views, view, staff, me, onNavigate, onWrite, onReport 
           <h2 className="nav__heading">{staff ? 'Команда' : 'Работа'}</h2>
           <ul className="nav__list">
             {main.map((v) => (
-              <NavItem key={v.id} v={v} active={view === v.id} onClick={() => onNavigate(v.id)} />
+              <NavItem key={v.id} v={v} active={view === v.id} badge={badges[v.id]} onClick={() => onNavigate(v.id)} />
             ))}
           </ul>
         </div>

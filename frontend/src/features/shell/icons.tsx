@@ -28,6 +28,13 @@ export const IconPlan = (p: IconProps) => (
   </svg>
 );
 
+export const IconCalendar = (p: IconProps) => (
+  <svg {...base} {...p}>
+    <rect x="3" y="4.5" width="14" height="12.5" rx="2" />
+    <path d="M3 8.5h14M7 3v3M13 3v3M6.5 11.5h2M11.5 11.5h2M6.5 14h2" />
+  </svg>
+);
+
 export const IconInbox = (p: IconProps) => (
   <svg {...base} {...p}>
     <path d="M3 11.5 5 4.5h10l2 7v4a1.5 1.5 0 0 1-1.5 1.5h-11A1.5 1.5 0 0 1 3 15.5v-4Z" />

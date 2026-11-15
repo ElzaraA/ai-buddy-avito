@@ -50,6 +50,13 @@ var specs = map[string]Spec{
 			"reason":   str("зачем нужен доступ"),
 		}),
 	},
+	"schedule_get": {
+		Description: "Встречи пользователя: стендапы, 1:1, планирование, ретро и личные созвоны",
+		InputSchema: object(nil, map[string]any{
+			"when": map[string]any{"type": "string", "enum": []string{"today", "tomorrow", "week"}, "description": "период, по умолчанию неделя"},
+			"kind": map[string]any{"type": "string", "enum": []string{"standup", "one_on_one", "planning", "retro"}, "description": "только встречи одного вида"},
+		}),
+	},
 	"directory_find_owner": {
 		Description: "Кто отвечает за тему (доступы, инструменты, чек-лист, отгулы)",
 		InputSchema: object([]string{"query"}, map[string]any{"query": str("тема")}),

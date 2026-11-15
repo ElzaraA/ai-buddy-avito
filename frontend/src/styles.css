@@ -671,3 +671,61 @@ ul, ol { list-style: none; margin: 0; padding: 0; }
   .desk-card:hover { transform: none; }
   .desk-card--blue:hover { transform: rotate(-1deg); }
 }
+
+/* ---------- Расписание ---------- */
+.schedule__note { font-size: 14px; color: var(--ink-2); margin-bottom: 18px; }
+.schedule__days { display: flex; flex-direction: column; gap: 22px; }
+.day__title { font-size: 15px; font-weight: 600; margin-bottom: 10px; }
+.day__title::first-letter { text-transform: uppercase; }
+.day__list { display: flex; flex-direction: column; gap: 10px; }
+
+/* карточка встречи: пастель по виду встречи — как карточки рабочего стола */
+.meeting {
+  display: grid; grid-template-columns: 76px 1fr auto; align-items: center; gap: 14px;
+  padding: 14px 16px; border-radius: var(--r-md); box-shadow: var(--shadow-sm);
+}
+.meeting--green { background: var(--green); }
+.meeting--blue { background: var(--blue); }
+.meeting--peach { background: var(--peach); }
+.meeting--pink { background: var(--pink); }
+.meeting__time { display: flex; flex-direction: column; line-height: 1.2; }
+.meeting__start { font-size: 20px; font-weight: 650; letter-spacing: -0.02em; }
+.meeting__end { font-size: 12px; color: var(--ink-2); }
+.meeting__body { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.meeting__title { font-weight: 600; }
+.meeting__meta { font-size: 13px; color: var(--ink-2); }
+.meeting__cancel { color: var(--ink); }
+
+.meeting-form {
+  display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; align-items: end;
+  margin-top: 26px; padding: 18px; border-radius: var(--r-lg); background: #faf9f6; border: 1px solid var(--rule-soft);
+}
+.meeting-form__title { grid-column: 1 / -1; font-size: 15px; font-weight: 600; }
+.meeting-form .error { grid-column: 1 / -1; margin-top: 0; }
+.meeting-form__submit { grid-column: 1 / -1; justify-self: start; }
+.meeting-form__submit:disabled { opacity: .45; cursor: default; }
+.field { display: flex; flex-direction: column; gap: 4px; font-size: 13px; color: var(--ink-2); min-width: 0; }
+.field input, .field select {
+  font: inherit; font-size: 14px; color: var(--ink); background: #fff;
+  padding: 9px 12px; border: 1px solid var(--rule-input); border-radius: var(--r-sm); min-width: 0;
+}
+.field input:focus, .field select:focus { outline: none; border-color: var(--ink); box-shadow: 0 0 0 2px var(--ink); }
+
+/* напоминание в чате: пишет Бадди сам, выделено маркером, как «ждёт» в плане */
+.msg--reminder { background: #fff8d6; border: 1px solid #f1df8a; border-left: 3px solid var(--warn); border-top-left-radius: 6px; }
+.msg--reminder .msg__title { display: block; font-size: 12px; font-weight: 700; color: #7a5a00; margin-bottom: 2px; }
+
+.nav__badge {
+  margin-left: auto; min-width: 20px; height: 20px; padding: 0 6px; border-radius: 999px;
+  display: inline-flex; align-items: center; justify-content: center;
+  font-size: 12px; font-weight: 700; background: var(--warn); color: var(--ink);
+}
+
+@media (max-width: 900px) {
+  .meeting-form { grid-template-columns: 1fr 1fr; }
+  .meeting { grid-template-columns: 64px 1fr; }
+  .meeting__cancel { grid-column: 2; justify-self: start; }
+}
+@media (max-width: 520px) {
+  .meeting-form { grid-template-columns: 1fr; }
+}

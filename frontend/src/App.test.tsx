@@ -1,4 +1,4 @@
-import { screen, waitFor, within } from '@testing-library/react';
+import { act, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { App } from './App';
 import { getDemoUser } from './api/client';
@@ -99,5 +99,59 @@ describe('App', () => {
     expect(screen.getByText(/руководитель: согласование заявок/)).toBeInTheDocument();
     expect(screen.queryByText('Моя адаптация')).not.toBeInTheDocument();
     expect(screen.getByLabelText('Чат с AI-buddy')).toBeInTheDocument();
+  });
+  it('расписание: напоминание приходит, пока открыт другой раздел, — счётчик на чате и сообщение в чате', async () => {
+    mockFetch([
+      {
+        match: '/api/v1/me',
+        body: {
+          id: 'intern-1',
+          name: 'Стажёр Backend',
+          role: 'intern',
+          team_id: 'backend',
+        },
+      },
+      {
+        match: '/api/v1/onboarding/progress',
+        body: { items: [], next_step: '' },
+      },
+      {
+        match: /\/api\/v1\/schedule\?days=7$/,
+        body: { from: '', to: '', items: [] },
+      },
+      {
+        match: '/api/v1/reminders',
+        body: [
+          {
+            id: 'standup@x',
+            title: 'Стендап команды',
+            kind: 'standup',
+            start: '2026-11-16T11:00:00+03:00',
+            end: '2026-11-16T11:15:00+03:00',
+            text: 'Через 15 минут — Стендап команды в 11:00.',
+          },
+        ],
+      },
+      {
+        method: 'POST',
+        match: '/api/v1/reminders/standup%40x/ack',
+        body: null,
+      },
+    ]);
+    renderWithQuery(<App />);
+    const nav = screen.getByRole('navigation', { name: 'Разделы' });
+    // чат открыт — напоминание сразу видно и счётчик не нужен
+    expect(await screen.findByText('Через 15 минут — Стендап команды в 11:00.')).toBeVisible();
+    expect(within(nav).queryByLabelText(/новых напоминаний/)).not.toBeInTheDocument();
+
+    // в другом разделе новое напоминание отмечается счётчиком на пункте с чатом
+    await userEvent.click(within(nav).getByRole('button', { name: 'Расписание' }));
+    expect(await screen.findByText('На ближайшую неделю встреч нет.')).toBeInTheDocument();
+    act(() => useChatStore.getState().addReminder('retro@x', 'Через 15 минут — Ретро спринта в 17:00.'));
+    expect(await within(nav).findByLabelText('новых напоминаний: 1')).toBeInTheDocument();
+
+    await userEvent.click(within(nav).getByRole('button', { name: /Рабочий стол/ }));
+    expect(screen.getByText('Через 15 минут — Ретро спринта в 17:00.')).toBeVisible();
+    await waitFor(() => expect(within(nav).queryByLabelText(/новых напоминаний/)).not.toBeInTheDocument());
   });
 });

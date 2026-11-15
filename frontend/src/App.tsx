@@ -6,6 +6,8 @@ import { ActionsView } from './features/home/ActionsView';
 import { Desk } from './features/home/Desk';
 import { Skills } from './features/home/Skills';
 import { ProgressPanel } from './features/progress/ProgressPanel';
+import { ScheduleView } from './features/schedule/ScheduleView';
+import { useReminders } from './features/schedule/useReminders';
 import { Sidebar } from './features/shell/Sidebar';
 import { defaultView, viewsFor, type ViewId } from './features/shell/views';
 import { TeamPanel } from './features/team/TeamPanel';
@@ -14,6 +16,7 @@ import { guessRole, useChatStore } from './store/chat';
 const SUBTITLES: Partial<Record<ViewId, string>> = {
   desk: 'Начните с карточки или спросите Бадди своими словами',
   plan: 'Чек-лист адаптации: шаги с заявками закрываются сами после согласования',
+  schedule: 'Встречи команды и ваши созвоны; о каждой Бадди напомнит в чате',
   actions: 'Черновики, которые ждут отправки, и решения руководителя',
   skills: 'Готовые вопросы: выберите — и Бадди ответит в чате',
   team: 'Кто просит помощи, что ждёт решения и чего нет в базе знаний',
@@ -30,6 +33,9 @@ export function App() {
   useEffect(() => setDemoUser(user), [user]);
 
   const me = useQuery({ queryKey: ['me', user], queryFn: api.me });
+  useReminders();
+  const unreadReminders = useChatStore((s) => s.unreadReminders);
+  const readReminders = useChatStore((s) => s.readReminders);
   // пока /me грузится после смены учётки — роль по логину, чтобы не мелькал чужой экран
   const role = me.data?.role ?? guessRole(user);
   const isTeamView = role === 'buddy' || role === 'lead';
@@ -42,6 +48,10 @@ export function App() {
   const current = views.find((v) => v.id === active) ?? views[0];
   const chatView: ViewId = isTeamView ? 'chat' : 'desk';
   const chatVisible = active === chatView;
+  // напоминание прочитано, как только чат на экране
+  useEffect(() => {
+    if (chatVisible && unreadReminders > 0) readReminders();
+  }, [chatVisible, unreadReminders, readReminders]);
 
   // смена раздела или учётки — рабочая область с начала: после кабинета руководителя
   // стол стажёра не должен открываться прокрученным к чату
@@ -77,6 +87,7 @@ export function App() {
           staff={isTeamView}
           me={me.data}
           onNavigate={setView}
+          badges={chatVisible || unreadReminders === 0 ? {} : { [chatView]: unreadReminders }}
           onWrite={() => openChat()}
           onReport={report}
         />
@@ -104,6 +115,10 @@ export function App() {
             {/* чат всегда смонтирован: переписка и поток ответов не теряются при переходах по разделам */}
             <div className={`chat-card${isTeamView ? ' chat-card--full' : ''}`} hidden={!chatVisible}>
               <ChatPanel key={`chat-${user}`} staff={isTeamView} />
+            </div>
+
+            <div hidden={active !== 'schedule'}>
+              {active === 'schedule' && <ScheduleView key={`schedule-${user}`} />}
             </div>
 
             {isTeamView ? (

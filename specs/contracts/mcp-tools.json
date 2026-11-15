@@ -81,6 +81,27 @@
       "requiresConfirmation": false,
       "inputSchema": { "type": "object", "required": ["query"], "properties": { "query": { "type": "string" } } },
       "outputSchema": { "type": "object", "properties": { "owner": { "type": "string" } } }
+    },
+    {
+      "name": "schedule_get",
+      "description": "Встречи пользователя: стендапы, 1:1, планирование, ретро и личные созвоны",
+      "permission": "schedule.read",
+      "requiresConfirmation": false,
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "when": { "type": "string", "enum": ["today", "tomorrow", "week"] },
+          "kind": { "type": "string", "enum": ["standup", "one_on_one", "planning", "retro"] }
+        }
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "items": { "type": "array", "items": { "type": "object" } },
+          "next_meeting": { "type": "string", "example": "ср 18.11, 16:00 — 1:1 с наставником" },
+          "meetings_count": { "type": "integer" }
+        }
+      }
     }
   ]
 }

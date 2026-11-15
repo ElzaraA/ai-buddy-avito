@@ -41,8 +41,9 @@ export function ChatPanel({ staff = false }: { staff?: boolean }) {
   const inputRef = useRef<HTMLInputElement>(null);
 
   // Подсказки следующего шага присылает сервер вместе с ответом; если их нет — общий набор.
-  const last = [...messages].reverse().find((m) => m.role !== 'user');
-  const fromServer = last && last.status === 'done' ? (last.response.suggestions ?? []) : [];
+  // напоминания о встречах подсказки не меняют: смотрим на последний ответ Бадди
+  const last = [...messages].reverse().find((m) => m.role === 'assistant');
+  const fromServer = last?.role === 'assistant' && last.status === 'done' ? (last.response.suggestions ?? []) : [];
   const followUps = fromServer.length > 0 ? fromServer : FOLLOW_UPS;
 
   // «Что-то не так?» — готовим сообщение наставнику: стажёру остаётся дописать, что случилось.
@@ -144,6 +145,16 @@ export function ChatPanel({ staff = false }: { staff?: boolean }) {
             return (
               <div key={m.id} className="row row--user">
                 <div className="msg msg--user">{m.text}</div>
+              </div>
+            );
+          }
+          if (m.role === 'reminder') {
+            return (
+              <div key={m.id} className="row">
+                <div className="msg msg--reminder" role="status">
+                  <span className="msg__title">Напоминание о встрече</span>
+                  <p>{m.text}</p>
+                </div>
               </div>
             );
           }

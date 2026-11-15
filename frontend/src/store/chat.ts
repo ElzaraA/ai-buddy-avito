@@ -5,7 +5,9 @@ export type ChatMessage =
   | { id: string; role: 'user'; text: string }
   | { id: string; role: 'assistant'; status: 'pending'; startedAt: number }
   | { id: string; role: 'assistant'; status: 'done'; response: AgentResponse }
-  | { id: string; role: 'assistant'; status: 'failed'; error: string };
+  | { id: string; role: 'assistant'; status: 'failed'; error: string }
+  /** Напоминание о встрече: Бадди пишет его в чат сам, без вопроса стажёра. */
+  | { id: string; role: 'reminder'; text: string };
 
 type Outcome = { kind: 'done'; response: AgentResponse } | { kind: 'failed'; error: string };
 
@@ -31,6 +33,11 @@ interface ChatState {
   resolve: (id: string, response: AgentResponse) => void;
   fail: (id: string, error: string) => void;
   reset: () => void;
+  /** Добавить напоминание о встрече (повтор с тем же id игнорируется). */
+  addReminder: (id: string, text: string) => void;
+  /** Напоминания, которые пришли, пока чат был закрыт: счётчик на пункте меню. */
+  unreadReminders: number;
+  readReminders: () => void;
   /**
    * Запрос из оболочки (боковое меню, карточки рабочего стола) к полю ввода чата:
    * подставить текст и поставить фокус. nonce меняется на каждый запрос, чтобы повтор сработал.
@@ -95,10 +102,18 @@ export const useChatStore = create<ChatState>((set) => {
     early: {},
     composer: null,
     queued: null,
+    unreadReminders: 0,
     setUser: (login) => {
       saveUser(login);
-      set({ user: login, sessionId: null, messages: [], early: {}, composer: null, queued: null });
+      set({ user: login, sessionId: null, messages: [], early: {}, composer: null, queued: null, unreadReminders: 0 });
     },
+    addReminder: (id, text) =>
+      set((s) =>
+        s.messages.some((m) => m.id === id)
+          ? {}
+          : { messages: [...s.messages, { id, role: 'reminder', text }], unreadReminders: s.unreadReminders + 1 },
+      ),
+    readReminders: () => set({ unreadReminders: 0 }),
     prefill: (text) => set({ composer: { text, nonce: ++nonce } }),
     ask: (text) => set({ queued: { text, nonce: ++nonce } }),
     takeQueued: () => set({ queued: null }),

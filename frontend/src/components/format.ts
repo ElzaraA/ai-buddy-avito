@@ -36,6 +36,10 @@ const FIELD_LABELS: Record<string, string> = {
   dateTo: 'По',
   date_from: 'С',
   date_to: 'По',
+  // ответ на «какие у меня встречи?»
+  next_meeting: 'Ближайшая',
+  place: 'Где',
+  upcoming: 'Дальше',
 };
 
 const FIELD_ORDER = Object.keys(FIELD_LABELS);

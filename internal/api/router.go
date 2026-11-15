@@ -58,6 +58,13 @@ func NewRouterWithOrigins(h *Handlers, origins []string) *chi.Mux {
 			r.With(wl).Post("/actions/{id}/approve", h.ApproveAction)
 			r.With(wl).Post("/actions/{id}/reject", h.RejectAction)
 
+			// Расписание: встречи команды, личные созвоны и напоминания для чата
+			r.Get("/schedule", h.Schedule)
+			r.With(h.WriteLimiter.Middleware).Post("/schedule", h.CreateMeeting)
+			r.Post("/schedule/{id}/cancel", h.CancelMeeting)
+			r.Get("/reminders", h.Reminders)
+			r.Post("/reminders/{id}/ack", h.AckReminder)
+
 			// Кабинет наставника и руководителя
 			r.Get("/team/progress", h.TeamProgress)
 			r.Get("/team/actions", h.TeamActions)

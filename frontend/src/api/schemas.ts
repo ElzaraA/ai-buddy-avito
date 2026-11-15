@@ -220,6 +220,33 @@ export const KnowledgeGapSchema = z.object({
 });
 export const KnowledgeGapsSchema = z.array(KnowledgeGapSchema).nullable().transform((v) => v ?? []);
 
+/** Встреча в расписании: ритуал команды или личный созвон. */
+export const OccurrenceSchema = z.object({
+  id: z.string(),
+  title: z.string(),
+  kind: z.string(),
+  start: z.string(),
+  end: z.string(),
+  place: z.string().optional(),
+  with: z.string().optional(),
+  recurring: z.boolean().default(false),
+  meeting_id: z.string().optional(),
+});
+export type Occurrence = z.infer<typeof OccurrenceSchema>;
+
+export const ScheduleSchema = z.object({
+  from: z.string(),
+  to: z.string(),
+  reminder_lead_min: z.number().default(15),
+  items: z.array(OccurrenceSchema).nullable().transform((v) => v ?? []),
+});
+export type Schedule = z.infer<typeof ScheduleSchema>;
+
+/** Напоминание о встрече, которое Бадди присылает в чат. */
+export const ReminderSchema = OccurrenceSchema.extend({ text: z.string() });
+export type Reminder = z.infer<typeof ReminderSchema>;
+export const RemindersSchema = z.array(ReminderSchema).nullable().transform((v) => v ?? []);
+
 export const ApiErrorSchema = z.object({
   error: z.object({ code: z.string(), message: z.string() }),
 });

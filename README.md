@@ -56,6 +56,8 @@ cd frontend && npm install && npm run dev   # интерфейс на http://loc
 5. **Снова Стажёр Backend.** Шаг «Получить доступы» выполнен, прогресс вырос с 25% до 50%, в «Моих заявках» — «согласована» и комментарий руководителя.
 6. **Стажёр другой команды** видит только свой чек-лист; на вопрос про логи backend получает отказ (чужая база знаний не видна). **Наставник Backend** видит кабинет команды без кнопок согласования, **Руководитель Frontend** — кабинет только своей команды, без стажёров и заявок backend.
 
+7. **Расписание.** Раздел «Расписание» показывает встречи команды на неделю (стендап, 1:1 с наставником, планирование и ретро раз в спринт) и ваши созвоны. Добавьте созвон через 10 минут — за 15 минут до начала каждой встречи Бадди сам пишет напоминание в чат; если открыт другой раздел, на пункте с чатом появляется счётчик. В чате спросите «Какие у меня встречи завтра?» или «Когда у меня 1:1?». Вопросы о правилах («Когда стендап?», «Как часто 1:1?») по-прежнему отвечает база знаний.
+
 Те же сценарии без интерфейса — в разделе «Проверка сценариев (bash)» ниже.
 
 По умолчанию работает **mock-LLM**: ключ и интернет не нужны, ответы детерминированы. Реальная OpenAI-совместимая модель включается так: `LLM_MOCK=false` и `LLM_API_KEY=...` в `.env`. Если реальная модель недоступна, сервис не падает: отвечает резервная модель, ответ помечается `"degraded": true`.
@@ -72,6 +74,7 @@ cd frontend && npm install && npm run dev   # интерфейс на http://loc
 | `LLM_FALLBACK` | `false` — не переключаться на резервную модель при сбое | `true` |
 | `KNOWLEDGE_DIR` | папка базы знаний | `data/knowledge` |
 | `STATE_FILE` | файл снимка состояния; пусто — только в памяти | пусто (в Docker `/app/state/state.json`) |
+| `REMINDER_LEAD_MIN` | за сколько минут до встречи Бадди напоминает в чате | `15` |
 | `RATE_LIMIT_PER_MIN` | вопросов в минуту на пользователя; `0` — без лимита | `60` |
 | `CORS_ORIGINS` | origin фронта через запятую | `localhost:5173`, `127.0.0.1:5173`, `localhost:3000` |
 
@@ -144,6 +147,14 @@ OTH=$(curl -s $API/api/ask -H "$H" -H 'X-Demo-User: intern.other' -d '{"question
 curl -s -X POST $API/api/v1/actions/$OTH/confirm -H 'X-Demo-User: intern.other'
 curl -s -X POST $API/api/v1/actions/$OTH/approve -H 'X-Demo-User: lead.backend'   # 403 — чужая команда
 curl -s -X POST $API/api/v1/actions/$OTH/approve -H 'X-Demo-User: lead.frontend'  # status=approved
+
+# Расписание и напоминания
+curl -s "$API/api/v1/schedule?days=7"                                             # встречи команды + свои созвоны
+curl -s -X POST $API/api/v1/schedule -H "$H" -d '{"title":"Разбор задачи","start":"2026-11-20T15:00","duration_min":30,"with":"Иван Петров"}'
+#   201, meeting_id=MTG-…; время без зоны — по Москве
+curl -s -X POST $API/api/v1/schedule/MTG-000001/cancel -H 'X-Demo-User: intern.other'   # 404 — чужой созвон
+curl -s $API/api/v1/reminders                                                     # встречи, до которых ≤ REMINDER_LEAD_MIN минут
+curl -s -X POST "$API/api/v1/reminders/<id>/ack"                                  # 204 — показано, больше не придёт
 
 # Безопасность
 curl -s -X POST "$API/api/v1/actions/$OTH/approve?user=lead.backend"              # 403 — ?user= вне SSE игнорируется

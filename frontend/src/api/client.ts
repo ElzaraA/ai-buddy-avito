@@ -7,6 +7,9 @@ import {
   PulseEntrySchema,
   TeamPulseSchema,
   ApiErrorSchema,
+  OccurrenceSchema,
+  RemindersSchema,
+  ScheduleSchema,
   KnowledgeGapsSchema,
   ProgressSchema,
   SignalsSchema,
@@ -118,6 +121,16 @@ export const api = {
     request(`/api/v1/actions/${encodeURIComponent(id)}/confirm`, AbsenceSchema, { method: 'POST' }),
   /** Мои заявки (черновики и отправленные), новые сверху. */
   listActions: () => request('/api/v1/actions', ActionListSchema),
+  /** Расписание: встречи команды и личные созвоны на days дней вперёд. */
+  schedule: (days = 7) => request(`/api/v1/schedule?days=${days}`, ScheduleSchema),
+  createMeeting: (m: { title: string; start: string; duration_min: number; with?: string }) =>
+    request('/api/v1/schedule', OccurrenceSchema, { method: 'POST', body: JSON.stringify(m) }),
+  cancelMeeting: (meetingId: string) =>
+    request(`/api/v1/schedule/${encodeURIComponent(meetingId)}/cancel`, z.unknown(), { method: 'POST' }),
+  /** Встречи, о которых пора напомнить в чате; после показа — ackReminder, чтобы не повторялись. */
+  reminders: () => request('/api/v1/reminders', RemindersSchema),
+  ackReminder: (id: string) =>
+    request(`/api/v1/reminders/${encodeURIComponent(id)}/ack`, z.unknown(), { method: 'POST' }),
   cancelAction: (id: string) =>
     request(`/api/v1/actions/${encodeURIComponent(id)}/cancel`, AbsenceSchema, { method: 'POST' }),
   // Кабинет наставника и руководителя — только своя команда

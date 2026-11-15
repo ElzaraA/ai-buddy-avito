@@ -35,7 +35,7 @@ func TestSpecMatchesCode(t *testing.T) {
 	st := store.New()
 	reg := NewRegistry()
 	for _, tool := range []Tool{
-		&AccessRequest{}, &AbsenceCreateRequest{S: st}, &DirectoryFindOwner{}, &ChecklistGet{S: st}, &AbsenceGetPolicy{},
+		&AccessRequest{}, &AbsenceCreateRequest{S: st}, &DirectoryFindOwner{}, &ChecklistGet{S: st}, &AbsenceGetPolicy{}, &ScheduleGet{S: st},
 	} {
 		reg.Register(tool)
 	}
