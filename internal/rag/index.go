@@ -13,9 +13,13 @@ type Index struct {
 	lens   []int
 }
 
+// oneOnOne — «1:1» как слово: иначе число отбрасывается и «как проходит 1:1» теряет смысл.
+var oneOnOne = strings.NewReplacer("1:1", " oneonone ", "1-1", " oneonone ", "1 на 1", " oneonone ",
+	"один на один", " oneonone ", "1on1", " oneonone ", "one-on-one", " oneonone ")
+
 func tokenize(s string) []string {
 	// «ё» → «е»: стажёры пишут «стажер», «выдает», а в базе — «стажёр», «выдаёт».
-	s = strings.ReplaceAll(strings.ToLower(s), "ё", "е")
+	s = oneOnOne.Replace(strings.ReplaceAll(strings.ToLower(s), "ё", "е"))
 	return strings.FieldsFunc(s, func(r rune) bool {
 		return !(r >= 'a' && r <= 'z') && !(r >= 'а' && r <= 'я') && !(r >= '0' && r <= '9')
 	})
