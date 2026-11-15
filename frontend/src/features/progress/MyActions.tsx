@@ -52,61 +52,69 @@ export function MyActions() {
   return (
     <>
       {drafts.length > 0 && (
-        <div className="stage" aria-label="Ждут вашего подтверждения">
-          <h3>Ждут вашего подтверждения</h3>
-          <div className="muted">Черновики, подготовленные в чате или внешним агентом (MCP). Без подтверждения никуда не уходят.</div>
-          <ul>
+        <section className="block" aria-label="Ждут вашего подтверждения">
+          <h3 className="block__title">Ждут вашего подтверждения</h3>
+          <p className="block__note">
+            Черновики из чата или от внешнего агента. Пока вы их не отправите, они никуда не уходят.
+          </p>
+          <ul className="ledger">
             {drafts.map((a) => (
-              <li key={a.id} className="step">
-                <span className="step__title">
-                  {actionTitle(a)} <span className="muted">· {a.id}</span>
-                </span>
-                <button
-                  className="link"
-                  onClick={() => confirm.mutate(a.id)}
-                  disabled={busy}
-                  aria-label={`Отправить заявку ${a.id}`}
-                >
-                  отправить
-                </button>
-                <button
-                  className="link"
-                  onClick={() => cancel.mutate(a.id)}
-                  disabled={busy}
-                  aria-label={`Удалить черновик ${a.id}`}
-                >
-                  отменить
-                </button>
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
-      {sent.length > 0 && (
-        <div className="stage" aria-label="Мои заявки">
-          <h3>Мои заявки</h3>
-          <ul>
-            {sent.map((a) => (
-              <li key={a.id} className="step">
-                <span className="step__title">
-                  {actionTitle(a)} <span className="muted">· {a.id}</span>
-                  {decisionComment(a) && <span className="muted"> · «{decisionComment(a)}»</span>}
-                </span>
-                <span className={`badge badge--${a.status}`}>{statusLabel(a.status)}</span>
-                {a.status === 'pending' && (
+              <li key={a.id} className="ledger__row ledger__row--draft">
+                <div className="ledger__main">
+                  <span className="ledger__title">{actionTitle(a)}</span>
+                  <span className="ledger__id">{a.id}</span>
+                </div>
+                <div className="ledger__actions">
                   <button
-                    className="link"
+                    className="btn btn--small btn--primary"
+                    onClick={() => confirm.mutate(a.id)}
+                    disabled={busy}
+                    aria-label={`Отправить заявку ${a.id}`}
+                  >
+                    Отправить
+                  </button>
+                  <button
+                    className="btn btn--small btn--ghost"
                     onClick={() => cancel.mutate(a.id)}
                     disabled={busy}
-                    aria-label={`Отменить заявку ${a.id}`}
+                    aria-label={`Удалить черновик ${a.id}`}
                   >
-                    отменить
+                    Удалить
                   </button>
-                )}
+                </div>
               </li>
             ))}
           </ul>
-        </div>
+        </section>
+      )}
+      {sent.length > 0 && (
+        <section className="block" aria-label="Мои заявки">
+          <h3 className="block__title">Мои заявки</h3>
+          <ul className="ledger">
+            {sent.map((a) => (
+              <li key={a.id} className="ledger__row">
+                <div className="ledger__main">
+                  <span className="ledger__title">{actionTitle(a)}</span>
+                  <span className="ledger__id">{a.id}</span>
+                  {decisionComment(a) && <span className="ledger__comment">«{decisionComment(a)}»</span>}
+                </div>
+                <div className="ledger__actions">
+                  <span className={`badge badge--${a.status}`}>{statusLabel(a.status)}</span>
+                  {a.status === 'pending' && (
+                    <button
+                      className="btn btn--link"
+                      onClick={() => cancel.mutate(a.id)}
+                      disabled={busy}
+                      aria-label={`Отменить заявку ${a.id}`}
+                    >
+                      Отменить
+                    </button>
+                  )}
+                </div>
+              </li>
+            ))}
+          </ul>
+        </section>
       )}
       {(cancel.isError || confirm.isError) && (
         <div className="error" role="alert">

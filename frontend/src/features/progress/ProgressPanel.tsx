@@ -26,6 +26,20 @@ export function closesByApproval(it: ChecklistItem) {
   return it.status === 'waiting' || it.kind === 'access';
 }
 
+/** Состояние этапа на маршруте: пройден, текущий (в нём следующий шаг) или впереди. */
+function stationState(items: ChecklistItem[], nextStep: string) {
+  if (items.every((i) => i.done)) return 'done';
+  if (items.some((i) => i.title === nextStep)) return 'current';
+  return 'ahead';
+}
+
+function stepClass(it: ChecklistItem, nextStep: string) {
+  if (it.done) return 'step step--done';
+  if (it.status === 'waiting') return 'step step--waiting';
+  if (it.title === nextStep) return 'step step--current';
+  return 'step';
+}
+
 export function ProgressPanel() {
   const user = useChatStore((s) => s.user);
   const qc = useQueryClient();
@@ -41,79 +55,77 @@ export function ProgressPanel() {
     onSuccess: (next) => qc.setQueryData(['progress', user], next),
   });
 
-  if (isLoading) return <section className="panel progress">Загружаю план адаптации…</section>;
+  if (isLoading) return <aside className="sheet sheet--state">Загружаю план адаптации…</aside>;
   if (isError || !data)
     return (
-      <section className="panel progress">
+      <aside className="sheet sheet--state">
         <div className="error" role="alert">
           Не удалось загрузить прогресс.{' '}
-          <button className="link" onClick={() => void refetch()}>
+          <button className="btn btn--link" onClick={() => void refetch()}>
             Повторить
           </button>
         </div>
-      </section>
+      </aside>
     );
 
   const pct = Math.round(data.percent_done ?? percentDone(data.items));
 
   return (
-    <section className="panel progress" aria-label="Прогресс адаптации">
-      <header className="panel__header">
+    <aside className="sheet" aria-label="Прогресс адаптации">
+      <header className="sheet__head">
         <h2>Моя адаптация</h2>
+        <span className="sheet__meta">Выполнено {pct}%</span>
       </header>
 
-      <div className="progress__bar" role="progressbar" aria-valuenow={pct} aria-valuemin={0} aria-valuemax={100}>
+      <div className="meter" role="progressbar" aria-valuenow={pct} aria-valuemin={0} aria-valuemax={100}>
         <div style={{ width: `${pct}%` }} />
       </div>
-      <div className="muted">Выполнено {pct}%</div>
 
       {data.next_step && (
-        <div className="next">
-          <div className="next__label">Следующий шаг</div>
-          <div className="next__title">{data.next_step}</div>
-        </div>
+        <p className="now">
+          Сейчас: <span className="next__title">{data.next_step}</span>
+        </p>
       )}
 
-      {groupByStage(data.items).map((g) => (
-        <div key={g.stage} className="stage">
-          <h3>{stageLabel(g.stage)}</h3>
-          <ul>
-            {g.items.map((it) => (
-              <li key={it.id} className={it.done ? 'step step--done' : 'step'}>
-                <span className="step__icon" aria-hidden>
-                  {it.done ? '✓' : '○'}
-                </span>
-                <span className="step__title">{it.title}</span>
-                {!it.done && it.status === 'waiting' && (
-                  <span
-                    className="badge"
-                    title={it.related_action_id ? `Заявка ${it.related_action_id}` : 'Шаг ждёт обработки заявки'}
-                  >
-                    ждёт согласования
-                  </span>
-                )}
-                {!it.done && closesByApproval(it) && (
-                  <span className="muted step__hint">
-                    {it.status === 'waiting'
-                      ? 'закроется после согласования руководителем'
-                      : 'запросите доступ в чате — шаг закроется после согласования'}
-                  </span>
-                )}
-                {!it.done && !closesByApproval(it) && (
-                  <button
-                    className="link"
-                    onClick={() => complete.mutate(it.id)}
-                    disabled={complete.isPending}
-                    aria-label={`Отметить «${it.title}» выполненным`}
-                  >
-                    готово
-                  </button>
-                )}
-              </li>
-            ))}
-          </ul>
-        </div>
-      ))}
+      <ol className="route">
+        {groupByStage(data.items).map((g) => (
+          <li key={g.stage} className={`station station--${stationState(g.items, data.next_step)}`}>
+            <h3 className="station__name">{stageLabel(g.stage)}</h3>
+            <ul className="steps">
+              {g.items.map((it) => (
+                <li key={it.id} className={stepClass(it, data.next_step)}>
+                  <span className="step__title">{it.title}</span>
+                  {!it.done && it.status === 'waiting' && (
+                    <span
+                      className="badge badge--pending"
+                      title={it.related_action_id ? `Заявка ${it.related_action_id}` : 'Шаг ждёт обработки заявки'}
+                    >
+                      ждёт согласования
+                    </span>
+                  )}
+                  {!it.done && closesByApproval(it) && (
+                    <span className="step__hint">
+                      {it.status === 'waiting'
+                        ? 'закроется после согласования руководителем'
+                        : 'запросите доступ в чате — шаг закроется после согласования'}
+                    </span>
+                  )}
+                  {!it.done && !closesByApproval(it) && (
+                    <button
+                      className="btn btn--link step__done"
+                      onClick={() => complete.mutate(it.id)}
+                      disabled={complete.isPending}
+                      aria-label={`Отметить «${it.title}» выполненным`}
+                    >
+                      Готово
+                    </button>
+                  )}
+                </li>
+              ))}
+            </ul>
+          </li>
+        ))}
+      </ol>
 
       {complete.isError && (
         <div className="error" role="alert">
@@ -122,6 +134,6 @@ export function ProgressPanel() {
       )}
 
       <MyActions />
-    </section>
+    </aside>
   );
 }

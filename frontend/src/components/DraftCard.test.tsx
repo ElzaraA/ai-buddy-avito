@@ -25,8 +25,7 @@ describe('DraftCard', () => {
       { method: 'POST', match: '/api/v1/actions/ABS-000001/confirm', body: absence('pending') },
     ]);
     renderWithQuery(<DraftCard args={{ date_from: '2026-11-20', date_to: '2026-11-21' }} />);
-    expect(screen.getByText('20.11.2026')).toBeInTheDocument();
-    expect(screen.getByText('21.11.2026')).toBeInTheDocument();
+    expect(screen.getByText('20.11.2026 – 21.11.2026')).toBeInTheDocument();
     expect(spy).not.toHaveBeenCalled();
 
     await userEvent.click(screen.getByRole('button', { name: 'Отправить заявку' }));
@@ -110,14 +109,16 @@ describe('DraftCard', () => {
     expect(screen.getByText(/Черновик заявки на доступ к gitlab/)).toBeInTheDocument();
     expect(screen.queryByText(/Даты:/)).not.toBeInTheDocument();
     await userEvent.click(screen.getByRole('button', { name: 'Отправить заявку' }));
-    expect(await screen.findByText(/Доступ к gitlab/)).toBeInTheDocument();
-    expect(screen.queryByText(/предупредить наставника/)).not.toBeInTheDocument();
+    expect(await screen.findByText(/Заявка REQ-000001 отправлена/)).toBeInTheDocument();
+    expect(screen.getByText('Доступ')).toBeInTheDocument();
+    expect(screen.getByText('gitlab')).toBeInTheDocument();
+    expect(screen.queryByText(/наставника лично/)).not.toBeInTheDocument();
     expect(spy).toHaveBeenCalledTimes(1);
   });
 
   it('доступ без action_id: кнопки нет, понятное сообщение (POST /actions умеет только отгул)', () => {
     renderWithQuery(<DraftCard action="access" args={{}} />);
-    expect(screen.getByText('📝 Черновик заявки на доступ')).toBeInTheDocument();
+    expect(screen.getByText('Черновик заявки на доступ')).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Отправить заявку' })).not.toBeInTheDocument();
     expect(screen.getByText(/не вернул номер черновика/)).toBeInTheDocument();
   });
@@ -128,6 +129,7 @@ describe('DraftCard', () => {
     ]);
     renderWithQuery(<DraftCard action="access" args={{ action_id: 'REQ-2', resource: 'jira' }} />);
     await userEvent.click(screen.getByRole('button', { name: 'Отправить заявку' }));
-    expect(await screen.findByText(/Доступ к jira/)).toBeInTheDocument();
+    await screen.findByText(/Заявка REQ-2 отправлена/);
+    expect(screen.getByText('jira')).toBeInTheDocument();
   });
 });

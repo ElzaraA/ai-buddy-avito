@@ -16,8 +16,8 @@ export function AssistantMessage({ response }: { response: AgentResponse }) {
   return (
     <div className="degraded">
       <Body response={response} />
-      <div className="muted" role="note">
-        ⚠️ Помощник работает в упрощённом режиме: основная модель временно недоступна.
+      <div className="note" role="note">
+        Помощник работает в упрощённом режиме: основная модель временно недоступна.
       </div>
     </div>
   );
@@ -37,8 +37,8 @@ function Body({ response }: { response: AgentResponse }) {
         ([k, v]) => (typeof v === 'string' || typeof v === 'number') && hasFieldLabel(k),
       );
       return (
-        <div className={`card ${r?.ok ? 'card--success' : 'card--error'}`} role="status">
-          <div className="card__title">{r?.ok ? '✅' : '⚠️'} {r?.message || 'Действие выполнено'}</div>
+        <div className={`msg msg--result ${r?.ok ? 'msg--ok' : 'msg--fail'}`} role="status">
+          <div className="msg__title">{r?.message || 'Действие выполнено'}</div>
           {scalar.length > 0 && (
             <dl className="kv">
               {scalar.map(([k, v]) => (
@@ -56,7 +56,7 @@ function Body({ response }: { response: AgentResponse }) {
 
     case 'refusal':
       return (
-        <div className="bubble bubble--refusal">
+        <div className="msg msg--refusal">
           <p>{response.text || 'Не могу помочь с этим вопросом.'}</p>
           {/* имя наставника уже есть в тексте отказа — второй строкой его не дублируем */}
           {response.buddy_name && !mentionsBuddy(response.text, response.buddy_name) && (
@@ -67,7 +67,7 @@ function Body({ response }: { response: AgentResponse }) {
 
     default:
       return (
-        <div className="bubble bubble--assistant">
+        <div className="msg msg--answer">
           <p>{response.text}</p>
           <Sources response={response} />
         </div>
@@ -81,10 +81,11 @@ function Sources({ response }: { response: AgentResponse }) {
   const unique = Array.from(new Set(list.map((s) => s.source ?? s.id)));
   return (
     <div className="sources">
-      Источники:{' '}
-      {unique.map((s) => (
-        <span key={s} className="chip">
-          {s}
+      {unique.length > 1 ? 'Источники:' : 'Источник:'}{' '}
+      {unique.map((s, i) => (
+        <span key={s}>
+          <span className="source">{s}</span>
+          {i < unique.length - 1 ? ', ' : ''}
         </span>
       ))}
     </div>
