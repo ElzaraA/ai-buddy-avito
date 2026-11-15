@@ -131,7 +131,7 @@ export function ChatPanel() {
       <form className="composer" onSubmit={submit}>
         <input
           aria-label="Сообщение"
-          placeholder="Напишите вопрос своими словами, например: как попасть на код-ревью?"
+          placeholder="Спросите своими словами"
           value={text}
           onChange={(e) => setText(e.target.value)}
           maxLength={4000}

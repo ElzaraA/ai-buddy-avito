@@ -35,6 +35,13 @@ const FIELD_LABELS: Record<string, string> = {
   date_to: 'По',
 };
 
+const FIELD_ORDER = Object.keys(FIELD_LABELS);
+
+/** Порядок полей в карточке — как в FIELD_LABELS (сервер отдаёт ключи по алфавиту). */
+export function byFieldOrder(a: string, b: string) {
+  return FIELD_ORDER.indexOf(a) - FIELD_ORDER.indexOf(b);
+}
+
 export function fieldLabel(key: string) {
   return FIELD_LABELS[key] ?? key;
 }

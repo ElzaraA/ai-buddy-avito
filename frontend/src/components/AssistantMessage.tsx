@@ -1,6 +1,6 @@
 import type { AgentResponse } from '../api/schemas';
 import { DraftCard } from './DraftCard';
-import { fieldLabel, fieldValue, hasFieldLabel } from './format';
+import { byFieldOrder, fieldLabel, fieldValue, hasFieldLabel } from './format';
 
 /** Упоминает ли текст отказа наставника (по фамилии — она одинакова во всех падежах кроме окончания). */
 export function mentionsBuddy(text: string | undefined, buddy: string): boolean {
@@ -33,9 +33,9 @@ function Body({ response }: { response: AgentResponse }) {
       const data = r?.data ?? {};
       // чек-лист показываем на панели прогресса, в чате — коротко
       // служебные поля без русской подписи (например, флаги) пользователю не показываем
-      const scalar = Object.entries(data).filter(
-        ([k, v]) => (typeof v === 'string' || typeof v === 'number') && hasFieldLabel(k),
-      );
+      const scalar = Object.entries(data)
+        .filter(([k, v]) => (typeof v === 'string' || typeof v === 'number') && hasFieldLabel(k))
+        .sort(([a], [b]) => byFieldOrder(a, b));
       return (
         <div className={`msg msg--result ${r?.ok ? 'msg--ok' : 'msg--fail'}`} role="status">
           <div className="msg__title">{r?.message || 'Действие выполнено'}</div>
