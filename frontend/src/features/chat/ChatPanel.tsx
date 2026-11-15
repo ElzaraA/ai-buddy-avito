@@ -29,7 +29,8 @@ export const FOLLOW_UPS = ['Что мне делать дальше?', 'Как �
 
 export const PROBLEM_PREFIX = 'Передай наставнику: ';
 
-export function ChatPanel() {
+/** staff — наставник или руководитель: подсказки и вход «сообщить наставнику» нужны только стажёру. */
+export function ChatPanel({ staff = false }: { staff?: boolean }) {
   const messages = useChatStore((s) => s.messages);
   const { send, connectError, sending } = useChat();
   const [text, setText] = useState('');
@@ -61,7 +62,16 @@ export function ChatPanel() {
   return (
     <section className="chat" aria-label="Чат с AI-buddy">
       <div className="chat__messages" aria-live="polite">
-        {messages.length === 0 && (
+        {messages.length === 0 && staff && (
+          <div className="empty">
+            <h1 className="empty__title">Кабинет команды — справа</h1>
+            <p className="empty__text">
+              Там стажёры, которые просят помощи, заявки на согласование и вопросы, которых нет в базе знаний. В чате
+              можно проверить, что помощник отвечает стажёрам.
+            </p>
+          </div>
+        )}
+        {messages.length === 0 && !staff && (
           <div className="empty">
             <h1 className="empty__title">Спросите здесь — до того, как писать наставнику</h1>
             <p className="empty__text">
@@ -132,7 +142,7 @@ export function ChatPanel() {
         </div>
       )}
 
-      {messages.length > 0 && (
+      {messages.length > 0 && !staff && (
         <div className="followups" aria-label="Что можно сделать дальше">
           {followUps.map((s) => (
             <button key={s} className="suggestion suggestion--small" onClick={() => void send(s)} disabled={sending}>
@@ -142,12 +152,14 @@ export function ChatPanel() {
         </div>
       )}
 
-      <div className="help-row">
-        <button type="button" className="btn btn--link help-row__btn" onClick={reportProblem}>
-          Что-то не так? Сообщить наставнику
-        </button>
-        <span className="muted">— это нормально, помощник передаст ваше сообщение</span>
-      </div>
+      {!staff && (
+        <div className="help-row">
+          <button type="button" className="btn btn--link help-row__btn" onClick={reportProblem}>
+            Что-то не так? Сообщить наставнику
+          </button>
+          <span className="muted">— это нормально, помощник передаст ваше сообщение</span>
+        </div>
+      )}
 
       <form className="composer" onSubmit={submit}>
         <input
