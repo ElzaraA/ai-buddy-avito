@@ -46,7 +46,7 @@ export function App() {
       </header>
 
       <main className="layout">
-        <ChatPanel key={`chat-${user}`} />
+        <ChatPanel key={`chat-${user}`} staff={isTeamView} />
         {/* наставник и руководитель видят кабинет команды, стажёр — свой план адаптации */}
         {isTeamView ? <TeamPanel key={`team-${user}`} role={role} /> : <ProgressPanel />}
       </main>
