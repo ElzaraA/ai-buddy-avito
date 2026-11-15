@@ -28,4 +28,4 @@ services:
       # Адрес фронтенда на Netlify: без него браузер получит ошибку CORS,
       # а запросы на запись — 403 «cross-origin request blocked».
       - key: CORS_ORIGINS
-        value: "https://ai-buddy-avito.netlify.app"
+        value: "https://ai-buddy-avito-demo.netlify.app,https://ai-buddy-avito.netlify.app"
