@@ -17,6 +17,7 @@ type Config struct {
 	CORSOrigins     []string
 	StateFile       string // путь к снимку состояния; пусто — только в памяти
 	RateLimitPerMin int    // вопросов в минуту на пользователя; 0 — без ограничения
+	ReminderLeadMin int    // за сколько минут до встречи напоминать в чате
 }
 
 func Load() Config {
@@ -34,6 +35,7 @@ func Load() Config {
 		CORSOrigins:     splitList(os.Getenv("CORS_ORIGINS")),
 		StateFile:       os.Getenv("STATE_FILE"),
 		RateLimitPerMin: getint("RATE_LIMIT_PER_MIN", 60),
+		ReminderLeadMin: getint("REMINDER_LEAD_MIN", 15),
 	}
 }
 

@@ -2,7 +2,8 @@ import { useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../api/client';
 import type { Absence } from '../api/schemas';
-import { formatDate, statusLabel } from './format';
+import { formatDate, resourceLabel, statusLabel } from './format';
+import { useGuard } from './useGuard';
 
 interface Props {
   /** absence | access */
@@ -43,6 +44,8 @@ export function DraftCard({ action = 'absence', args, text }: Props) {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['progress'] });
       qc.invalidateQueries({ queryKey: ['actions'] });
+      // «Первая заявка» загорается сразу, а не через интервал опроса
+      qc.invalidateQueries({ queryKey: ['achievements'] });
     },
   });
 
@@ -54,7 +57,11 @@ export function DraftCard({ action = 'absence', args, text }: Props) {
       qc.invalidateQueries({ queryKey: ['actions'] });
     },
   });
-  const onCancel = () => (actionId ? cancel.mutate() : setCancelled(true));
+  // один замок на обе кнопки: двойной клик или «Отправить» + «Отменить» подряд не уходят дважды
+  const guard = useGuard();
+  const onConfirm = () => guard((done) => confirm.mutate(undefined, { onSettled: done }));
+  const onCancel = () =>
+    actionId ? guard((done) => cancel.mutate(undefined, { onSettled: done })) : setCancelled(true);
   const busy = confirm.isPending || cancel.isPending;
 
   if (confirm.data) {
@@ -66,7 +73,7 @@ export function DraftCard({ action = 'absence', args, text }: Props) {
           {a.type === 'access' ? (
             <div>
               <dt>Доступ</dt>
-              <dd>{a.resource ?? args.resource}</dd>
+              <dd>{resourceLabel(a.resource ?? args.resource)}</dd>
             </div>
           ) : (
             <div>
@@ -79,7 +86,23 @@ export function DraftCard({ action = 'absence', args, text }: Props) {
             <dd>{statusLabel(a.status)}</dd>
           </div>
         </dl>
-        {!isAccess && <p className="form__hint">Предупредите наставника лично.</p>}
+        <div className="next">
+          <div className="next__title">Что дальше</div>
+          <ol className="next__list">
+            {isAccess ? (
+              <>
+                <li>Руководитель получит заявку и согласует доступ — писать ему не нужно.</li>
+                <li>Шаг «Получить доступы» в разделе «Мой план» закроется сам.</li>
+              </>
+            ) : (
+              <>
+                <li>Руководитель получит заявку и согласует её — писать ему не нужно.</li>
+                <li>Коротко предупредите наставника, что вас не будет в эти дни.</li>
+              </>
+            )}
+            <li>Статус заявки смотрите в разделе «Мои заявки» — он обновится сам.</li>
+          </ol>
+        </div>
       </div>
     );
   }
@@ -89,7 +112,9 @@ export function DraftCard({ action = 'absence', args, text }: Props) {
   return (
     <div className="form form--draft">
       <div className="form__title">
-        {isAccess ? `Черновик заявки на доступ${args.resource ? ` к ${args.resource}` : ''}` : 'Черновик заявки на отгул'}
+        {isAccess
+          ? `Черновик заявки на доступ${args.resource ? ` к ${resourceLabel(args.resource)}` : ''}`
+          : 'Черновик заявки на отгул'}
       </div>
       {text && <p className="form__text">{text}</p>}
       {ready ? (
@@ -102,6 +127,9 @@ export function DraftCard({ action = 'absence', args, text }: Props) {
               </div>
             </dl>
           )}
+          <p className="form__hint">
+            Проверьте данные и нажмите «Отправить заявку». Пока вы не нажали, заявка никуда не уходит.
+          </p>
           {confirm.isError && (
             <div className="error" role="alert">
               Не удалось отправить: {(confirm.error as Error).message}
@@ -113,7 +141,7 @@ export function DraftCard({ action = 'absence', args, text }: Props) {
             </div>
           )}
           <div className="form__actions">
-            <button className="btn btn--primary" onClick={() => confirm.mutate()} disabled={busy}>
+            <button className="btn btn--primary" onClick={onConfirm} disabled={busy}>
               {confirm.isPending ? 'Отправляю…' : 'Отправить заявку'}
             </button>
             <button className="btn btn--ghost" onClick={onCancel} disabled={busy}>
@@ -122,7 +150,7 @@ export function DraftCard({ action = 'absence', args, text }: Props) {
           </div>
         </>
       ) : isAccess ? (
-        <p className="form__hint">Сервер не вернул номер черновика. Повторите запрос в чате.</p>
+        <p className="form__hint">Не получилось подготовить заявку. Напишите ещё раз, например «Запроси доступ в GitLab».</p>
       ) : (
         <p className="form__hint">Напишите дату отгула, например «в пятницу» или «завтра».</p>
       )}

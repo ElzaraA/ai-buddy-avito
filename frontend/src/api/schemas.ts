@@ -92,8 +92,22 @@ export const AgentResponseSchema = z.object({
   manager_name: z.string().optional(),
   /** ответ дан резервной моделью: основная LLM недоступна */
   degraded: z.boolean().optional(),
+  /** готовые следующие реплики стажёра — кнопки под ответом */
+  suggestions: z.array(z.string()).nullable().optional(),
 });
 export type AgentResponse = z.infer<typeof AgentResponseSchema>;
+
+/** GET /api/v1/team/signals — сообщения стажёров наставнику «что-то не так». */
+export const SignalSchema = z.object({
+  id: z.string(),
+  user_id: z.string().default(''),
+  text: z.string().default(''),
+  topic: z.string().default('other'),
+  at: z.string().optional(),
+  done: z.boolean().default(false),
+});
+export type Signal = z.infer<typeof SignalSchema>;
+export const SignalsSchema = z.array(SignalSchema).nullable().transform((v) => v ?? []);
 
 /** Запись истории заявки: кто и когда перевёл её в статус. */
 export const ActionEventSchema = z.object({
@@ -140,8 +154,64 @@ export const TeamSummarySchema = z.object({
     .transform((v) => v ?? {}),
   unanswered_topics: z.number().default(0),
   unanswered_requests: z.number().default(0),
+  /** «Сэкономлено наставнику»: вопросы стажёров, закрытые Бадди без человека */
+  questions_closed: z.number().default(0),
+  /** сообщения стажёров, переданные наставнику */
+  signals_total: z.number().default(0),
+  refusals_total: z.number().default(0),
+  mentor_minutes_saved: z.number().default(0),
+  /** допущение оценки: минут наставника на один типовой вопрос */
+  minutes_per_question: z.number().default(5),
+  /** доля закрытых Бадди: closed / (closed + signals + refusals), 0..1 */
+  closed_share: z.number().default(0),
 });
 export type TeamSummary = z.infer<typeof TeamSummarySchema>;
+
+/** «Пульс»: отметка самочувствия стажёра за день (1 — тяжело … 5 — отлично). */
+export const PulseEntrySchema = z.object({
+  date: z.string(),
+  mood: z.number().int().min(1).max(5),
+  note: z.string().optional(),
+  at: z.string().optional(),
+});
+export type PulseEntry = z.infer<typeof PulseEntrySchema>;
+
+/** GET /api/v1/pulse/me — последние 14 отметок (старые первыми) и сегодняшняя дата сервера. */
+export const MyPulseSchema = z.object({
+  today: z.string(),
+  entries: z.array(PulseEntrySchema).nullable().transform((v) => v ?? []),
+});
+export type MyPulse = z.infer<typeof MyPulseSchema>;
+
+/** GET /api/v1/team/pulse — «Пульс команды»: сначала стажёры, которым нужно внимание. */
+export const InternPulseSchema = z.object({
+  user: UserSchema,
+  today: z.number().nullable().default(null),
+  avg7: z.number().nullable().default(null),
+  trend: z.enum(['up', 'down', 'flat']).catch('flat'),
+  risk: z.boolean().default(false),
+  risk_reason: z.string().default(''),
+  days: z
+    .array(z.object({ date: z.string(), mood: z.number().nullable().default(null) }))
+    .nullable()
+    .transform((v) => v ?? []),
+  note: z.string().optional(),
+  note_date: z.string().optional(),
+});
+export type InternPulse = z.infer<typeof InternPulseSchema>;
+export const TeamPulseSchema = z.array(InternPulseSchema).nullable().transform((v) => v ?? []);
+
+/** GET /api/v1/achievements — достижения стажёра в порядке от простых к сложным. */
+export const AchievementSchema = z.object({
+  id: z.string(),
+  title: z.string(),
+  description: z.string().default(''),
+  unlocked: z.boolean(),
+  unlocked_at: z.string().optional(),
+  hint: z.string().default(''),
+});
+export type Achievement = z.infer<typeof AchievementSchema>;
+export const AchievementsSchema = z.array(AchievementSchema).nullable().transform((v) => v ?? []);
 
 export const KnowledgeGapSchema = z.object({
   question: z.string(),
@@ -149,6 +219,33 @@ export const KnowledgeGapSchema = z.object({
   last_at: z.string().optional(),
 });
 export const KnowledgeGapsSchema = z.array(KnowledgeGapSchema).nullable().transform((v) => v ?? []);
+
+/** Встреча в расписании: ритуал команды или личный созвон. */
+export const OccurrenceSchema = z.object({
+  id: z.string(),
+  title: z.string(),
+  kind: z.string(),
+  start: z.string(),
+  end: z.string(),
+  place: z.string().optional(),
+  with: z.string().optional(),
+  recurring: z.boolean().default(false),
+  meeting_id: z.string().optional(),
+});
+export type Occurrence = z.infer<typeof OccurrenceSchema>;
+
+export const ScheduleSchema = z.object({
+  from: z.string(),
+  to: z.string(),
+  reminder_lead_min: z.number().default(15),
+  items: z.array(OccurrenceSchema).nullable().transform((v) => v ?? []),
+});
+export type Schedule = z.infer<typeof ScheduleSchema>;
+
+/** Напоминание о встрече, которое Бадди присылает в чат. */
+export const ReminderSchema = OccurrenceSchema.extend({ text: z.string() });
+export type Reminder = z.infer<typeof ReminderSchema>;
+export const RemindersSchema = z.array(ReminderSchema).nullable().transform((v) => v ?? []);
 
 export const ApiErrorSchema = z.object({
   error: z.object({ code: z.string(), message: z.string() }),

@@ -112,7 +112,8 @@ func ByID(id string) (User, bool) {
 
 func Can(u User, action string) bool {
 	switch action {
-	case "checklist.read":
+	case "checklist.read", "schedule.read", "schedule.write":
+		// свой чек-лист и своё расписание видит любой пользователь
 		return true
 	case "absence.create":
 		return u.Role == RoleIntern || u.Role == RoleBuddy
@@ -126,6 +127,9 @@ func Can(u User, action string) bool {
 	case "team.read":
 		// Прогресс стажёров, заявки команды и пробелы базы знаний видят наставник и руководитель.
 		return u.Role == RoleBuddy || u.Role == RoleLead
+	case "pulse.write", "achievements.read":
+		// «Пульс» и достижения — личные инструменты стажёра.
+		return u.Role == RoleIntern
 	case "absence.read.all":
 		return u.Role == RoleLead || u.Role == RoleHRBP
 	default:

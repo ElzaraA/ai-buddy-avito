@@ -1,6 +1,6 @@
 import { act, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { ChatPanel, SUGGESTIONS } from './ChatPanel';
+import { ChatPanel, SLOW_SEND_MS, SLOW_SEND_TEXT, SUGGESTIONS } from './ChatPanel';
 import { AGENT_TIMEOUT_MS } from './useChat';
 import { useChatStore } from '../../store/chat';
 import { FakeEventSource, mockFetch, renderWithQuery } from '../../test/utils';
@@ -45,7 +45,7 @@ describe('ChatPanel', () => {
 
     await ask('Как устроено код-ревью?');
     expect(await screen.findByText('Как устроено код-ревью?')).toBeInTheDocument();
-    expect(screen.getByText(/Помощник думает/)).toBeInTheDocument();
+    expect(screen.getByText(/Бадди думает/)).toBeInTheDocument();
     expect(screen.getByLabelText('Сообщение')).toHaveValue('');
 
     const es = FakeEventSource.last();
@@ -58,16 +58,16 @@ describe('ChatPanel', () => {
       }),
     );
     expect(await screen.findByText('Ревью делает наставник')).toBeInTheDocument();
-    expect(screen.queryByText(/Помощник думает/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Бадди думает/)).not.toBeInTheDocument();
   });
 
   it('клик по подсказке отправляет её; сессия создаётся один раз', async () => {
     const spy = mockFetch(chatRoutes());
     renderWithQuery(<ChatPanel />);
     await userEvent.click(screen.getByText(SUGGESTIONS[0]));
-    await screen.findByText(/Помощник думает/);
+    await screen.findByText(/Бадди думает/);
     await ask('ещё вопрос');
-    await waitFor(() => expect(screen.getAllByText(/Помощник думает/)).toHaveLength(2));
+    await waitFor(() => expect(screen.getAllByText(/Бадди думает/)).toHaveLength(2));
     const sessionCalls = spy.mock.calls.filter(([u]) => String(u).endsWith('/chat/sessions'));
     expect(sessionCalls).toHaveLength(1);
   });
@@ -103,7 +103,7 @@ describe('ChatPanel', () => {
       es.emit('error'); // обрыв соединения без данных — игнор
       es.emit('error', { nope: 1 });
     });
-    expect(screen.getByText(/Помощник думает/)).toBeInTheDocument();
+    expect(screen.getByText(/Бадди думает/)).toBeInTheDocument();
     act(() => es.emit('message_done', { message_id: 'a1', status: 'failed' }));
     expect(await screen.findByText(/не смог ответить/)).toBeInTheDocument();
   });
@@ -113,7 +113,7 @@ describe('ChatPanel', () => {
     vi.useFakeTimers({ shouldAdvanceTime: true });
     renderWithQuery(<ChatPanel />);
     await ask('долгий вопрос');
-    await screen.findByText(/Помощник думает/);
+    await screen.findByText(/Бадди думает/);
     act(() => vi.advanceTimersByTime(AGENT_TIMEOUT_MS + 10));
     expect(await screen.findByText(/не ответил вовремя/)).toBeInTheDocument();
   });
@@ -126,6 +126,31 @@ describe('ChatPanel', () => {
     // технический текст бэка не показываем — только понятный пользователю
     expect(await screen.findByRole('alert')).toHaveTextContent('Не найдено, обновите страницу');
     expect(spy).toHaveBeenCalledTimes(1);
+  });
+
+  it('холодный старт сервера: пока вопрос не принят, видно, что он в пути и почему долго', async () => {
+    let release!: () => void;
+    const gate = new Promise<void>((r) => (release = r));
+    const routes = chatRoutes();
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+        const url = String(input);
+        if (url.endsWith('/chat/sessions')) await gate;
+        const route = routes.find((r) => url.endsWith(r.match) && r.method === (init?.method ?? 'GET'));
+        return new Response(JSON.stringify(route?.body ?? {}), { status: route?.status ?? 404 });
+      }),
+    );
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    useChatStore.getState().addUser('u0', 'прошлый вопрос'); // переписка уже есть — подсказок пустого чата нет
+    renderWithQuery(<ChatPanel />);
+    await ask('помоги');
+    expect(await screen.findByText('Отправляю вопрос…')).toBeInTheDocument();
+    act(() => vi.advanceTimersByTime(SLOW_SEND_MS + 10));
+    expect(await screen.findByText(SLOW_SEND_TEXT)).toBeInTheDocument();
+    release();
+    await waitFor(() => expect(screen.queryByText(SLOW_SEND_TEXT)).not.toBeInTheDocument());
+    expect(screen.getByText(/Бадди думает/)).toBeInTheDocument();
   });
 
   it('двойной клик по подсказке: одна сессия, один поток, ни один ответ не теряется', async () => {
@@ -151,7 +176,7 @@ describe('ChatPanel', () => {
     await waitFor(() => expect(screen.getByText(SUGGESTIONS[1])).toBeDisabled());
     expect(screen.getByText('Отправляю вопрос…')).toBeInTheDocument();
     releaseSession();
-    await waitFor(() => expect(screen.getAllByText(/Помощник думает/)).toHaveLength(2));
+    await waitFor(() => expect(screen.getAllByText(/Бадди думает/)).toHaveLength(2));
     expect(spy.mock.calls.filter(([u]) => String(u).endsWith('/chat/sessions'))).toHaveLength(1);
     expect(FakeEventSource.instances).toHaveLength(1);
     expect(FakeEventSource.last().closed).toBe(false);
@@ -173,7 +198,7 @@ describe('ChatPanel', () => {
     ]);
     renderWithQuery(<ChatPanel />);
     await ask('вопрос в длинном диалоге');
-    expect(await screen.findByText(/Помощник думает/)).toBeInTheDocument();
+    expect(await screen.findByText(/Бадди думает/)).toBeInTheDocument();
     expect(screen.queryByRole('alert')).not.toBeInTheDocument();
     expect(spy.mock.calls.filter(([u]) => String(u).endsWith('/chat/sessions'))).toHaveLength(2);
     expect(FakeEventSource.last().url).toBe('/api/v1/chat/sessions/s2/events?user=intern.backend');
@@ -197,8 +222,40 @@ describe('ChatPanel', () => {
     await ask('вопрос');
     expect(await screen.findByRole('alert')).toHaveTextContent('Нет связи с сервером');
     await ask('вопрос');
-    await screen.findByText(/Помощник думает/);
+    await screen.findByText(/Бадди думает/);
     expect(spy.mock.calls.filter(([u]) => String(u).endsWith('/chat/sessions'))).toHaveLength(2);
+  });
+
+  it('прокручивается только лента сообщений, а не страница', async () => {
+    mockFetch(chatRoutes());
+    const scrollIntoView = vi.fn();
+    Element.prototype.scrollIntoView = scrollIntoView;
+    renderWithQuery(<ChatPanel />);
+    const list = screen.getByLabelText('Чат с AI-buddy').querySelector('.chat__messages') as HTMLDivElement;
+    Object.defineProperty(list, 'scrollHeight', { configurable: true, value: 900 });
+    // пустой чат открывается с начала — заголовок и подсказки видны
+    expect(list.scrollTop).toBe(0);
+    await ask('вопрос');
+    await screen.findByText(/Бадди думает/);
+    expect(list.scrollTop).toBe(900);
+    expect(scrollIntoView).not.toHaveBeenCalled();
+    delete (Element.prototype as Partial<Element>).scrollIntoView;
+  });
+
+  it('черновик заявки из чата сразу обновляет «Мои заявки»', async () => {
+    mockFetch(chatRoutes());
+    const { client } = renderWithQuery(<ChatPanel />);
+    const invalidate = vi.spyOn(client, 'invalidateQueries');
+    await ask('Хочу отгул в пятницу');
+    await screen.findByText(/Бадди думает/);
+    act(() =>
+      FakeEventSource.last().emit('message_done', {
+        message_id: 'a1',
+        status: 'done',
+        result: { type: 'draft', action: 'absence', args: { date_from: '2030-01-18', action_id: 'ABS-1' } },
+      }),
+    );
+    await waitFor(() => expect(invalidate).toHaveBeenCalledWith({ queryKey: ['actions'] }));
   });
 
   it('совместимость: бэк присылает messageId вместо message_id', async () => {

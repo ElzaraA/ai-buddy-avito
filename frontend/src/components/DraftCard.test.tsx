@@ -1,4 +1,4 @@
-import { screen, waitFor } from '@testing-library/react';
+import { fireEvent, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { DraftCard } from './DraftCard';
 import { mockFetch, renderWithQuery } from '../test/utils';
@@ -38,6 +38,18 @@ describe('DraftCard', () => {
       date_from: '2026-11-20',
       date_to: '2026-11-21',
     });
+  });
+
+  it('двойной клик по «Отправить заявку» подтверждает черновик один раз (без 409 и ошибки)', async () => {
+    const spy = mockFetch([
+      { method: 'POST', match: '/api/v1/actions/REQ-000001/confirm', body: { ...absence('pending'), id: 'REQ-000001', type: 'access', resource: 'gitlab' } },
+    ]);
+    renderWithQuery(<DraftCard action="access" args={{ resource: 'gitlab', action_id: 'REQ-000001' }} />);
+    const btn = screen.getByRole('button', { name: 'Отправить заявку' });
+    fireEvent.click(btn);
+    fireEvent.click(btn); // второй клик того же двойного клика — до перерисовки
+    expect(await screen.findByText(/Заявка REQ-000001 отправлена/)).toBeInTheDocument();
+    expect(spy).toHaveBeenCalledTimes(1);
   });
 
   it('однодневный отгул: date_to берётся из date_from', async () => {
@@ -106,12 +118,12 @@ describe('DraftCard', () => {
       },
     ]);
     renderWithQuery(<DraftCard action="access" args={{ action_id: 'REQ-000001', resource: 'gitlab' }} />);
-    expect(screen.getByText(/Черновик заявки на доступ к gitlab/)).toBeInTheDocument();
+    expect(screen.getByText(/Черновик заявки на доступ к GitLab/)).toBeInTheDocument();
     expect(screen.queryByText(/Даты:/)).not.toBeInTheDocument();
     await userEvent.click(screen.getByRole('button', { name: 'Отправить заявку' }));
     expect(await screen.findByText(/Заявка REQ-000001 отправлена/)).toBeInTheDocument();
     expect(screen.getByText('Доступ')).toBeInTheDocument();
-    expect(screen.getByText('gitlab')).toBeInTheDocument();
+    expect(screen.getByText('GitLab')).toBeInTheDocument();
     expect(screen.queryByText(/наставника лично/)).not.toBeInTheDocument();
     expect(spy).toHaveBeenCalledTimes(1);
   });
@@ -120,7 +132,7 @@ describe('DraftCard', () => {
     renderWithQuery(<DraftCard action="access" args={{}} />);
     expect(screen.getByText('Черновик заявки на доступ')).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Отправить заявку' })).not.toBeInTheDocument();
-    expect(screen.getByText(/не вернул номер черновика/)).toBeInTheDocument();
+    expect(screen.getByText(/Не получилось подготовить заявку/)).toBeInTheDocument();
   });
 
   it('доступ: ресурс берётся из args, если бэк его не вернул', async () => {
@@ -130,6 +142,6 @@ describe('DraftCard', () => {
     renderWithQuery(<DraftCard action="access" args={{ action_id: 'REQ-2', resource: 'jira' }} />);
     await userEvent.click(screen.getByRole('button', { name: 'Отправить заявку' }));
     await screen.findByText(/Заявка REQ-2 отправлена/);
-    expect(screen.getByText('jira')).toBeInTheDocument();
+    expect(screen.getByText('Jira')).toBeInTheDocument();
   });
 });

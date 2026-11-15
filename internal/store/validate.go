@@ -13,10 +13,17 @@ const (
 	MaxAbsenceDays = 30
 	// MaxOpenDrafts — сколько неподтверждённых черновиков может держать один пользователь.
 	MaxOpenDrafts = 50
+	// MaxAbsenceAheadYears — горизонт планирования отгула: дальше — почти наверняка опечатка в годе
+	// («01.01.2099»), и такая заявка зависла бы у руководителя навсегда.
+	MaxAbsenceAheadYears = 5
 )
 
-// ErrTooManyDrafts — у пользователя слишком много неподтверждённых черновиков.
-var ErrTooManyDrafts = errors.New("too many drafts")
+var (
+	// ErrTooManyDrafts — у пользователя слишком много неподтверждённых черновиков.
+	ErrTooManyDrafts = errors.New("too many drafts")
+	// ErrTooFarAhead — дата отгула дальше горизонта планирования.
+	ErrTooFarAhead = errors.New("date_from is too far in the future (max 5 years ahead)")
+)
 
 // accessResources — системы, доступ к которым можно запросить (whitelist).
 var accessResources = map[string]bool{"jira": true, "gitlab": true, "grafana": true, "git": true}
@@ -40,6 +47,8 @@ func ValidateAbsenceDates(from, to string, now time.Time) error {
 		return errors.New("date_to must be >= date_from")
 	case from < now.Format("2006-01-02"):
 		return errors.New("date_from is in the past")
+	case from > now.AddDate(MaxAbsenceAheadYears, 0, 0).Format("2006-01-02"):
+		return ErrTooFarAhead
 	case t.Sub(f) > MaxAbsenceDays*24*time.Hour:
 		return errors.New("absence longer than 30 days is not supported")
 	}

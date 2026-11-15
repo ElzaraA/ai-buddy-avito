@@ -127,6 +127,11 @@ type Response struct {
 	Degraded bool              `json:"degraded,omitempty"` // ответ дан резервной моделью
 	// NoSource — отказ из-за отсутствия ответа в базе (сигнал «пробел в базе знаний»).
 	NoSource bool `json:"-"`
+	// Suggestions — готовые следующие реплики стажёра (кнопки под ответом).
+	Suggestions []string `json:"suggestions,omitempty"`
+	// Signal — сообщение наставнику, которое API сохранит в кабинет команды.
+	Signal      string `json:"-"`
+	SignalTopic string `json:"-"`
 }
 
 func (a *Agent) now() time.Time {
@@ -169,22 +174,60 @@ func (a *Agent) AskWithHistory(ctx context.Context, user auth.User, question str
 	defer cancel()
 
 	c := contactsFor(user)
+	// nq — реплика в нормальной форме («чё» → «что», «ё» → «е», «пн» → «понедельник»): по ней распознаём намерение.
+	// Исходный текст остаётся для модели, цитат в подсказках и сообщения наставнику.
+	nq := llm.Normalize(question)
 	// «Мне плохо», «я не справляюсь» — не вопрос к базе знаний: поддерживаем и предлагаем живого человека.
-	if isEmotional(question) {
+	if isEmotional(nq) {
 		return Response{Type: "answer", Text: c.supportText(), Buddy: c.Buddy}, nil
 	}
 	// Приветствие, «спасибо», «ок», «отмени» — не вопрос к базе знаний: отвечаем сразу, без LLM и без отказа.
-	if reply := smallTalk(question); reply != "" {
-		return Response{Type: "answer", Text: reply, Buddy: c.Buddy}, nil
+	// «Передай наставнику: …» — стажёр сам решил позвать человека: передаём без вопросов.
+	if !c.staff {
+		text, ok := signalRequest(question)
+		if !ok {
+			// опечатка в «наставнику» — ищем по нормальной форме
+			text, ok = signalRequest(nq)
+		}
+		if ok {
+			return c.signalResponse(text, signalTopic(text)), nil
+		}
+	}
+	if reply := smallTalk(nq); reply != "" {
+		r := Response{Type: "answer", Text: reply, Buddy: c.Buddy}
+		if !c.staff {
+			r.Suggestions = []string{chipNext}
+			if reply == greetReply {
+				r.Suggestions = []string{chipNext, chipAbsence, chipAccess, chipRules}
+			}
+		}
+		return r, nil
+	}
+	// «Помоги», «с чего начать?» — стажёр не знает, что спросить: предлагаем выбор.
+	if !c.staff && isVague(nq) {
+		r := Response{Type: "answer", Text: c.menuText(), Buddy: c.Buddy,
+			Suggestions: []string{chipNext, chipAbsence, chipAccess, chipRules}}
+		return r, nil
+	}
+	// «Что такое MR?», «что значит ретро» — объясняем термин из словаря Бадди (это не пробел базы знаний).
+	if t, alias, ok := glossaryQuestion(nq); ok {
+		return a.glossaryResponse(user, c, question, t, alias), nil
+	}
+	// Зарплаты и доходы — чувствительные данные: отказываем явно и подсказываем, к кому идти,
+	// а не общим «не нашёл» (вопрос всё равно попадает в пробелы базы знаний для наставника).
+	if isSalaryQuestion(nq) {
+		r := c.refusal(c.salaryText())
+		r.NoSource = isKnowledgeGap(nq)
+		return c.coach(question, nq, r), nil
 	}
 
-	hits := a.Index.Search(question, user.TeamID, string(user.Role), 4)
+	hits := a.Index.Search(nq, user.TeamID, string(user.Role), 4)
 	srcs := make([]Source, 0, len(hits))
 	for _, h := range hits {
 		srcs = append(srcs, Source{ID: h.Chunk.ID, Source: h.Chunk.Source, Stage: h.Chunk.Stage, Title: h.Chunk.Title})
 	}
 	// Ответ есть, но в материале для другой аудитории (например, «только для наставников»): это не пробел базы.
-	restricted := len(hits) == 0 && a.Index.Restricted(question, user.TeamID, string(user.Role))
+	restricted := len(hits) == 0 && a.Index.Restricted(nq, user.TeamID, string(user.Role))
 
 	// Действия (отгул, доступ, чек-лист) не зависят от базы знаний, поэтому LLM вызываем всегда,
 	// а инвариант «нет источника — нет ответа» проверяем ниже для текстовых ответов.
@@ -200,9 +243,56 @@ func (a *Agent) AskWithHistory(ctx context.Context, user auth.User, question str
 	if err != nil {
 		return Response{}, err
 	}
-	resp := a.interpret(ctx, user, question, raw, srcs, restricted)
+	resp := c.coach(question, nq, c.present(a.interpret(ctx, user, nq, raw, srcs, restricted), hits))
 	resp.Degraded = degraded
 	return resp, nil
+}
+
+// present оформляет ответ для стажёра первой недели: дословный фрагмент базы знаний — структурой
+// «Коротко → шаги → кого спросить», любой ответ по базе — блоком «Термины простыми словами».
+// Источники (resp.Sources) не меняются.
+func (c contacts) present(resp Response, hits []rag.Hit) Response {
+	if resp.Type != "answer" || len(resp.Sources) == 0 || strings.TrimSpace(resp.Text) == "" {
+		return resp
+	}
+	txt := strings.TrimSpace(resp.Text)
+	for _, h := range hits {
+		if txt == strings.TrimSpace(h.Chunk.Text) {
+			resp.Text = c.formatKB(h.Chunk.Text)
+			break
+		}
+	}
+	resp.Text = withGlossary(resp.Text)
+	return resp
+}
+
+// glossaryResponse — ответ на «что такое X?» из словаря Бадди. Если в базе знаний команды есть
+// предложение с этим термином, добавляем его дословно и прикладываем источник.
+func (a *Agent) glossaryResponse(user auth.User, c contacts, question string, t glossaryTerm, alias string) Response {
+	var line string
+	var srcs []Source
+	for _, q := range []string{alias, question} {
+		for _, h := range a.Index.Search(q, user.TeamID, string(user.Role), 4) {
+			for _, s := range sentences(h.Chunk.Text) {
+				if t.mentions(s) {
+					line = s
+					srcs = []Source{{ID: h.Chunk.ID, Source: h.Chunk.Source, Stage: h.Chunk.Stage, Title: h.Chunk.Title}}
+					break
+				}
+			}
+			if line != "" {
+				break
+			}
+		}
+		if line != "" {
+			break
+		}
+	}
+	r := Response{Type: "answer", Text: glossaryAnswer(t, line), Sources: srcs, Buddy: c.Buddy}
+	if !c.staff {
+		r.Suggestions = []string{chipNext, "Передай наставнику: ответ не помог — " + quote(question)}
+	}
+	return r
 }
 
 // restrictedRefusal — материал по вопросу есть, но доступен наставникам и руководителям.
@@ -401,7 +491,7 @@ func (a *Agent) absenceDraft(c contacts, question string, args map[string]string
 		base.Args = map[string]string{"reason": "personal"}
 		example := HumanDate(a.now().AddDate(0, 0, 7))
 		base.Text = "На какую дату оформить отгул? Напишите, например, «" + example + "», «20.11» или «в пятницу». Согласует руководитель — " + c.Manager + "."
-		if bad := InvalidISODate(question); bad != "" {
+		if bad := InvalidDate(question); bad != "" {
 			base.Text = "Даты " + bad + " не существует. " + base.Text
 		}
 		return base
@@ -414,6 +504,10 @@ func (a *Agent) absenceDraft(c contacts, question string, args map[string]string
 	// Те же правила, что у POST /actions: отгул не длиннее 30 дней.
 	if err := store.ValidateAbsenceDates(from, to, a.now()); err != nil {
 		base.Args = map[string]string{"reason": "personal"}
+		if errors.Is(err, store.ErrTooFarAhead) {
+			base.Text = "Дата " + from + " слишком далеко: отгул можно оформить не дальше чем на 5 лет вперёд. Проверьте год — на какую дату оформить отгул?"
+			return base
+		}
 		base.Text = "Отгул можно оформить не больше чем на 30 дней подряд. Для более долгого отсутствия обратитесь к руководителю — " + c.Manager + ". На какие даты оформить отгул?"
 		return base
 	}

@@ -54,6 +54,30 @@ func TestAbsenceNamesByTeam(t *testing.T) {
 	}
 }
 
+// QA: прямой вызов инструмента отгула (в обход черновика) проверяет даты и привязывает заявку к команде.
+func TestAbsenceDirectRunValidates(t *testing.T) {
+	s := store.New()
+	tool := &AbsenceCreateRequest{S: s}
+	u := auth.User{ID: "intern-1", Role: auth.RoleIntern, TeamID: "backend"}
+	for _, args := range []map[string]string{
+		{"date_from": "2020-01-01", "date_to": "2020-01-01"}, // прошлое
+		{"date_from": "2099-01-01", "date_to": "2099-01-01"}, // слишком далеко
+		{"date_from": "2030-01-15", "date_to": "2030-01-14"}, // конец раньше начала
+	} {
+		if _, err := tool.Run(context.Background(), u, args); err == nil {
+			t.Fatalf("%v must be rejected", args)
+		}
+	}
+	res, err := tool.Run(context.Background(), u, map[string]string{"date_from": "2030-01-15", "date_to": "2030-01-15"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	a, _ := s.GetAbsence(res.Data["absence_id"].(string))
+	if a.TeamID != "backend" || a.Type != store.ActionAbsence {
+		t.Fatalf("absence must belong to the team: %+v", a)
+	}
+}
+
 func TestTransition(t *testing.T) {
 	s := store.New()
 	a := s.CreateAbsence(store.Absence{ID: "ABS-1", Status: "draft"})

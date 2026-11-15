@@ -97,6 +97,8 @@ func Build(cfg config.Config, knowledgeDir string) (*App, error) {
 	reg.Register(&tools.DirectoryFindOwner{})
 	reg.Register(&tools.AbsenceGetPolicy{})
 	reg.Register(&tools.AccessRequest{})
+	reg.Register(&tools.ScheduleGet{S: st})
+	reg.Register(&tools.ScheduleAdd{S: st, Lead: time.Duration(cfg.ReminderLeadMin) * time.Minute})
 
 	m := metrics.New()
 	m.Add("buddy_knowledge_chunks", "Фрагментов в базе знаний", float64(len(chunks)))
@@ -120,6 +122,7 @@ func Build(cfg config.Config, knowledgeDir string) (*App, error) {
 		Agent: ag, Store: st, Chat: chat, Metrics: m,
 		Limiter:      NewRateLimiter(cfg.RateLimitPerMin, time.Minute),
 		WriteLimiter: NewRateLimiter(cfg.RateLimitPerMin, time.Minute),
+		ReminderLead: time.Duration(cfg.ReminderLeadMin) * time.Minute,
 	}
 	return &App{Handler: NewRouterWithOrigins(h, origins), Persister: persister, Metrics: m, Store: st}, nil
 }

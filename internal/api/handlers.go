@@ -26,6 +26,10 @@ type Handlers struct {
 	Limiter *RateLimiter      // может быть nil — без ограничения
 	// WriteLimiter — отдельный лимит на создание черновиков, сессий и вызовы MCP (nil — без ограничения).
 	WriteLimiter *RateLimiter
+	// Now — часы для расписания и напоминаний (nil — time.Now); в тестах подменяются.
+	Now func() time.Time
+	// ReminderLead — за сколько до встречи напоминать в чате (0 — DefaultReminderLead).
+	ReminderLead time.Duration
 }
 
 type askReq struct {
@@ -77,6 +81,37 @@ func observe(m *metrics.Registry, st *store.Store, u auth.User, question string,
 		st.RecordGap(u.TeamID, question)
 		m.Inc("buddy_knowledge_gaps_total", "Вопросы, на которые в базе знаний нет ответа")
 	}
+	if u.Role == auth.RoleIntern {
+		outcome := outcomeOf(resp)
+		st.RecordQuestion(u.TeamID, u.ID, outcome)
+		if outcome == store.OutcomeClosed {
+			m.Inc("buddy_questions_closed_total", "Вопросы стажёров, закрытые Бадди без наставника")
+		}
+	}
+}
+
+// outcomeOf — чем закончился вопрос стажёра: закрыт Бадди, передан наставнику или отказ.
+func outcomeOf(resp agent.Response) string {
+	switch {
+	case resp.Signal != "":
+		return store.OutcomeSignal
+	case resp.Type == "answer" || resp.Type == "action" || resp.Type == "draft":
+		return store.OutcomeClosed
+	default:
+		return store.OutcomeRefusal
+	}
+}
+
+// saveSignal сохраняет сообщение стажёра наставнику и дописывает его номер в ответ.
+func saveSignal(st *store.Store, m *metrics.Registry, u auth.User, resp *agent.Response) {
+	if resp.Signal == "" {
+		return
+	}
+	sig := st.AddSignal(u.TeamID, u.ID, resp.SignalTopic, resp.Signal)
+	if resp.Result != nil && resp.Result.Data != nil {
+		resp.Result.Data["signal_id"] = sig.ID
+	}
+	m.Inc("buddy_mentor_signals_total", "Сообщения стажёров наставнику «что-то не так»", "topic", sig.Topic)
 }
 
 // observeRun учитывает запуск агента и его длительность — одинаково для чата и синхронного /ask.
@@ -94,7 +129,7 @@ func (h *Handlers) Ask(w http.ResponseWriter, r *http.Request) {
 	}
 	var body askReq
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
-		writeError(w, http.StatusBadRequest, "bad_request", "invalid json")
+		badBody(w, err)
 		return
 	}
 	if !validQuestion(w, body.Q()) {
@@ -109,6 +144,7 @@ func (h *Handlers) Ask(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	saveDraft(h.Store, u, &resp)
+	saveSignal(h.Store, h.Metrics, u, &resp)
 	observe(h.Metrics, h.Store, u, body.Q(), resp)
 	writeJSON(w, http.StatusOK, resp)
 }
@@ -165,7 +201,7 @@ func (h *Handlers) OnboardingStepUpdate(w http.ResponseWriter, r *http.Request) 
 	// Тело необязательно; если передан status — поддерживаем только done.
 	var body stepReq
 	if err := decodeOptional(r, &body); err != nil {
-		writeError(w, http.StatusBadRequest, "bad_request", "invalid json")
+		badBody(w, err)
 		return
 	}
 	if body.Status != "" && body.Status != store.StepDone {

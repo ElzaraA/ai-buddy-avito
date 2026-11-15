@@ -25,7 +25,7 @@ describe('MyActions helpers', () => {
   it('заголовок заявки по типу', () => {
     expect(actionTitle(pending)).toBe('Отгул 15.01.2030');
     expect(actionTitle(draft)).toBe('Отгул 01.02.2030 – 02.02.2030');
-    expect(actionTitle(approved)).toBe('Доступ к gitlab');
+    expect(actionTitle(approved)).toBe('Доступ к GitLab');
     expect(actionTitle({ ...approved, resource: undefined })).toBe('Доступ к системе');
   });
   it('комментарий руководителя берётся из последнего решения', () => {
@@ -38,14 +38,14 @@ describe('MyActions', () => {
   it('показывает отправленные заявки со статусом и комментарием; черновики — отдельным блоком', async () => {
     mockFetch([{ match: '/api/v1/actions', body: [pending, approved, draft] }]);
     renderWithQuery(<MyActions />);
-    expect(await screen.findByText('Мои заявки')).toBeInTheDocument();
+    expect(await screen.findByText('Отправленные')).toBeInTheDocument();
     expect(screen.getByText('ждёт согласования')).toBeInTheDocument();
     expect(screen.getByText('согласована')).toBeInTheDocument();
     expect(screen.getByText(/«Выдали»/)).toBeInTheDocument();
     const drafts = screen.getByLabelText('Ждут вашего подтверждения');
     expect(drafts).toHaveTextContent('ABS-000003');
     expect(drafts).toHaveTextContent(/внешнего агента/);
-    expect(screen.getByLabelText('Мои заявки')).not.toHaveTextContent('ABS-000003');
+    expect(screen.getByLabelText('Отправленные')).not.toHaveTextContent('ABS-000003');
     // отменить можно только ожидающую заявку; у черновика — «отправить» и «отменить»
     expect(screen.getAllByRole('button')).toHaveLength(3);
   });

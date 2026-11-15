@@ -3,6 +3,8 @@ package api
 import (
 	"net/http"
 
+	"github.com/go-chi/chi/v5"
+
 	"github.com/ElzaraA/ai-buddy-avito/internal/auth"
 	"github.com/ElzaraA/ai-buddy-avito/internal/store"
 )
@@ -43,8 +45,14 @@ func (h *Handlers) TeamActions(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	status := r.URL.Query().Get("status")
-	if status == store.StatusDraft {
+	switch status {
+	case "", store.StatusPending, store.StatusApproved, store.StatusRejected, store.StatusCancelled:
+	case store.StatusDraft:
 		writeError(w, http.StatusForbidden, "forbidden", "drafts are private")
+		return
+	default:
+		// Опечатка в фильтре («?status=pendng») раньше молча давала пустой список — как будто входящих нет.
+		writeError(w, http.StatusBadRequest, "bad_request", "status must be one of: pending, approved, rejected, cancelled")
 		return
 	}
 	writeJSON(w, http.StatusOK, h.Store.ListByTeam(u.TeamID, status))
@@ -59,6 +67,28 @@ func (h *Handlers) TeamKnowledgeGaps(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, h.Store.Gaps(u.TeamID))
 }
 
+// TeamSignals — сообщения стажёров «что-то не так», адресованные наставнику (именные, новые сверху).
+func (h *Handlers) TeamSignals(w http.ResponseWriter, r *http.Request) {
+	u, ok := h.teamUser(w, r)
+	if !ok {
+		return
+	}
+	writeJSON(w, http.StatusOK, h.Store.Signals(u.TeamID))
+}
+
+// ResolveSignal — наставник отмечает сообщение разобранным.
+func (h *Handlers) ResolveSignal(w http.ResponseWriter, r *http.Request) {
+	u, ok := h.teamUser(w, r)
+	if !ok {
+		return
+	}
+	if !h.Store.ResolveSignal(u.TeamID, chi.URLParam(r, "id")) {
+		writeError(w, http.StatusNotFound, "not_found", "signal not found")
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]bool{"ok": true})
+}
+
 type teamSummary struct {
 	Interns            int            `json:"interns"`
 	AvgPercentDone     int            `json:"avg_percent_done"`
@@ -66,6 +96,7 @@ type teamSummary struct {
 	Actions            map[string]int `json:"actions"`
 	UnansweredTopics   int            `json:"unanswered_topics"`
 	UnansweredRequests int            `json:"unanswered_requests"`
+	savedStats
 }
 
 // TeamSummary — сводка «метрик пользы» по команде для руководителя.
@@ -74,7 +105,7 @@ func (h *Handlers) TeamSummary(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	s := teamSummary{Actions: map[string]int{}}
+	s := teamSummary{Actions: map[string]int{}, savedStats: savedOf(h.Store.TeamStatsOf(u.TeamID))}
 	total := 0
 	for _, intern := range auth.TeamInterns(u.TeamID) {
 		p := progressOf(h.Store.Checklist(intern.ID))

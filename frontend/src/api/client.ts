@@ -1,10 +1,18 @@
 import { z } from 'zod';
 import {
   AbsenceSchema,
+  AchievementsSchema,
   ActionListSchema,
+  MyPulseSchema,
+  PulseEntrySchema,
+  TeamPulseSchema,
   ApiErrorSchema,
+  OccurrenceSchema,
+  RemindersSchema,
+  ScheduleSchema,
   KnowledgeGapsSchema,
   ProgressSchema,
+  SignalsSchema,
   TeamProgressSchema,
   TeamSummarySchema,
   SendMessageResponseSchema,
@@ -113,14 +121,35 @@ export const api = {
     request(`/api/v1/actions/${encodeURIComponent(id)}/confirm`, AbsenceSchema, { method: 'POST' }),
   /** Мои заявки (черновики и отправленные), новые сверху. */
   listActions: () => request('/api/v1/actions', ActionListSchema),
+  /** Расписание: встречи команды и личные созвоны на days дней вперёд. */
+  schedule: (days = 7) => request(`/api/v1/schedule?days=${days}`, ScheduleSchema),
+  createMeeting: (m: { title: string; start: string; duration_min: number; with?: string }) =>
+    request('/api/v1/schedule', OccurrenceSchema, { method: 'POST', body: JSON.stringify(m) }),
+  cancelMeeting: (meetingId: string) =>
+    request(`/api/v1/schedule/${encodeURIComponent(meetingId)}/cancel`, z.unknown(), { method: 'POST' }),
+  /** Встречи, о которых пора напомнить в чате; после показа — ackReminder, чтобы не повторялись. */
+  reminders: () => request('/api/v1/reminders', RemindersSchema),
+  ackReminder: (id: string) =>
+    request(`/api/v1/reminders/${encodeURIComponent(id)}/ack`, z.unknown(), { method: 'POST' }),
   cancelAction: (id: string) =>
     request(`/api/v1/actions/${encodeURIComponent(id)}/cancel`, AbsenceSchema, { method: 'POST' }),
   // Кабинет наставника и руководителя — только своя команда
   teamProgress: () => request('/api/v1/team/progress', TeamProgressSchema),
   teamPending: () => request('/api/v1/team/actions?status=pending', ActionListSchema),
   knowledgeGaps: () => request('/api/v1/team/knowledge-gaps', KnowledgeGapsSchema),
+  /** Сообщения стажёров наставнику «что-то не так». */
+  teamSignals: () => request('/api/v1/team/signals', SignalsSchema),
+  resolveSignal: (id: string) =>
+    request(`/api/v1/team/signals/${encodeURIComponent(id)}/resolve`, z.unknown(), { method: 'POST' }),
   /** Сводка «метрик пользы» по команде. */
   teamSummary: () => request('/api/v1/team/summary', TeamSummarySchema),
+  /** «Пульс команды» — самочувствие стажёров своей команды. */
+  teamPulse: () => request('/api/v1/team/pulse', TeamPulseSchema),
+  /** «Пульс» стажёра: отметка за сегодня (повторная — перезаписывает). */
+  submitPulse: (mood: number, note = '') =>
+    request('/api/v1/pulse', PulseEntrySchema, { method: 'POST', body: JSON.stringify({ mood, note }) }),
+  myPulse: () => request('/api/v1/pulse/me', MyPulseSchema),
+  achievements: () => request('/api/v1/achievements', AchievementsSchema),
   decideAction: (id: string, decision: 'approve' | 'reject', comment = '') =>
     request(`/api/v1/actions/${encodeURIComponent(id)}/${decision}`, AbsenceSchema, {
       method: 'POST',

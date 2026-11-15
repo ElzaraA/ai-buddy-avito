@@ -127,7 +127,7 @@ func (h *ChatHandlers) SendMessage(w http.ResponseWriter, r *http.Request) {
 	}
 	var body sendMessageReq
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
-		writeError(w, http.StatusBadRequest, "bad_request", "invalid json")
+		badBody(w, err)
 		return
 	}
 	text := strings.TrimSpace(body.Q())
@@ -203,6 +203,7 @@ func (h *ChatHandlers) runAgent(sessionID, msgID, question string, history []llm
 		return
 	}
 	saveDraft(h.Store, u, &resp)
+	saveSignal(h.Store, h.Metrics, u, &resp)
 	observe(h.Metrics, h.Store, u, question, resp)
 
 	if resp.Type == "action" && resp.Result != nil {

@@ -2,8 +2,10 @@ import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api, ApiError } from '../../api/client';
 import type { ChecklistItem } from '../../api/schemas';
+import { useGuard } from '../../components/useGuard';
 import { useChatStore } from '../../store/chat';
 import { actionTitle } from '../progress/MyActions';
+import { TeamPulse } from './TeamPulse';
 
 /** Как часто перечитываем кабинет: новые заявки и вопросы стажёров появляются сами. */
 export const TEAM_REFRESH_MS = 5000;
@@ -23,6 +25,20 @@ function segmentClass(it: ChecklistItem) {
  * Кабинет наставника и руководителя: заявки на согласование, прогресс стажёров команды
  * и вопросы, на которые помощник не нашёл ответа в базе знаний.
  */
+const TOPIC_LABELS: Record<string, string> = {
+  tech: 'не работает',
+  blocked: 'застрял',
+  unclear: 'непонятно',
+  other: 'вопрос',
+};
+
+function timeLabel(iso: string) {
+  const d = new Date(iso);
+  return Number.isNaN(d.getTime())
+    ? ''
+    : d.toLocaleString('ru-RU', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+}
+
 export function TeamPanel({ role }: Props) {
   const user = useChatStore((s) => s.user);
   const qc = useQueryClient();
@@ -37,17 +53,31 @@ export function TeamPanel({ role }: Props) {
   const gaps = useQuery({ queryKey: ['team-gaps', user], queryFn: api.knowledgeGaps, ...opts });
   // «метрики пользы»: необязательны — если сводка не загрузилась, кабинет работает без неё
   const summary = useQuery({ queryKey: ['team-summary', user], queryFn: api.teamSummary, ...opts });
+  // сообщения стажёров «что-то не так»: необязательный блок, кабинет работает и без него
+  const signals = useQuery({ queryKey: ['team-signals', user], queryFn: api.teamSignals, ...opts });
+  const resolve = useMutation({
+    mutationFn: api.resolveSignal,
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['team-signals', user] }),
+  });
 
   const refresh = () => {
     qc.invalidateQueries({ queryKey: ['team-pending', user] });
     qc.invalidateQueries({ queryKey: ['team-progress', user] });
     qc.invalidateQueries({ queryKey: ['team-summary', user] });
   };
+  // после решения заявка исчезает из списка — подтверждаем словами, что именно произошло
+  const [decided, setDecided] = useState('');
   const decide = useMutation({
-    mutationFn: (v: { id: string; decision: 'approve' | 'reject'; comment: string }) =>
+    mutationFn: (v: { id: string; title: string; decision: 'approve' | 'reject'; comment: string }) =>
       api.decideAction(v.id, v.decision, v.comment.trim()),
+    onMutate: () => setDecided(''),
     onSuccess: (_data, v) => {
       setComments(({ [v.id]: _, ...rest }) => rest);
+      setDecided(
+        `${v.title} (${v.id}) ${v.decision === 'approve' ? 'согласована' : 'отклонена'}. Стажёр увидит решение${
+          v.comment.trim() ? ' и ваш комментарий' : ''
+        } в разделе «Мои заявки».`,
+      );
       refresh();
     },
     // 409: заявку уже отменили или решили — перечитываем список, чтобы она исчезла
@@ -55,6 +85,11 @@ export function TeamPanel({ role }: Props) {
       if (e instanceof ApiError && e.status === 409) refresh();
     },
   });
+
+  // двойной клик по «Согласовать» / «Разобрано» не отправляет решение дважды (второе — 409 и ошибка)
+  const guard = useGuard();
+  const decideOnce = (id: string, title: string, decision: 'approve' | 'reject') =>
+    guard((done) => decide.mutate({ id, title, decision, comment: comments[id] ?? '' }, { onSettled: done }));
 
   if (pending.isError || progress.isError)
     return (
@@ -73,6 +108,68 @@ export function TeamPanel({ role }: Props) {
   const interns = progress.data ?? [];
   const nameOf = (id?: string) => interns.find((i) => i.user.id === id)?.user.name ?? id ?? 'стажёр';
   const inbox = pending.data ?? [];
+  const openSignals = (signals.data ?? []).filter((s) => !s.done).length;
+
+  // руководителю заявки — сразу под сводкой: решение в один клик без прокрутки; наставнику — после сигналов
+  const approvals = (
+    <section className="block">
+      <h3 className="block__title">Заявки на согласование</h3>
+      {!canDecide && inbox.length > 0 && (
+        <p className="block__note">Решение принимает руководитель команды — здесь видно, что ждёт согласования.</p>
+      )}
+      {inbox.length === 0 && <p className="block__note">Новых заявок нет.</p>}
+      <ul className="ledger">
+        {inbox.map((a) => (
+          <li key={a.id} className="ledger__row ledger__row--request">
+            <div className="ledger__main">
+              <span className="ledger__title">{actionTitle(a)}</span>
+              <span className="ledger__id">{a.id}</span>
+              <span className="ledger__who">{nameOf(a.user_id)}</span>
+            </div>
+            {canDecide && (
+              <>
+                <input
+                  className="comment"
+                  aria-label={`Комментарий к заявке ${a.id}`}
+                  placeholder="Комментарий стажёру, необязательно"
+                  value={comments[a.id] ?? ''}
+                  onChange={(e) => setComment(a.id, e.target.value)}
+                  maxLength={500}
+                />
+                <div className="ledger__actions">
+                  <button
+                    className="btn btn--small btn--primary"
+                    onClick={() => decideOnce(a.id, actionTitle(a), 'approve')}
+                    disabled={decide.isPending}
+                    aria-label={`Согласовать ${a.id}`}
+                  >
+                    Согласовать
+                  </button>
+                  <button
+                    className="btn btn--small btn--ghost"
+                    onClick={() => decideOnce(a.id, actionTitle(a), 'reject')}
+                    disabled={decide.isPending}
+                    aria-label={`Отклонить ${a.id}`}
+                  >
+                    Отклонить
+                  </button>
+                </div>
+              </>
+            )}
+          </li>
+        ))}
+      </ul>
+      {/* живой регион есть всегда — так экранный диктор надёжно озвучит появившийся текст */}
+      <p className="decided" role="status">
+        {decided}
+      </p>
+      {decide.isError && (
+        <div className="error" role="alert">
+          {(decide.error as Error).message}
+        </div>
+      )}
+    </section>
+  );
 
   return (
     <aside className="sheet" aria-label="Кабинет команды">
@@ -82,6 +179,18 @@ export function TeamPanel({ role }: Props) {
           {canDecide ? 'руководитель: согласование заявок' : 'наставник: прогресс стажёров'}
         </span>
       </header>
+
+      {summary.data && (
+        <section className="saved-hero" aria-label="Сэкономлено наставнику">
+          <p className="saved-hero__value">
+            Бадди сэкономил наставнику ≈ {summary.data.mentor_minutes_saved.toLocaleString('ru-RU')} мин
+          </p>
+          <p className="saved-hero__sub">
+            закрыто вопросов: {summary.data.questions_closed} · передано наставнику: {summary.data.signals_total} ·
+            оценка: {summary.data.minutes_per_question} мин на вопрос
+          </p>
+        </section>
+      )}
 
       {summary.data && (
         <dl className="summary" aria-label="Метрики команды">
@@ -99,56 +208,48 @@ export function TeamPanel({ role }: Props) {
         </dl>
       )}
 
-      <section className="block">
-        <h3 className="block__title">Заявки на согласование</h3>
-        {inbox.length === 0 && <p className="block__note">Новых заявок нет.</p>}
-        <ul className="ledger">
-          {inbox.map((a) => (
-            <li key={a.id} className="ledger__row ledger__row--request">
-              <div className="ledger__main">
-                <span className="ledger__title">{actionTitle(a)}</span>
-                <span className="ledger__id">{a.id}</span>
-                <span className="ledger__who">{nameOf(a.user_id)}</span>
-              </div>
-              {canDecide && (
-                <>
-                  <input
-                    className="comment"
-                    aria-label={`Комментарий к заявке ${a.id}`}
-                    placeholder="Комментарий стажёру, необязательно"
-                    value={comments[a.id] ?? ''}
-                    onChange={(e) => setComment(a.id, e.target.value)}
-                    maxLength={500}
-                  />
-                  <div className="ledger__actions">
-                    <button
-                      className="btn btn--small btn--primary"
-                      onClick={() => decide.mutate({ id: a.id, decision: 'approve', comment: comments[a.id] ?? '' })}
-                      disabled={decide.isPending}
-                      aria-label={`Согласовать ${a.id}`}
-                    >
-                      Согласовать
-                    </button>
-                    <button
-                      className="btn btn--small btn--ghost"
-                      onClick={() => decide.mutate({ id: a.id, decision: 'reject', comment: comments[a.id] ?? '' })}
-                      disabled={decide.isPending}
-                      aria-label={`Отклонить ${a.id}`}
-                    >
-                      Отклонить
-                    </button>
+      {canDecide && approvals}
+
+      {signals.data && (
+        <section className="block">
+          <h3 className="block__title">
+            Стажёры просят помощи
+            {openSignals > 0 && <span className="badge badge--pending signals__count">{openSignals}</span>}
+          </h3>
+          {signals.data.length === 0 ? (
+            <p className="block__note">Сообщений нет: стажёры справляются сами.</p>
+          ) : (
+            <ul className="signals">
+              {signals.data.slice(0, 6).map((s) => (
+                <li key={s.id} className={`signal${s.done ? ' signal--done' : ''}`}>
+                  <div className="signal__head">
+                    <span className="signal__who">{nameOf(s.user_id)}</span>
+                    <span className="signal__topic">{TOPIC_LABELS[s.topic] ?? TOPIC_LABELS.other}</span>
+                    {s.at && <span className="signal__at">{timeLabel(s.at)}</span>}
                   </div>
-                </>
-              )}
-            </li>
-          ))}
-        </ul>
-        {decide.isError && (
-          <div className="error" role="alert">
-            {(decide.error as Error).message}
-          </div>
-        )}
-      </section>
+                  <p className="signal__text">{s.text}</p>
+                  {!s.done ? (
+                    <button
+                      className="btn btn--link"
+                      onClick={() => guard((done) => resolve.mutate(s.id, { onSettled: done }))}
+                      disabled={resolve.isPending}
+                      aria-label={`Отметить ${s.id} разобранным`}
+                    >
+                      Разобрано
+                    </button>
+                  ) : (
+                    <span className="muted">разобрано</span>
+                  )}
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+      )}
+
+      <TeamPulse refetchInterval={TEAM_REFRESH_MS} />
+
+      {!canDecide && approvals}
 
       <section className="block">
         <h3 className="block__title">Стажёры команды</h3>
@@ -197,11 +298,11 @@ export function TeamPanel({ role }: Props) {
         ) : gaps.isLoading ? (
           <p className="block__note">Загружаю вопросы без ответа…</p>
         ) : (gaps.data ?? []).length === 0 ? (
-          <p className="block__note">Помощник пока ответил на все вопросы стажёров.</p>
+          <p className="block__note">Бадди пока ответил на все вопросы стажёров.</p>
         ) : (
           <>
             <p className="block__note">
-              Вопросы, на которые помощник не нашёл ответа. Автор не сохраняется, персональные данные скрыты.
+              Вопросы, на которые Бадди не нашёл ответа. Автор не сохраняется, персональные данные скрыты.
             </p>
             <ul className="gaps">
               {(gaps.data ?? []).slice(0, 5).map((g) => (

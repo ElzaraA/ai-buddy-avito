@@ -25,7 +25,7 @@ func (h *Handlers) CreateAction(w http.ResponseWriter, r *http.Request) {
 	u, _ := auth.FromCtx(r.Context())
 	var body actionReq
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
-		writeError(w, http.StatusBadRequest, "bad_request", "invalid json")
+		badBody(w, err)
 		return
 	}
 	if utf8.RuneCountInString(body.Reason) > store.MaxReasonRunes || utf8.RuneCountInString(body.Resource) > 50 {
@@ -134,7 +134,8 @@ func (h *Handlers) ConfirmAction(w http.ResponseWriter, r *http.Request) {
 	}
 	upd, ok := h.Store.TransitionBy(a.ID, []string{store.StatusDraft}, store.StatusPending, u.ID, "")
 	if !ok {
-		writeError(w, http.StatusConflict, "conflict", "already confirmed")
+		// Не только «уже подтверждён»: черновик мог быть отменён — тогда подтверждать нечего.
+		writeError(w, http.StatusConflict, "conflict", "action is not a draft (already confirmed or cancelled)")
 		return
 	}
 	h.finish(w, upd)
@@ -173,8 +174,12 @@ func (h *Handlers) decide(w http.ResponseWriter, r *http.Request, status string)
 		return
 	}
 	var body decisionReq
-	if err := decodeOptional(r, &body); err != nil || utf8.RuneCountInString(body.Comment) > 500 {
-		writeError(w, http.StatusBadRequest, "bad_request", "invalid json or comment too long")
+	if err := decodeOptional(r, &body); err != nil {
+		badBody(w, err)
+		return
+	}
+	if utf8.RuneCountInString(body.Comment) > 500 {
+		writeError(w, http.StatusBadRequest, "bad_request", "comment too long (max 500 chars)")
 		return
 	}
 	upd, ok := h.Store.TransitionBy(a.ID, []string{store.StatusPending}, status, u.ID, body.Comment)

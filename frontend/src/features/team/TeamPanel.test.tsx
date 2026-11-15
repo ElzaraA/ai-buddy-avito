@@ -1,4 +1,4 @@
-import { screen, waitFor } from '@testing-library/react';
+import { fireEvent, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { TeamPanel } from './TeamPanel';
 import { mockFetch, renderWithQuery } from '../../test/utils';
@@ -23,6 +23,25 @@ const base = [
 ];
 
 describe('TeamPanel', () => {
+  it('наставник видит, кто из стажёров просит помощи, и отмечает сообщение разобранным', async () => {
+    const spy = mockFetch([
+      ...base,
+      { match: '/api/v1/team/actions?status=pending', body: [] },
+      {
+        match: '/api/v1/team/signals',
+        body: [{ id: 'SIG-000001', user_id: 'intern-1', text: 'не работает VPN', topic: 'tech', done: false }],
+      },
+      { method: 'POST', match: '/api/v1/team/signals/SIG-000001/resolve', body: { ok: true } },
+    ]);
+    renderWithQuery(<TeamPanel role="buddy" />);
+    expect(await screen.findByText('не работает VPN')).toBeInTheDocument();
+    expect(screen.getByText('Стажёры просят помощи')).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'Отметить SIG-000001 разобранным' }));
+    await waitFor(() =>
+      expect(spy.mock.calls.some(([u]) => String(u).endsWith('/api/v1/team/signals/SIG-000001/resolve'))).toBe(true),
+    );
+  });
+
   it('руководитель видит заявки, прогресс стажёров и пробелы базы; согласует с комментарием', async () => {
     const spy = mockFetch([
       ...base,
@@ -33,7 +52,7 @@ describe('TeamPanel', () => {
     expect(screen.getByText(/Загружаю данные команды/)).toBeInTheDocument();
 
     expect(await screen.findByText('Отгул 15.01.2030 – 16.01.2030')).toBeInTheDocument();
-    expect(screen.getByText('Доступ к gitlab')).toBeInTheDocument();
+    expect(screen.getByText('Доступ к GitLab')).toBeInTheDocument();
     // автор заявки показан по имени, а не по id
     expect(screen.getAllByText('Стажёр Backend').length).toBeGreaterThan(0);
     expect(screen.getByRole('progressbar', { name: 'Прогресс: Стажёр Backend' })).toHaveAttribute('aria-valuenow', '25');
@@ -54,6 +73,43 @@ describe('TeamPanel', () => {
     // после решения очищается комментарий только этой заявки
     await waitFor(() => expect(screen.getByLabelText('Комментарий к заявке ABS-000001')).toHaveValue(''));
     expect(screen.getByLabelText('Комментарий к заявке REQ-000001')).toHaveValue('Про доступ');
+    // заявка исчезает из списка — руководитель видит словами, что решение ушло
+    expect(screen.getByRole('status')).toHaveTextContent(
+      'Отгул 15.01.2030 – 16.01.2030 (ABS-000001) согласована. Стажёр увидит решение и ваш комментарий',
+    );
+  });
+
+  it('руководителю заявки на согласование — выше сигналов; наставнику — после них', async () => {
+    const routes = [
+      ...base,
+      { match: '/api/v1/team/actions?status=pending', body: [absence] },
+      { match: '/api/v1/team/signals', body: [] },
+    ];
+    const order = async (role: string) => {
+      mockFetch(routes);
+      const { unmount } = renderWithQuery(<TeamPanel role={role} />);
+      await screen.findByText('Стажёры просят помощи');
+      const titles = screen.getAllByRole('heading', { level: 3 }).map((h) => h.textContent ?? '');
+      unmount();
+      return titles.indexOf('Заявки на согласование') < titles.findIndex((t) => t.startsWith('Стажёры просят помощи'));
+    };
+    expect(await order('lead')).toBe(true);
+    expect(await order('buddy')).toBe(false);
+  });
+
+  it('двойной клик по «Согласовать» отправляет решение один раз', async () => {
+    const spy = mockFetch([
+      ...base,
+      { match: '/api/v1/team/actions?status=pending', body: [absence] },
+      { method: 'POST', match: '/api/v1/actions/ABS-000001/approve', body: { ...absence, status: 'approved' } },
+    ]);
+    renderWithQuery(<TeamPanel role="lead" />);
+    const btn = await screen.findByRole('button', { name: 'Согласовать ABS-000001' });
+    fireEvent.click(btn);
+    fireEvent.click(btn);
+    await waitFor(() => expect(screen.getByRole('status')).toHaveTextContent('(ABS-000001) согласована'));
+    expect(spy.mock.calls.filter(([u]) => String(u).endsWith('/approve'))).toHaveLength(1);
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
   });
 
   it('комментарий уходит только с той заявкой, у которой он написан', async () => {
@@ -126,6 +182,79 @@ describe('TeamPanel', () => {
     expect(tiles).toHaveTextContent('63%Средний прогресс');
     expect(tiles).toHaveTextContent('3Заявок ждут решения');
     expect(tiles).toHaveTextContent('4Вопросов без ответа');
+  });
+
+  it('«Сэкономлено наставнику»: крупная плитка с минутами и расшифровкой', async () => {
+    mockFetch([
+      ...base,
+      { match: '/api/v1/team/actions?status=pending', body: [] },
+      {
+        match: '/api/v1/team/summary',
+        body: {
+          interns: 2,
+          avg_percent_done: 50,
+          actions: {},
+          unanswered_topics: 0,
+          questions_closed: 37,
+          signals_total: 4,
+          refusals_total: 3,
+          mentor_minutes_saved: 185,
+          minutes_per_question: 5,
+          closed_share: 0.84,
+        },
+      },
+    ]);
+    renderWithQuery(<TeamPanel role="lead" />);
+    const hero = await screen.findByLabelText('Сэкономлено наставнику');
+    expect(hero).toHaveTextContent('Бадди сэкономил наставнику ≈ 185 мин');
+    expect(hero).toHaveTextContent('закрыто вопросов: 37 · передано наставнику: 4 · оценка: 5 мин на вопрос');
+  });
+
+  it('«Пульс команды»: сначала стажёры, которым нужно внимание, с причиной; точки за 7 дней', async () => {
+    const days = (moods: (number | null)[]) => moods.map((mood, i) => ({ date: `2026-11-${String(9 + i).padStart(2, '0')}`, mood }));
+    mockFetch([
+      ...base,
+      { match: '/api/v1/team/actions?status=pending', body: [] },
+      {
+        match: '/api/v1/team/pulse',
+        body: [
+          {
+            user: { id: 'intern-3', name: 'Второй стажёр', role: 'intern', team_id: 'backend' },
+            today: 5,
+            avg7: 4.5,
+            trend: 'up',
+            risk: false,
+            days: days([null, null, null, null, null, 4, 5]),
+          },
+          {
+            user: { id: 'intern-1', name: 'Стажёр Backend', role: 'intern', team_id: 'backend' },
+            today: 1,
+            avg7: 1.7,
+            trend: 'down',
+            risk: true,
+            risk_reason: 'сегодня отметил(а) «Тяжело»',
+            days: days([null, null, null, null, 2, 2, 1]),
+            note: 'не понимаю задачу',
+            note_date: '2026-11-15',
+          },
+        ],
+      },
+    ]);
+    renderWithQuery(<TeamPanel role="buddy" />);
+    expect(await screen.findByText('Пульс команды')).toBeInTheDocument();
+    expect(screen.getByText(/видны только наставнику и руководителю команды/)).toBeInTheDocument();
+    const rows = document.querySelectorAll('.pulse-row');
+    expect(rows[0]).toHaveTextContent('Стажёр Backend');
+    expect(rows[0]).toHaveTextContent('нужно внимание');
+    expect(rows[0]).toHaveTextContent('Почему: сегодня отметил(а) «Тяжело»');
+    expect(rows[0]).toHaveTextContent('сегодня: Тяжело');
+    expect(rows[0]).toHaveTextContent('«не понимаю задачу»');
+    expect(rows[0]).toHaveTextContent('среднее за 7 дней: 1,7 из 5 · настроение снижается');
+    expect(rows[1]).toHaveTextContent('Второй стажёр');
+    expect(rows[1]).not.toHaveTextContent('нужно внимание');
+    expect(screen.getAllByRole('img', { name: /^Последние 7 дней:/ })[0]).toHaveAccessibleName(
+      'Последние 7 дней: нет отметки, нет отметки, нет отметки, нет отметки, Так себе, Так себе, Тяжело',
+    );
   });
 
   it('сводка без заявок и с null вместо actions — ноль, а не ошибка', async () => {

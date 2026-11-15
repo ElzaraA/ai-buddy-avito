@@ -120,7 +120,8 @@ func TestStemmingAndSynonyms(t *testing.T) {
 
 func TestTermsFilter(t *testing.T) {
 	got := terms("Хочу в пятницу 2026 отгул, ё-моё")
-	want := map[string]bool{"пятницу": true, "отгул": true, "ё": false, "моё": true}
+	// «ё» — буква, а не разделитель, и приводится к «е»: «моё» → «мое».
+	want := map[string]bool{"пятницу": true, "отгул": true, "ё": false, "е": false, "мое": true}
 	for _, g := range got {
 		if !want[g] {
 			t.Fatalf("unexpected term %q in %v", g, got)

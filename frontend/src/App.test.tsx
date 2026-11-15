@@ -1,4 +1,4 @@
-import { screen, waitFor } from '@testing-library/react';
+import { act, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { App } from './App';
 import { getDemoUser } from './api/client';
@@ -24,7 +24,7 @@ describe('App', () => {
     expect(await screen.findByText('Моя адаптация')).toBeInTheDocument();
     expect(screen.getByText(/не являются регламентами Авито/)).toBeInTheDocument();
 
-    await userEvent.selectOptions(screen.getByLabelText('Тестовый пользователь'), 'intern.other');
+    await userEvent.selectOptions(screen.getByLabelText('Войти как'), 'intern.other');
     await waitFor(() => expect(getDemoUser()).toBe('intern.other'));
     expect(useChatStore.getState().user).toBe('intern.other');
   });
@@ -36,8 +36,54 @@ describe('App', () => {
     ]);
     renderWithQuery(<App />);
     expect(screen.getByRole('option', { name: 'Руководитель Frontend' })).toHaveValue('lead.frontend');
-    await userEvent.selectOptions(screen.getByLabelText('Тестовый пользователь'), 'lead.frontend');
+    await userEvent.selectOptions(screen.getByLabelText('Войти как'), 'lead.frontend');
     await waitFor(() => expect(getDemoUser()).toBe('lead.frontend'));
+  });
+
+  it('оболочка: «Сообщить наставнику» в меню подставляет заготовку в чат, карточка открывает план', async () => {
+    mockFetch([
+      { match: '/api/v1/me', body: { id: 'intern-1', name: 'Стажёр Backend', role: 'intern', team_id: 'backend' } },
+      { match: '/api/v1/onboarding/progress', body: { items: [], next_step: 'Прочитать Playbook' } },
+    ]);
+    renderWithQuery(<App />);
+    expect(screen.getByRole('button', { name: 'Рабочий стол' })).toHaveAttribute('aria-current', 'page');
+
+    const menu = screen.getByRole('navigation', { name: 'Разделы' });
+    await userEvent.click(within(menu).getByRole('button', { name: 'Сообщить наставнику' }));
+    expect(screen.getByLabelText('Сообщение')).toHaveValue('Передай наставнику: ');
+    expect(screen.getByLabelText('Сообщение')).toHaveFocus();
+
+    await userEvent.click(await screen.findByRole('button', { name: /Следующий шаг: Прочитать Playbook/ }));
+    const nav = screen.getByRole('navigation', { name: 'Разделы' });
+    expect(within(nav).getByRole('button', { name: 'Мой план' })).toHaveAttribute('aria-current', 'page');
+    expect(screen.getByLabelText('Чат с AI-buddy').closest('.chat-card')).not.toBeVisible();
+  });
+
+  it('навигация одна — боковое меню; пункт меню и заголовок раздела называются одинаково', async () => {
+    mockFetch([
+      { match: '/api/v1/me', body: { id: 'intern-1', name: 'Стажёр Backend', role: 'intern', team_id: 'backend' } },
+      { match: '/api/v1/onboarding/progress', body: { items: [], next_step: '' } },
+      { match: '/api/v1/actions', body: [] },
+    ]);
+    renderWithQuery(<App />);
+    expect(screen.queryByRole('group', { name: 'Вкладки' })).not.toBeInTheDocument();
+    const nav = screen.getByRole('navigation', { name: 'Разделы' });
+    for (const name of ['Рабочий стол', 'Мой план', 'Мои заявки', 'Что умеет Бадди']) {
+      await userEvent.click(within(nav).getByRole('button', { name }));
+      expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent(name);
+      expect(screen.getAllByRole('button', { name })).toHaveLength(1);
+    }
+  });
+
+  it('пока /me не ответил, наставнику не показывается стол стажёра (роль — по логину)', async () => {
+    useChatStore.getState().setUser('mentor.backend');
+    const spy = mockFetch([{ match: '/api/v1/team/progress', body: [] }]); // /me → 404
+    renderWithQuery(<App />);
+    expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent('Кабинет команды');
+    expect(screen.queryByRole('button', { name: /Открыть план/ })).not.toBeInTheDocument();
+    await waitFor(() => expect(spy).toHaveBeenCalled());
+    // запросы стажёра (на них сервер ответил бы наставнику 403) не уходят
+    expect(spy.mock.calls.some(([u]) => /\/pulse\/me|\/achievements|\/onboarding\/progress/.test(String(u)))).toBe(false);
   });
 
   it('руководителю вместо плана адаптации показывается кабинет команды', async () => {
@@ -53,5 +99,59 @@ describe('App', () => {
     expect(screen.getByText(/руководитель: согласование заявок/)).toBeInTheDocument();
     expect(screen.queryByText('Моя адаптация')).not.toBeInTheDocument();
     expect(screen.getByLabelText('Чат с AI-buddy')).toBeInTheDocument();
+  });
+  it('расписание: напоминание приходит, пока открыт другой раздел, — счётчик на чате и сообщение в чате', async () => {
+    mockFetch([
+      {
+        match: '/api/v1/me',
+        body: {
+          id: 'intern-1',
+          name: 'Стажёр Backend',
+          role: 'intern',
+          team_id: 'backend',
+        },
+      },
+      {
+        match: '/api/v1/onboarding/progress',
+        body: { items: [], next_step: '' },
+      },
+      {
+        match: /\/api\/v1\/schedule\?days=7$/,
+        body: { from: '', to: '', items: [] },
+      },
+      {
+        match: '/api/v1/reminders',
+        body: [
+          {
+            id: 'standup@x',
+            title: 'Стендап команды',
+            kind: 'standup',
+            start: '2026-11-16T11:00:00+03:00',
+            end: '2026-11-16T11:15:00+03:00',
+            text: 'Через 15 минут — Стендап команды в 11:00.',
+          },
+        ],
+      },
+      {
+        method: 'POST',
+        match: '/api/v1/reminders/standup%40x/ack',
+        body: null,
+      },
+    ]);
+    renderWithQuery(<App />);
+    const nav = screen.getByRole('navigation', { name: 'Разделы' });
+    // чат открыт — напоминание сразу видно и счётчик не нужен
+    expect(await screen.findByText('Через 15 минут — Стендап команды в 11:00.')).toBeVisible();
+    expect(within(nav).queryByLabelText(/новых напоминаний/)).not.toBeInTheDocument();
+
+    // в другом разделе новое напоминание отмечается счётчиком на пункте с чатом
+    await userEvent.click(within(nav).getByRole('button', { name: 'Расписание' }));
+    expect(await screen.findByText('На ближайшую неделю встреч нет.')).toBeInTheDocument();
+    act(() => useChatStore.getState().addReminder('retro@x', 'Через 15 минут — Ретро спринта в 17:00.'));
+    expect(await within(nav).findByLabelText('новых напоминаний: 1')).toBeInTheDocument();
+
+    await userEvent.click(within(nav).getByRole('button', { name: /Рабочий стол/ }));
+    expect(screen.getByText('Через 15 минут — Ретро спринта в 17:00.')).toBeVisible();
+    await waitFor(() => expect(within(nav).queryByLabelText(/новых напоминаний/)).not.toBeInTheDocument());
   });
 });

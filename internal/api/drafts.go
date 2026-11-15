@@ -1,6 +1,7 @@
 package api
 
 import (
+	"errors"
 	"time"
 	"unicode/utf8"
 
@@ -76,6 +77,8 @@ func draftProblem(a store.Absence, u auth.User) string {
 		return "Заявку можно оформить только на Jira, GitLab, Grafana или Git. По другим системам подскажет наставник " + auth.TeamContacts(u.TeamID).Buddy + "."
 	case a.Type == store.ActionAccess:
 		return "Заявку можно оформить только на Jira, GitLab, Grafana или Git. По другим системам обратитесь в IT Support."
+	case errors.Is(store.ValidateAbsenceDates(a.DateFrom, a.DateTo, time.Now()), store.ErrTooFarAhead):
+		return "Не могу оформить отгул на эти даты: отгул можно оформить не дальше чем на 5 лет вперёд — проверьте год. Напишите другие даты."
 	}
 	return "Не могу оформить отгул на эти даты: дата не должна быть в прошлом, окончание — не раньше начала, а отгул — не длиннее 30 дней. Напишите другие даты."
 }

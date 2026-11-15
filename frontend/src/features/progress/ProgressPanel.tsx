@@ -40,7 +40,8 @@ function stepClass(it: ChecklistItem, nextStep: string) {
   return 'step';
 }
 
-export function ProgressPanel() {
+/** withActions — показывать «Мои заявки» под планом (в оболочке заявки живут в отдельном разделе). */
+export function ProgressPanel({ withActions = true }: { withActions?: boolean }) {
   const user = useChatStore((s) => s.user);
   const qc = useQueryClient();
   const { data, isLoading, isError, refetch } = useQuery({
@@ -77,7 +78,7 @@ export function ProgressPanel() {
         <span className="sheet__meta">Выполнено {pct}%</span>
       </header>
 
-      <div className="meter" role="progressbar" aria-valuenow={pct} aria-valuemin={0} aria-valuemax={100}>
+      <div className="meter" role="progressbar" aria-label="Пройдено плана адаптации" aria-valuenow={pct} aria-valuemin={0} aria-valuemax={100}>
         <div style={{ width: `${pct}%` }} />
       </div>
 
@@ -133,7 +134,7 @@ export function ProgressPanel() {
         </div>
       )}
 
-      <MyActions />
+      {withActions && <MyActions />}
     </aside>
   );
 }

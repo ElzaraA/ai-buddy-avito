@@ -125,6 +125,11 @@ func (h *Handlers) MCP(w http.ResponseWriter, r *http.Request) {
 		}
 		list := make([]mcpTool, 0)
 		for _, s := range h.Agent.Tools.List() {
+			// Показываем только инструменты, которые роли разрешены: иначе клиент (IDE, внешний агент)
+			// предлагает действия, которые tools/call всё равно отклонит.
+			if !auth.Can(u, s.Permission) {
+				continue
+			}
 			list = append(list, mcpTool{
 				Name: s.Name, Description: s.Description, InputSchema: s.InputSchema,
 				Annotations: map[string]any{
