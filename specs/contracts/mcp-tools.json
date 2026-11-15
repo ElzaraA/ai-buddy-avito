@@ -102,6 +102,30 @@
           "meetings_count": { "type": "integer" }
         }
       }
+    },
+    {
+      "name": "schedule_add",
+      "description": "Добавить личный созвон в расписание пользователя; Бадди напомнит о нём в чате",
+      "permission": "schedule.write",
+      "requiresConfirmation": false,
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "time": { "type": "string", "example": "17:00" },
+          "in_min": { "type": "string", "example": "10" },
+          "date": { "type": "string", "example": "tomorrow" },
+          "title": { "type": "string", "example": "Созвон с Катей" },
+          "duration_min": { "type": "string", "example": "30" },
+          "with": { "type": "string" }
+        }
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "meeting_id": { "type": "string" },
+          "meeting": { "type": "string", "example": "пн 16.11, 17:00 — Созвон с Катей" }
+        }
+      }
     }
   ]
 }

@@ -98,6 +98,7 @@ func Build(cfg config.Config, knowledgeDir string) (*App, error) {
 	reg.Register(&tools.AbsenceGetPolicy{})
 	reg.Register(&tools.AccessRequest{})
 	reg.Register(&tools.ScheduleGet{S: st})
+	reg.Register(&tools.ScheduleAdd{S: st, Lead: time.Duration(cfg.ReminderLeadMin) * time.Minute})
 
 	m := metrics.New()
 	m.Add("buddy_knowledge_chunks", "Фрагментов в базе знаний", float64(len(chunks)))

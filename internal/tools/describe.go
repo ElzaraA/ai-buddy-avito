@@ -57,6 +57,17 @@ var specs = map[string]Spec{
 			"kind": map[string]any{"type": "string", "enum": []string{"standup", "one_on_one", "planning", "retro"}, "description": "только встречи одного вида"},
 		}),
 	},
+	"schedule_add": {
+		Description: "Добавить личный созвон в расписание пользователя; Бадди напомнит о нём в чате",
+		InputSchema: object(nil, map[string]any{
+			"time":         str("время начала, ЧЧ:ММ по Москве"),
+			"in_min":       str("через сколько минут от текущего момента — вместо date и time"),
+			"date":         str("today, tomorrow, day_after_tomorrow, monday…sunday, ДД.ММ или ГГГГ-ММ-ДД; по умолчанию сегодня, если время прошло — завтра"),
+			"title":        str("название, например «Созвон с Катей»"),
+			"duration_min": str("длительность в минутах, 5–240, по умолчанию 30"),
+			"with":         str("с кем"),
+		}),
+	},
 	"directory_find_owner": {
 		Description: "Кто отвечает за тему (доступы, инструменты, чек-лист, отгулы)",
 		InputSchema: object([]string{"query"}, map[string]any{"query": str("тема")}),

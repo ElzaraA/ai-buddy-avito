@@ -96,6 +96,8 @@
     {"id":"SCH-week","question":"покажи моё расписание","role":"intern","team":"backend","expect_type":"action","expect_tool":"schedule_get"},
     {"id":"SCH-tomorrow","question":"Какие у меня встречи завтра?","role":"intern","team":"backend","expect_type":"action","expect_tool":"schedule_get"},
     {"id":"SCH-one-on-one","question":"когда у меня 1:1?","role":"intern","team":"backend","expect_type":"action","expect_tool":"schedule_get"},
-    {"id":"SCH-calls","question":"есть ли у меня созвоны сегодня?","role":"intern","team":"backend","expect_type":"action","expect_tool":"schedule_get"}
+    {"id":"SCH-calls","question":"есть ли у меня созвоны сегодня?","role":"intern","team":"backend","expect_type":"action","expect_tool":"schedule_get"},
+    {"id":"SCH-add-tomorrow","question":"добавь в расписание завтра встречу в 15.00","role":"intern","team":"backend","expect_type":"action","expect_tool":"schedule_add"},
+    {"id":"SCH-add-with","question":"и в расписание добавь созвон с Катей на 17.00","role":"intern","team":"backend","expect_type":"action","expect_tool":"schedule_add"}
   ]
 }

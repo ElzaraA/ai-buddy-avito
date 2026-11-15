@@ -55,7 +55,7 @@ func TestMCPHandshakeAndList(t *testing.T) {
 	}
 
 	_, out, raw = rpc(t, srv, "intern.backend", map[string]any{"jsonrpc": "2.0", "id": 2, "method": "tools/list"})
-	if len(out.Result.Tools) != 6 {
+	if len(out.Result.Tools) != 7 {
 		t.Fatalf("tools/list: %s", raw)
 	}
 	mutating := map[string]bool{"absence_create_request": true, "access_request": true}

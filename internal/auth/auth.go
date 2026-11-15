@@ -112,7 +112,7 @@ func ByID(id string) (User, bool) {
 
 func Can(u User, action string) bool {
 	switch action {
-	case "checklist.read", "schedule.read":
+	case "checklist.read", "schedule.read", "schedule.write":
 		// свой чек-лист и своё расписание видит любой пользователь
 		return true
 	case "absence.create":

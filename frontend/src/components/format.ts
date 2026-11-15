@@ -40,6 +40,9 @@ const FIELD_LABELS: Record<string, string> = {
   next_meeting: 'Ближайшая',
   place: 'Где',
   upcoming: 'Дальше',
+  // ответ на «добавь созвон завтра в 15:00»
+  duration: 'Длительность',
+  reminder: 'Напомню',
 };
 
 const FIELD_ORDER = Object.keys(FIELD_LABELS);
