@@ -40,7 +40,8 @@ function stepClass(it: ChecklistItem, nextStep: string) {
   return 'step';
 }
 
-export function ProgressPanel() {
+/** withActions — показывать «Мои заявки» под планом (в оболочке заявки живут в отдельном разделе). */
+export function ProgressPanel({ withActions = true }: { withActions?: boolean }) {
   const user = useChatStore((s) => s.user);
   const qc = useQueryClient();
   const { data, isLoading, isError, refetch } = useQuery({
@@ -133,7 +134,7 @@ export function ProgressPanel() {
         </div>
       )}
 
-      <MyActions />
+      {withActions && <MyActions />}
     </aside>
   );
 }

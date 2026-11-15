@@ -162,7 +162,7 @@ func (c contacts) coach(question string, resp Response) Response {
 		resp.Type, resp.Text = "answer", c.stuckText()
 	case stuck && resp.Type == "answer" && resp.Text != "":
 		// найденный фрагмент базы может не решить проблему — шаги и выход на наставника показываем всегда
-		resp.Text = c.stuckText() + "\n\nВозможно, поможет (из базы знаний): " + resp.Text
+		resp.Text = c.stuckText() + "\n\nВозможно, поможет (из базы знаний):\n" + resp.Text
 	}
 	if len(resp.Suggestions) > 0 {
 		return resp

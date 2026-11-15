@@ -48,6 +48,23 @@ export function ChatPanel({ staff = false }: { staff?: boolean }) {
     inputRef.current?.focus();
   };
 
+  // Запросы из оболочки: «Сообщить наставнику» в меню подставляет текст, подсказка — отправляет вопрос.
+  const composer = useChatStore((s) => s.composer);
+  const queued = useChatStore((s) => s.queued);
+  const takeQueued = useChatStore((s) => s.takeQueued);
+
+  useEffect(() => {
+    if (!composer) return;
+    if (composer.text) setText(composer.text);
+    inputRef.current?.focus();
+  }, [composer]);
+
+  useEffect(() => {
+    if (!queued) return;
+    takeQueued();
+    void send(queued.text);
+  }, [queued, send, takeQueued]);
+
   useEffect(() => {
     endRef.current?.scrollIntoView?.({ behavior: 'smooth' });
   }, [messages]);
@@ -64,7 +81,7 @@ export function ChatPanel({ staff = false }: { staff?: boolean }) {
       <div className="chat__messages" aria-live="polite">
         {messages.length === 0 && staff && (
           <div className="empty">
-            <h1 className="empty__title">Кабинет команды — справа</h1>
+            <h2 className="empty__title">Кабинет команды — в меню слева</h2>
             <p className="empty__text">
               Там стажёры, которые просят помощи, заявки на согласование и вопросы, которых нет в базе знаний. В чате
               можно проверить, что помощник отвечает стажёрам.
@@ -73,7 +90,7 @@ export function ChatPanel({ staff = false }: { staff?: boolean }) {
         )}
         {messages.length === 0 && !staff && (
           <div className="empty">
-            <h1 className="empty__title">Спросите здесь — до того, как писать наставнику</h1>
+            <h2 className="empty__title">Спросите здесь — до того, как писать наставнику</h2>
             <p className="empty__text">
               Помощник знает правила вашей команды и отвечает со ссылкой на документ. Заявки на отгул и доступы он
               заполнит сам — вам останется проверить и нажать «Отправить». Если ответа в базе нет, помощник скажет,

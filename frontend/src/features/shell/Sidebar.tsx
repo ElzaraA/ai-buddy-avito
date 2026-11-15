@@ -1,0 +1,119 @@
+import type { User } from '../../api/schemas';
+import { DEMO_USERS, useChatStore } from '../../store/chat';
+import { BuddyAvatar, IconArrow, IconFlag } from './icons';
+import type { ViewDef, ViewId } from './views';
+
+interface Props {
+  views: ViewDef[];
+  view: ViewId;
+  staff: boolean;
+  me?: User;
+  onNavigate: (v: ViewId) => void;
+  /** «Написать Бадди» — открыть чат и поставить фокус в поле ввода */
+  onWrite: () => void;
+  /** «Сообщить наставнику» — открыть чат с заготовкой сообщения (только стажёр) */
+  onReport: () => void;
+}
+
+function NavItem({ v, active, onClick }: { v: ViewDef; active: boolean; onClick: () => void }) {
+  const Icon = v.icon;
+  return (
+    <li>
+      <button
+        type="button"
+        className={`nav__item${active ? ' nav__item--active' : ''}`}
+        aria-current={active ? 'page' : undefined}
+        onClick={onClick}
+      >
+        <Icon className="nav__icon" />
+        <span>{v.nav}</span>
+      </button>
+    </li>
+  );
+}
+
+export function Sidebar({ views, view, staff, me, onNavigate, onWrite, onReport }: Props) {
+  const user = useChatStore((s) => s.user);
+  const setUser = useChatStore((s) => s.setUser);
+  const main = views.filter((v) => v.group === 'main');
+  const help = views.filter((v) => v.group === 'help');
+
+  return (
+    <aside className="sidebar">
+      <div className="brand">
+        <span className="brand__mark" aria-hidden>
+          ai
+        </span>
+        <span className="brand__text">
+          <span className="brand__name">AI-buddy</span>
+          <span className="brand__tagline">помощник стажёра</span>
+        </span>
+      </div>
+
+      <section className="persona" aria-label="Ассистент Бадди">
+        <BuddyAvatar />
+        <div className="persona__text">
+          <span className="persona__name">Бадди</span>
+          <span className="persona__status">
+            <span className="persona__dot" aria-hidden />
+            онлайн · {staff ? 'помогает вашим стажёрам' : 'помогает стажёрам'}
+          </span>
+        </div>
+        <button type="button" className="pill-btn persona__btn" onClick={onWrite}>
+          Написать Бадди <IconArrow className="pill-btn__icon" />
+        </button>
+      </section>
+
+      <nav className="nav" aria-label="Разделы">
+        <div className="nav__group">
+          <h2 className="nav__heading">{staff ? 'Команда' : 'Работа'}</h2>
+          <ul className="nav__list">
+            {main.map((v) => (
+              <NavItem key={v.id} v={v} active={view === v.id} onClick={() => onNavigate(v.id)} />
+            ))}
+          </ul>
+        </div>
+        {!staff && (
+          <div className="nav__group">
+            <h2 className="nav__heading">Помощь</h2>
+            <ul className="nav__list">
+              {help.map((v) => (
+                <NavItem key={v.id} v={v} active={view === v.id} onClick={() => onNavigate(v.id)} />
+              ))}
+              <li>
+                <button type="button" className="nav__item" onClick={onReport}>
+                  <IconFlag className="nav__icon" />
+                  <span>Сообщить наставнику</span>
+                </button>
+              </li>
+            </ul>
+          </div>
+        )}
+      </nav>
+
+      <div className="account">
+        {me && (
+          <div className="me">
+            <span className="me__avatar" aria-hidden>
+              {me.name.slice(0, 1)}
+            </span>
+            <span className="me__text">
+              <span className="me__name">{me.name}</span>
+              <span className="me__team">команда {me.team_id}</span>
+            </span>
+          </div>
+        )}
+        <label className="user-switch">
+          <span>Войти как</span>
+          <select value={user} onChange={(e) => setUser(e.target.value)} aria-label="Тестовый пользователь">
+            {DEMO_USERS.map((u) => (
+              <option key={u.login} value={u.login}>
+                {u.label}
+              </option>
+            ))}
+          </select>
+        </label>
+      </div>
+    </aside>
+  );
+}

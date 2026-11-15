@@ -81,7 +81,7 @@ func looksLikeInjection(q string) bool {
 // isKnowledgeGap — стоит ли записать вопрос без ответа в «пробелы базы знаний» для наставника.
 // Small talk, инъекции и вопросы без значимых слов пробелом не считаются.
 func isKnowledgeGap(q string) bool {
-	return rag.Meaningful(q) && !looksLikeInjection(q) && smallTalk(q) == "" && !isEmotional(q)
+	return rag.Meaningful(q) && !looksLikeInjection(q) && smallTalk(q) == "" && !isEmotional(q) && !isGlossaryQuestion(q)
 }
 
 // Реплики small talk: помощник отвечает вежливо, без поиска по базе и без записи в пробелы.

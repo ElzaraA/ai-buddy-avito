@@ -31,7 +31,19 @@ interface ChatState {
   resolve: (id: string, response: AgentResponse) => void;
   fail: (id: string, error: string) => void;
   reset: () => void;
+  /**
+   * Запрос из оболочки (боковое меню, карточки рабочего стола) к полю ввода чата:
+   * подставить текст и поставить фокус. nonce меняется на каждый запрос, чтобы повтор сработал.
+   */
+  composer: { text: string; nonce: number } | null;
+  prefill: (text: string) => void;
+  /** Вопрос, который чат должен отправить сам (клик по подсказке вне чата). */
+  queued: { text: string; nonce: number } | null;
+  ask: (text: string) => void;
+  takeQueued: () => void;
 }
+
+let nonce = 0;
 
 const toMessage = (id: string, o: Outcome): ChatMessage =>
   o.kind === 'done'
@@ -52,7 +64,13 @@ export const useChatStore = create<ChatState>((set) => {
     sessionId: null,
     messages: [],
     early: {},
-    setUser: (login) => set({ user: login, sessionId: null, messages: [], early: {} }),
+    composer: null,
+    queued: null,
+    setUser: (login) =>
+      set({ user: login, sessionId: null, messages: [], early: {}, composer: null, queued: null }),
+    prefill: (text) => set({ composer: { text, nonce: ++nonce } }),
+    ask: (text) => set({ queued: { text, nonce: ++nonce } }),
+    takeQueued: () => set({ queued: null }),
     setSession: (id) => set({ sessionId: id }),
     addUser: (id, text) => set((s) => ({ messages: [...s.messages, { id, role: 'user', text }] })),
     addPending: (id) =>

@@ -1,4 +1,4 @@
-import { screen, waitFor } from '@testing-library/react';
+import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { App } from './App';
 import { getDemoUser } from './api/client';
@@ -38,6 +38,24 @@ describe('App', () => {
     expect(screen.getByRole('option', { name: 'Руководитель Frontend' })).toHaveValue('lead.frontend');
     await userEvent.selectOptions(screen.getByLabelText('Тестовый пользователь'), 'lead.frontend');
     await waitFor(() => expect(getDemoUser()).toBe('lead.frontend'));
+  });
+
+  it('оболочка: «Сообщить наставнику» в меню подставляет заготовку в чат, карточка открывает план', async () => {
+    mockFetch([
+      { match: '/api/v1/me', body: { id: 'intern-1', name: 'Стажёр Backend', role: 'intern', team_id: 'backend' } },
+      { match: '/api/v1/onboarding/progress', body: { items: [], next_step: 'Прочитать Playbook' } },
+    ]);
+    renderWithQuery(<App />);
+    expect(screen.getByRole('button', { name: 'Чат с Бадди' })).toHaveAttribute('aria-current', 'page');
+
+    await userEvent.click(screen.getByRole('button', { name: 'Сообщить наставнику' }));
+    expect(screen.getByLabelText('Сообщение')).toHaveValue('Передай наставнику: ');
+    expect(screen.getByLabelText('Сообщение')).toHaveFocus();
+
+    await userEvent.click(await screen.findByRole('button', { name: /Следующий шаг: Прочитать Playbook/ }));
+    const nav = screen.getByRole('navigation', { name: 'Разделы' });
+    expect(within(nav).getByRole('button', { name: 'Мой план' })).toHaveAttribute('aria-current', 'page');
+    expect(screen.getByLabelText('Чат с AI-buddy').closest('.chat-card')).not.toBeVisible();
   });
 
   it('руководителю вместо плана адаптации показывается кабинет команды', async () => {

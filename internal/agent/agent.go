@@ -201,6 +201,10 @@ func (a *Agent) AskWithHistory(ctx context.Context, user auth.User, question str
 			Suggestions: []string{chipNext, chipAbsence, chipAccess, chipRules}}
 		return r, nil
 	}
+	// «Что такое MR?», «что значит ретро» — объясняем термин из словаря Бадди (это не пробел базы знаний).
+	if t, alias, ok := glossaryQuestion(question); ok {
+		return a.glossaryResponse(user, c, question, t, alias), nil
+	}
 
 	hits := a.Index.Search(question, user.TeamID, string(user.Role), 4)
 	srcs := make([]Source, 0, len(hits))
@@ -224,9 +228,56 @@ func (a *Agent) AskWithHistory(ctx context.Context, user auth.User, question str
 	if err != nil {
 		return Response{}, err
 	}
-	resp := c.coach(question, a.interpret(ctx, user, question, raw, srcs, restricted))
+	resp := c.coach(question, c.present(a.interpret(ctx, user, question, raw, srcs, restricted), hits))
 	resp.Degraded = degraded
 	return resp, nil
+}
+
+// present оформляет ответ для стажёра первой недели: дословный фрагмент базы знаний — структурой
+// «Коротко → шаги → кого спросить», любой ответ по базе — блоком «Термины простыми словами».
+// Источники (resp.Sources) не меняются.
+func (c contacts) present(resp Response, hits []rag.Hit) Response {
+	if resp.Type != "answer" || len(resp.Sources) == 0 || strings.TrimSpace(resp.Text) == "" {
+		return resp
+	}
+	txt := strings.TrimSpace(resp.Text)
+	for _, h := range hits {
+		if txt == strings.TrimSpace(h.Chunk.Text) {
+			resp.Text = c.formatKB(h.Chunk.Text)
+			break
+		}
+	}
+	resp.Text = withGlossary(resp.Text)
+	return resp
+}
+
+// glossaryResponse — ответ на «что такое X?» из словаря Бадди. Если в базе знаний команды есть
+// предложение с этим термином, добавляем его дословно и прикладываем источник.
+func (a *Agent) glossaryResponse(user auth.User, c contacts, question string, t glossaryTerm, alias string) Response {
+	var line string
+	var srcs []Source
+	for _, q := range []string{alias, question} {
+		for _, h := range a.Index.Search(q, user.TeamID, string(user.Role), 4) {
+			for _, s := range sentences(h.Chunk.Text) {
+				if t.mentions(s) {
+					line = s
+					srcs = []Source{{ID: h.Chunk.ID, Source: h.Chunk.Source, Stage: h.Chunk.Stage, Title: h.Chunk.Title}}
+					break
+				}
+			}
+			if line != "" {
+				break
+			}
+		}
+		if line != "" {
+			break
+		}
+	}
+	r := Response{Type: "answer", Text: glossaryAnswer(t, line), Sources: srcs, Buddy: c.Buddy}
+	if !c.staff {
+		r.Suggestions = []string{chipNext, "Передай наставнику: ответ не помог — " + quote(question)}
+	}
+	return r
 }
 
 // restrictedRefusal — материал по вопросу есть, но доступен наставникам и руководителям.
