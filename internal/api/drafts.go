@@ -91,18 +91,12 @@ func permissionFor(actionType string) string {
 	return "absence.create"
 }
 
-// syncStep поддерживает связь «заявка на доступ ↔ шаг чек-листа»:
-// отправлена → шаг ждёт (waiting); одобрена → выполнен; отклонена или отменена → снова todo.
+// syncStep поддерживает связь «заявки на доступ ↔ шаг чек-листа "Получить доступы (Git, Jira, Grafana)"»:
+// шаг закрывается, только когда одобрены все системы; пока часть не запрошена — todo с прогрессом
+// sub_done/sub_total и списком missing; всё запрошено и что-то ждёт решения — waiting.
 func syncStep(st *store.Store, a store.Absence) {
 	if a.Type != store.ActionAccess {
 		return
 	}
-	switch a.Status {
-	case store.StatusPending:
-		st.LinkStep(a.UserID, "access", a.ID, store.StepWaiting)
-	case store.StatusApproved:
-		st.LinkStep(a.UserID, "access", a.ID, store.StepDone)
-	case store.StatusRejected, store.StatusCancelled:
-		st.UnlinkStep(a.UserID, a.ID)
-	}
+	st.SyncAccessStep(a.UserID)
 }

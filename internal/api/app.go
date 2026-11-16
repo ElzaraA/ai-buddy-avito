@@ -78,6 +78,8 @@ func Build(cfg config.Config, knowledgeDir string) (*App, error) {
 	if err != nil {
 		return nil, err
 	}
+	// «Сегодня» для дат и «Пульса» — по поясу продукта (TZ_NAME, по умолчанию Europe/Moscow).
+	store.SetLocation(cfg.TZName)
 	st := store.New()
 	msgs := store.NewMessageStore()
 
@@ -103,7 +105,7 @@ func Build(cfg config.Config, knowledgeDir string) (*App, error) {
 	m := metrics.New()
 	m.Add("buddy_knowledge_chunks", "Фрагментов в базе знаний", float64(len(chunks)))
 
-	ag := &agent.Agent{LLM: NewLLM(cfg), Index: rag.NewIndex(chunks), Tools: reg, Now: time.Now}
+	ag := &agent.Agent{LLM: NewLLM(cfg), Index: rag.NewIndex(chunks), Tools: reg, Now: store.Now, AccessStatus: st.AccessStatus}
 	if !cfg.LLMMock && cfg.LLMFallback {
 		// Реальная модель недоступна → отвечает детерминированная резервная, ответ помечается degraded.
 		ag.Fallback = llm.MockClient{}
@@ -123,6 +125,8 @@ func Build(cfg config.Config, knowledgeDir string) (*App, error) {
 		Limiter:      NewRateLimiter(cfg.RateLimitPerMin, time.Minute),
 		WriteLimiter: NewRateLimiter(cfg.RateLimitPerMin, time.Minute),
 		ReminderLead: time.Duration(cfg.ReminderLeadMin) * time.Minute,
+		DemoMode:     cfg.DemoMode,
+		LLMMock:      cfg.LLMMock,
 	}
 	return &App{Handler: NewRouterWithOrigins(h, origins), Persister: persister, Metrics: m, Store: st}, nil
 }

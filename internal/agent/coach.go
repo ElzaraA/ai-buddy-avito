@@ -4,6 +4,7 @@ import (
 	"strings"
 	"unicode"
 
+	"github.com/ElzaraA/ai-buddy-avito/internal/store"
 	"github.com/ElzaraA/ai-buddy-avito/internal/tools"
 )
 
@@ -174,6 +175,9 @@ func (c contacts) coach(question, norm string, resp Response) Response {
 		return resp
 	}
 	ask := "Передай наставнику: " + quote(question)
+	// Цитировать вопрос в подсказке «Передай наставнику: …» можно не всегда: попытку prompt injection,
+	// вопрос о зарплате и реплику с персональными данными наставнику не пересылаем.
+	echo := echoable(question, norm)
 	switch resp.Type {
 	case "draft":
 		// у черновика свои кнопки «Отправить» / «Отменить»
@@ -188,13 +192,95 @@ func (c contacts) coach(question, norm string, resp Response) Response {
 			resp.Suggestions = []string{chipNext}
 		}
 	case "refusal":
-		resp.Suggestions = []string{ask, chipNext}
-	default:
-		if stuck {
+		switch {
+		case isSalaryQuestion(norm):
+			resp.Suggestions = []string{chipConditions, chipNext}
+		case echo:
 			resp.Suggestions = []string{ask, chipNext}
-		} else {
+		default:
+			resp.Suggestions = []string{chipNext}
+		}
+	default:
+		switch {
+		case !echo:
+			resp.Suggestions = []string{chipNext}
+		case stuck:
+			resp.Suggestions = []string{ask, chipNext}
+		default:
 			resp.Suggestions = []string{chipNext, "Передай наставнику: ответ не помог — " + quote(question)}
 		}
 	}
 	return resp
+}
+
+// chipConditions — безопасный следующий шаг после отказа про зарплату.
+const chipConditions = "Кому написать про условия стажировки?"
+
+// echoable — можно ли процитировать реплику в подсказке «Передай наставнику: …».
+func echoable(question, norm string) bool {
+	return !looksLikeInjection(norm) && !looksLikeInjection(question) && !isSalaryQuestion(norm) &&
+		store.MaskPII(question) == question
+}
+
+// isConditionsQuestion — «Кому написать про условия стажировки?» (кнопка после отказа про зарплату).
+func isConditionsQuestion(q string) bool {
+	q = strings.ToLower(q)
+	return strings.Contains(q, "условия стажир") || strings.Contains(q, "условиям стажир") || strings.Contains(q, "условиях стажир")
+}
+
+// conditionsText — к кому идти с вопросами об условиях стажировки (без цифр и без чужих данных).
+func (c contacts) conditionsText() string {
+	if c.staff {
+		return "Условия стажировки (оплата, график, оформление) уточняет HR BP команды."
+	}
+	return "Условия стажировки (оплата, график, оформление) уточняет HR BP или руководитель команды. " +
+		"Если не знаете, к кому идти, напишите наставнику " + c.BuddyDative + " — он подскажет контакт."
+}
+
+// accessChip — система из подсказки «Запроси доступ в X» (пусто — подсказка не про доступ).
+func accessChip(s string) string {
+	const p = "Запроси доступ в "
+	if !strings.HasPrefix(s, p) {
+		return ""
+	}
+	switch strings.ToLower(strings.TrimSpace(strings.TrimPrefix(s, p))) {
+	case "gitlab", "git":
+		return "gitlab"
+	case "jira":
+		return "jira"
+	case "grafana":
+		return "grafana"
+	}
+	return ""
+}
+
+// freshAccessChips убирает подсказки «Запроси доступ в X», если заявка на X уже отправлена или одобрена,
+// и подставляет вместо них ещё не запрошенные системы (без повторов).
+func freshAccessChips(sugg []string, status map[string]string) []string {
+	if len(sugg) == 0 || len(status) == 0 {
+		return sugg
+	}
+	present := map[string]bool{}
+	for _, s := range sugg {
+		if sys := accessChip(s); sys != "" && status[sys] == "" {
+			present[sys] = true
+		}
+	}
+	out := make([]string, 0, len(sugg))
+	for _, s := range sugg {
+		sys := accessChip(s)
+		if sys == "" || status[sys] == "" {
+			out = append(out, s)
+			continue
+		}
+		// заменяем первой ещё не запрошенной системой, которой нет среди подсказок
+		for _, alt := range store.AccessSystems {
+			if status[alt] == "" && !present[alt] {
+				present[alt] = true
+				out = append(out, "Запроси доступ в "+store.AccessSystemTitle(alt))
+				break
+			}
+		}
+	}
+	return out
 }

@@ -4,6 +4,7 @@ import { api } from '../../api/client';
 import { statusLabel } from '../../components/format';
 import { useChatStore } from '../../store/chat';
 import { actionTitle, ACTIONS_REFRESH_MS } from '../progress/MyActions';
+import { SignalIndicator, signalSummary, useMySignals } from '../progress/MySignals';
 import { percentDone } from '../progress/ProgressPanel';
 import { Achievements } from '../pulse/Achievements';
 import { PulseStrip } from '../pulse/PulseStrip';
@@ -73,7 +74,12 @@ export function Desk({ onOpenPlan, onOpenActions, onReport }: Props) {
       ? 'План пока недоступен'
       : p.next_step || (p.items.length > 0 ? 'Все шаги выполнены' : 'План пока пуст');
 
-  const list = actions.data ?? [];
+  // обращения к наставнику: необязательный индикатор, без ручки на бэке просто не показывается
+  const mySignals = useMySignals().data ?? [];
+  const help = signalSummary(mySignals);
+
+  // отменённые заявки не считаем: на столе — только живые черновики и отправленные
+  const list = (actions.data ?? []).filter((a) => a.status !== 'cancelled');
   const drafts = list.filter((a) => a.status === 'draft').length;
   const pending = list.filter((a) => a.status === 'pending').length;
   // API отдаёт заявки новыми сверху: последняя — первая в списке
@@ -133,9 +139,11 @@ export function Desk({ onOpenPlan, onOpenActions, onReport }: Props) {
             text="Напишите пару слов — Бадди передаст наставнику"
             pill="Сообщить"
             meta="наставнику"
-            label="Нужна помощь? Сообщить наставнику"
+            label={`Нужна помощь? Сообщить наставнику${help.text ? `. Мои обращения: ${help.text}` : ''}`}
             onClick={onReport}
-          />
+          >
+            <SignalIndicator signals={mySignals} />
+          </DeskCard>
         </ul>
         <Achievements />
       </div>

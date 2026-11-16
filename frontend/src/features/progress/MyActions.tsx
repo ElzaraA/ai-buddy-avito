@@ -7,6 +7,9 @@ import { useChatStore } from '../../store/chat';
 /** Как часто перечитываем заявки: решение руководителя появляется без перезагрузки страницы. */
 export const ACTIONS_REFRESH_MS = 5000;
 
+/** Статусы заявок, которые действительно отправлены руководителю. */
+export const SENT_STATUSES = ['pending', 'approved', 'rejected'];
+
 export function actionTitle(a: Absence) {
   if (a.type === 'access') return `Доступ к ${resourceLabel(a.resource) || 'системе'}`;
   const to = a.date_to && a.date_to !== a.date_from ? ` – ${formatDate(a.date_to)}` : '';
@@ -46,7 +49,9 @@ export function MyActions() {
 
   const all = data ?? [];
   const drafts = all.filter((a) => a.status === 'draft');
-  const sent = all.filter((a) => a.status !== 'draft');
+  // «Отправленные» — только то, что реально ушло руководителю; отменённые — отдельно и приглушённо
+  const sent = all.filter((a) => SENT_STATUSES.includes(a.status));
+  const cancelled = all.filter((a) => a.status === 'cancelled');
   if (all.length === 0) return null;
 
   return (
@@ -77,9 +82,9 @@ export function MyActions() {
                     className="btn btn--small btn--ghost"
                     onClick={() => cancel.mutate(a.id)}
                     disabled={busy}
-                    aria-label={`Удалить черновик ${a.id}`}
+                    aria-label={`Отменить черновик ${a.id}`}
                   >
-                    Удалить
+                    Отменить черновик
                   </button>
                 </div>
               </li>
@@ -108,10 +113,26 @@ export function MyActions() {
                       disabled={busy}
                       aria-label={`Отменить заявку ${a.id}`}
                     >
-                      Отменить
+                      Отменить заявку
                     </button>
                   )}
                 </div>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+      {cancelled.length > 0 && (
+        <section className="block block--muted" aria-label="Отменённые">
+          <h3 className="block__title">Отменённые</h3>
+          <ul className="ledger">
+            {cancelled.map((a) => (
+              <li key={a.id} className="ledger__row ledger__row--muted">
+                <div className="ledger__main">
+                  <span className="ledger__title">{actionTitle(a)}</span>
+                  <span className="ledger__id">{a.id}</span>
+                </div>
+                <span className="badge badge--cancelled">{statusLabel(a.status)}</span>
               </li>
             ))}
           </ul>

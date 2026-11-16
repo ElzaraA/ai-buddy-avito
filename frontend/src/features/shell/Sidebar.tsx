@@ -1,5 +1,6 @@
 import type { User } from '../../api/schemas';
 import { DEMO_USERS, useChatStore } from '../../store/chat';
+import { DemoControls } from './DemoControls';
 import { BuddyAvatar, IconArrow, IconFlag } from './icons';
 import type { ViewDef, ViewId } from './views';
 
@@ -15,6 +16,8 @@ interface Props {
   onWrite: () => void;
   /** «Сообщить наставнику» — открыть чат с заготовкой сообщения (только стажёр) */
   onReport: () => void;
+  /** после «Сбросить демо» — вернуться на стартовый раздел с пустым чатом */
+  onDemoReset: () => void;
 }
 
 function NavItem({
@@ -49,7 +52,7 @@ function NavItem({
   );
 }
 
-export function Sidebar({ views, view, staff, me, onNavigate, badges = {}, onWrite, onReport }: Props) {
+export function Sidebar({ views, view, staff, me, onNavigate, badges = {}, onWrite, onReport, onDemoReset }: Props) {
   const user = useChatStore((s) => s.user);
   const setUser = useChatStore((s) => s.setUser);
   const main = views.filter((v) => v.group === 'main');
@@ -131,6 +134,7 @@ export function Sidebar({ views, view, staff, me, onNavigate, badges = {}, onWri
             ))}
           </select>
         </label>
+        <DemoControls onReset={onDemoReset} />
       </div>
     </aside>
   );

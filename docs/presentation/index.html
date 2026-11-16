@@ -1,0 +1,404 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>Бадди — питч</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Golos+Text:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+<!-- Сборка PDF: msedge --headless=new --no-pdf-header-footer --print-to-pdf=docs/presentation.pdf docs/presentation/index.html -->
+<style>
+  @page { size: 1920px 1080px; margin: 0; }
+  :root {
+    --ink: #1d1b26; --muted: #55525f; --soft: #8a8698; --line: #e9ddd2;
+    --green: #dcefc9; --green-ink: #2e7d4f; --blue: #c9e7f0; --peach: #fde3c9; --lilac: #e6e0f8;
+    --grey: #cfc9c4; --grey-ink: #7c7671;
+    --stuck: #e0457b; --stuck-bg: #fde4ee;
+    --hyp-bg: #fff1b8; --hyp-ink: #6f5300;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { background: #fbefe2; }
+  body { font-family: "Golos Text", "Segoe UI", system-ui, sans-serif; color: var(--ink);
+    -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  .slide { width: 1920px; height: 1080px; position: relative; overflow: hidden;
+    break-after: page; page-break-after: always;
+    background: linear-gradient(135deg, #fdf5e6 0%, #fbeee4 55%, #f8e9ec 100%);
+    padding: 64px 96px 80px; display: flex; flex-direction: column; }
+  .slide:last-child { break-after: auto; page-break-after: auto; }
+  .kicker { display: flex; align-items: center; gap: 14px; font-size: 24px; font-weight: 600; color: var(--muted); letter-spacing: .05em; text-transform: uppercase; }
+  .kicker .num { background: var(--ink); color: #fff; border-radius: 999px; min-width: 44px; height: 40px; display: inline-flex; align-items: center; justify-content: center; font-size: 24px; letter-spacing: 0; }
+  h1 { font-size: 68px; line-height: 1.06; font-weight: 800; letter-spacing: -.015em; margin-top: 18px; max-width: 1700px; }
+  h1 .acc { color: var(--stuck); }
+  h3 { font-size: 34px; font-weight: 700; line-height: 1.15; }
+  p, li { font-size: 30px; line-height: 1.35; }
+  .muted { color: var(--muted); }
+  .lead { font-size: 32px; color: var(--muted); margin-top: 18px; line-height: 1.35; max-width: 1600px; }
+  .card { background: rgba(255,255,255,.92); border-radius: 32px; padding: 32px 38px; box-shadow: 0 10px 36px rgba(120,80,60,.08); }
+  .shot { border-radius: 24px; box-shadow: 0 18px 50px rgba(90,60,40,.18); display: block; background: #fff; }
+  .hyp { display: inline-flex; align-items: center; gap: 8px; font-size: 24px; font-weight: 700; padding: 6px 16px; border-radius: 999px; background: var(--hyp-bg); color: var(--hyp-ink); vertical-align: middle; white-space: nowrap; }
+  .hyp::before { content: "≈"; font-weight: 800; }
+  .src { display: inline-block; font-size: 24px; font-weight: 700; padding: 6px 16px; border-radius: 999px; background: var(--green); color: var(--green-ink); white-space: nowrap; }
+  .fn { position: absolute; left: 96px; right: 96px; bottom: 28px; display: flex; justify-content: space-between; gap: 40px; font-size: 20px; color: var(--soft); }
+  .big { font-size: 120px; font-weight: 900; line-height: .95; letter-spacing: -.03em; }
+  .stuck { color: var(--stuck); }
+  code { font-family: Consolas, "Cascadia Mono", monospace; font-size: .86em; background: rgba(29,27,38,.07); padding: 1px 8px; border-radius: 8px; }
+  .row { display: flex; gap: 32px; }
+  .col { display: flex; flex-direction: column; }
+  /* timeline */
+  .tl { position: relative; height: 150px; }
+  .tl .bar { position: absolute; left: 0; right: 0; top: 64px; height: 22px; border-radius: 999px; background: var(--grey); }
+  .tl .tick { position: absolute; top: 0; transform: translateX(-50%); text-align: center; }
+  .tl .tick b { display: block; font-size: 30px; font-weight: 800; }
+  .tl .dot { position: absolute; top: 56px; width: 38px; height: 38px; border-radius: 50%; background: #fff; border: 6px solid var(--grey-ink); transform: translateX(-50%); }
+  .tl .lbl { position: absolute; top: 104px; transform: translateX(-50%); font-size: 28px; color: var(--muted); white-space: nowrap; }
+  /* verbs */
+  .verb { display: flex; gap: 22px; align-items: flex-start; padding: 22px 26px; border-radius: 28px; background: rgba(255,255,255,.92); }
+  .verb .ic { flex: none; width: 72px; height: 72px; border-radius: 22px; display: flex; align-items: center; justify-content: center; }
+  .verb .ic svg { width: 40px; height: 40px; fill: none; stroke: var(--ink); stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round; }
+  .verb h3 { font-size: 36px; }
+  .verb p { font-size: 28px; color: var(--muted); margin-top: 4px; line-height: 1.3; }
+  .callout { position: absolute; left: -30px; width: 56px; height: 56px; border-radius: 50%; background: var(--ink); color: #fff; font-size: 30px; font-weight: 800; display: flex; align-items: center; justify-content: center; box-shadow: 0 0 0 6px #fff; transform: translateY(-50%); }
+  .legend { display: grid; grid-template-columns: 56px 1fr; gap: 10px 14px; align-items: center; }
+  .legend .n { width: 46px; height: 46px; border-radius: 50%; background: var(--ink); color: #fff; font-weight: 800; font-size: 26px; display: flex; align-items: center; justify-content: center; }
+  /* compare */
+  .cmp { display: grid; grid-template-columns: 1fr 1fr; gap: 0; border-radius: 32px; overflow: hidden; box-shadow: 0 10px 36px rgba(120,80,60,.08); }
+  .cmp > div { padding: 26px 40px; font-size: 32px; line-height: 1.3; display: flex; gap: 18px; align-items: center; }
+  .cmp .hd { font-size: 36px; font-weight: 800; padding-top: 30px; padding-bottom: 30px; }
+  .cmp .l { background: #efe9e4; color: var(--muted); border-top: 2px solid #fff; }
+  .cmp .r { background: #fff; border-top: 2px solid #f3ece6; }
+  .cmp .mark { flex: none; width: 48px; height: 48px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 30px; font-weight: 900; }
+  .cmp .l .mark { background: #ddd5ce; color: #8b817a; }
+  .cmp .r .mark { background: var(--green); color: var(--green-ink); }
+  /* flow */
+  .flow { display: flex; align-items: stretch; }
+  .flow .step { flex: 1; border-radius: 28px; padding: 26px 30px; }
+  .flow .arrow { width: 70px; display: flex; align-items: center; justify-content: center; }
+  .flow .arrow svg { width: 46px; height: 46px; stroke: #b98a70; stroke-width: 3; fill: none; stroke-linecap: round; stroke-linejoin: round; }
+  .who { font-size: 24px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; }
+  .step h3 { margin-top: 8px; }
+  .step p { font-size: 28px; margin-top: 8px; color: #35323f; line-height: 1.3; }
+  .rule { display: flex; gap: 18px; align-items: baseline; font-size: 30px; line-height: 1.3; }
+  .rule .k { flex: none; font-weight: 800; }
+  /* chart */
+  .bars { display: flex; align-items: flex-end; gap: 48px; height: 400px; border-bottom: 3px solid #cbbfb4; padding: 0 20px; }
+  .bars .b { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; height: 100%; }
+  .bars .v { font-size: 32px; font-weight: 800; margin-bottom: 10px; white-space: nowrap; }
+  .bars .fill { width: 100%; max-width: 150px; background: #3f8f63; border-radius: 6px 6px 0 0; }
+  .xl { display: flex; gap: 48px; padding: 12px 20px 0; }
+  .xl div { flex: 1; text-align: center; font-size: 28px; color: var(--muted); }
+  /* mapping */
+  .map { display: grid; grid-template-columns: 1fr 1fr; gap: 14px 40px; }
+  .m { display: grid; grid-template-columns: 290px 46px 1fr; align-items: center; background: rgba(255,255,255,.92); border-radius: 20px; padding: 12px 20px; font-size: 28px; line-height: 1.2; }
+  .m .a { color: var(--muted); }
+  .m .to { text-align: center; color: #b98a70; font-weight: 800; font-size: 30px; }
+  .m .b { font-weight: 700; }
+  .tile { flex: 1; border-radius: 28px; padding: 22px 28px; }
+  .tile .n { font-size: 72px; font-weight: 900; line-height: 1; letter-spacing: -.02em; }
+  .tile .t { font-size: 28px; color: #35323f; margin-top: 8px; line-height: 1.2; }
+  .week { flex: 1; border-radius: 26px; padding: 22px 26px; background: rgba(255,255,255,.92); }
+  .week .w { font-size: 24px; font-weight: 800; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; }
+  .week h3 { font-size: 32px; margin-top: 6px; }
+  .week p { font-size: 28px; color: var(--muted); margin-top: 6px; line-height: 1.25; }
+  .chip { display: inline-flex; align-items: center; gap: 16px; border-radius: 999px; padding: 18px 30px; font-size: 34px; font-weight: 700; background: #fff; box-shadow: 0 8px 26px rgba(120,80,60,.10); }
+  .chip .t { font-size: 28px; font-weight: 700; color: var(--muted); background: #f3ece6; border-radius: 999px; padding: 4px 14px; }
+</style>
+</head>
+<body>
+
+<!-- 1. Титул -->
+<section class="slide" style="padding-top:72px">
+  <div class="kicker">Hack&amp;Change 2026 · кейс Авито «AI-buddy: ИИ-наставник для стажёров»</div>
+  <div class="row" style="flex:1; gap:64px; align-items:center; margin-top:10px">
+    <div class="col" style="flex:0 0 720px">
+      <div style="display:flex; align-items:center; gap:28px">
+        <div style="width:128px;height:128px;border-radius:36px;background:linear-gradient(135deg,var(--green),var(--blue));display:flex;align-items:center;justify-content:center;font-size:60px;font-weight:900">ai</div>
+        <div><div style="font-size:112px;font-weight:900;line-height:1;letter-spacing:-.03em">Бадди</div><div style="font-size:30px;color:var(--muted);margin-top:8px">AI-buddy · ИИ-наставник стажёра</div></div>
+      </div>
+      <h1 style="font-size:76px; margin-top:64px">Ни один стажёр не&nbsp;застрянет <span class="acc">молча</span>.</h1>
+      <p class="lead" style="margin-top:28px">Бадди отвечает на рутину по базе знаний команды, готовит заявки и первым замечает, кто застрял, — чтобы наставник тратил время только на важное.</p>
+    </div>
+    <div style="flex:1; position:relative">
+      <img class="shot" src="img/desk.png" style="width:100%" alt="Рабочий стол стажёра в Бадди">
+    </div>
+  </div>
+  <div class="fn"><span>Живой стенд, роль «Стажёр Backend». Прототип на синтетических данных — не регламенты Авито.</span><span>1 / 11</span></div>
+</section>
+
+<!-- 2. Боль -->
+<section class="slide">
+  <div class="kicker"><span class="num">2</span> Боль</div>
+  <h1>Стажёр 3 часа молчал. Наставник узнал вечером</h1>
+  <p class="lead">Проект не запускается. Писать «неудобно» — наставник на встречах. Правила есть в Confluence, но новичок не знает, что искать и к кому идти.</p>
+  <div class="card" style="margin-top:60px; padding:52px 72px 56px">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:30px">
+      <div style="font-size:30px; font-weight:700">Среда, день 3 · стажёр Backend</div>
+      <span class="hyp">типичный сценарий · гипотеза</span>
+    </div>
+    <div class="tl" style="height:170px; margin:0 70px">
+      <div class="bar"></div>
+      <div class="tick" style="left:0"><b>14:20</b></div><div class="dot" style="left:0"></div><div class="lbl" style="left:0; transform:none; left:-40px">проект не&nbsp;запускается</div>
+      <div class="tick" style="left:33%"><b>15:10</b></div><div class="dot" style="left:33%"></div><div class="lbl" style="left:33%">«неудобно отвлекать»</div>
+      <div class="tick" style="left:66%"><b>16:30</b></div><div class="dot" style="left:66%"></div><div class="lbl" style="left:66%">ищет в чатах и Confluence</div>
+      <div class="tick" style="left:100%"><b>17:20</b></div><div class="dot" style="left:100%"></div><div class="lbl" style="left:auto; right:-40px; transform:none">наставник узнаёт</div>
+    </div>
+    <div style="display:flex; align-items:baseline; gap:28px; margin-top:44px">
+      <div class="big" style="color:var(--grey-ink); font-size:150px; white-space:nowrap">3 часа</div>
+      <p style="font-size:34px; color:var(--muted)">тишины — день потерян, а наставник узнаёт о проблеме последним.</p>
+    </div>
+  </div>
+  <div class="fn"><span>Сценарий составлен командой по опыту стажировок; интервью не проводились — проверяем в пилоте.</span><span>2 / 11</span></div>
+</section>
+
+<!-- 3. Цена -->
+<section class="slide">
+  <div class="kicker"><span class="num">3</span> Цена</div>
+  <h1>Рутина съедает час наставника в день</h1>
+  <div class="row" style="margin-top:52px; flex:1; gap:40px; align-items:stretch">
+    <div class="card" style="flex:1.05; display:flex; flex-direction:column">
+      <span class="hyp" style="align-self:flex-start">гипотеза</span>
+      <div class="big" style="font-size:180px; margin-top:28px">≈50<span style="font-size:80px"> мин</span></div>
+      <p style="font-size:36px; font-weight:700; margin-top:14px">наставника в день на одного стажёра в первые недели</p>
+      <p style="margin-top:auto; font-size:32px; color:var(--muted)"><b style="color:var(--ink)">10 вопросов × 5 мин</b> с переключением контекста</p>
+      <p style="font-size:28px; color:var(--muted); margin-top:12px">«Что дальше?», «кто даёт доступ?», «как оформить отгул?», «что такое MR?»</p>
+    </div>
+    <div class="card" style="flex:1; background:var(--blue); display:flex; flex-direction:column">
+      <span class="src" style="align-self:flex-start; background:#fff">из кейса Авито</span>
+      <div style="font-size:120px; font-weight:900; line-height:1; margin-top:28px; letter-spacing:-.02em">40–48 ч</div>
+      <p style="font-size:34px; font-weight:700; margin-top:10px">за 6-месячную программу</p><p style="font-size:34px; font-weight:700; margin-top:4px; color:#2f3a40">55–65 ч — за 9-месячную</p>
+      <p style="font-size:28px; line-height:1.4; color:#2f3a40; margin-top:auto">«По ориентировочной оценке команды Авито, занятость наставника за шестимесячную программу стажировки составляет 40–48 часов, за девятимесячную — 55–65 часов.»</p>
+    </div>
+  </div>
+  <div class="fn"><span>Справа — цитата из описания кейса. Слева — оценка команды; допущение «5 минут» калибруем в пилоте.</span><span>3 / 11</span></div>
+</section>
+
+<!-- 4. Решение -->
+<section class="slide">
+  <div class="kicker"><span class="num">4</span> Решение</div>
+  <h1>Бадди берёт рутину и следит за людьми</h1>
+  <div class="row" style="margin-top:40px; flex:1; gap:56px; min-height:0">
+    <div class="col" style="flex:1; gap:18px">
+      <div class="verb"><div class="ic" style="background:var(--green)"><svg viewBox="0 0 40 40"><path d="M6 9h28v18H18l-8 6v-6H6z"/><path d="M12 16h16M12 21h10"/></svg></div>
+        <div><h3>Отвечает</h3><p>по базе команды, со ссылкой на источник; ведёт по плану — шаг, статус, % пройдено, «Что дальше»</p></div></div>
+      <div class="verb"><div class="ic" style="background:var(--blue)"><svg viewBox="0 0 40 40"><rect x="9" y="6" width="22" height="28" rx="3"/><path d="M14 14h12M14 20h12M14 26h7"/></svg></div>
+        <div><h3>Готовит заявку</h3><p>на доступ или отгул — черновик; отправляет только сам стажёр</p></div></div>
+      <div class="verb" style="background:var(--stuck-bg)"><div class="ic" style="background:var(--stuck)"><svg viewBox="0 0 40 40" style="stroke:#fff"><path d="M20 6a9 9 0 0 1 9 9v6l3 5H8l3-5v-6a9 9 0 0 1 9-9z"/><path d="M16 30a4 4 0 0 0 8 0"/></svg></div>
+        <div><h3 class="stuck">Замечает</h3><p style="color:#5b3a47">«Тяжело» в пульсе или «не запускается» → сигнал наставнику</p></div></div>
+      <div class="verb"><div class="ic" style="background:var(--peach)"><svg viewBox="0 0 40 40"><path d="M8 32V20M16 32V12M24 32V24M32 32V8"/></svg></div>
+        <div><h3>Считает</h3><p>минуты наставника и вопросы, которых нет в базе знаний</p></div></div>
+    </div>
+    <div style="flex:0 0 780px; display:flex; flex-direction:column; gap:20px">
+      <div style="position:relative; margin-left:30px">
+        <img class="shot" src="img/chat.png" style="width:750px" alt="Ответ Бадди на вопрос о код-ревью">
+        <div class="callout" style="top:16%">1</div>
+        <div class="callout" style="top:36%">2</div>
+        <div class="callout" style="top:60%">3</div>
+        <div class="callout" style="top:93%">4</div>
+      </div>
+      <div style="display:grid; grid-template-columns:auto auto; justify-content:start; gap:6px 40px; font-size:28px; font-weight:600; margin-left:30px">
+        <span>1 Коротко</span><span>2 Что сделать</span><span>3 Кого спросить</span><span>4 Источник</span>
+      </div>
+    </div>
+  </div>
+  <div class="fn"><span>Справа: ответ на «Как у нас устроено код-ревью?» на живом стенде.</span><span>4 / 11</span></div>
+</section>
+
+<!-- 5. Ага-момент -->
+<section class="slide">
+  <div class="kicker"><span class="num">5</span> Ага-момент</div>
+  <h1>Наставник узнаёт через <span class="acc">20 минут</span>, а не вечером</h1>
+  <div class="card" style="margin-top:40px; padding:34px 60px 26px">
+    <div style="display:grid; grid-template-columns:220px 1fr; align-items:center; row-gap:12px">
+      <div style="font-size:30px; font-weight:800; color:var(--grey-ink)">Без Бадди</div>
+      <div class="tl" style="height:150px; margin-right:60px">
+        <div class="bar"></div>
+        <div class="tick" style="left:0"><b>14:20</b></div><div class="dot" style="left:0"></div>
+        <div class="tick" style="left:100%"><b>17:20</b></div><div class="dot" style="left:100%"></div>
+        <div class="lbl" style="left:50%">3 часа тишины</div>
+      </div>
+      <div style="font-size:30px; font-weight:800">С Бадди</div>
+      <div class="tl" style="height:150px; margin-right:60px">
+        <div class="bar" style="background:#efe9e4"></div>
+        <div class="bar" style="right:auto; width:11.1%; background:var(--stuck)"></div>
+        <div class="tick" style="left:0"><b>14:20</b></div><div class="dot" style="left:0; border-color:var(--stuck)"></div>
+        <div class="tick" style="left:11.1%"><b class="stuck">14:40</b></div><div class="dot" style="left:11.1%; background:var(--stuck); border-color:var(--stuck)"></div>
+        <div class="lbl" style="transform:none; left:calc(11.1% + 40px); right:0; top:40px; white-space:normal; background:#fff; padding:0 0 0 8px; color:var(--ink); font-weight:600; line-height:1.25"><span class="stuck">сигнал наставнику</span> → «Ответить и закрыть» → стажёр видит ответ в «Мои обращения к наставнику»</div>
+      </div>
+    </div>
+  </div>
+  <div class="row" style="margin-top:28px; flex:1; gap:40px; min-height:0; align-items:flex-start">
+    <div class="col" style="flex:1">
+      <div style="display:flex; align-items:baseline; gap:22px"><span class="big" style="color:var(--grey-ink); font-size:104px">3 ч</span><span style="font-size:60px; color:var(--soft)">→</span><span class="big stuck" style="font-size:104px">20 мин</span></div>
+      <span class="hyp" style="align-self:flex-start; margin-top:14px">гипотеза · проверяем в пилоте</span>
+      <p style="margin-top:18px; font-size:28px; color:var(--muted)">Правило 15–20 минут: застрял — «Передай наставнику» в один клик. Отметка «Тяжело» в пульсе — карточка «нужно внимание» у наставника.</p>
+    </div>
+    <img class="shot" src="img/mentor.png" style="flex:0 0 auto; width:660px" alt="Кабинет наставника: экономия и пульс команды">
+  </div>
+  <div class="fn"><span>Справа: кабинет «Наставник Backend» — «Пульс команды», отметка «нужно внимание».</span><span>5 / 11</span></div>
+</section>
+
+<!-- 6. Демо -->
+<section class="slide" style="justify-content:center">
+  <div class="kicker"><span class="num">6</span> Живое демо</div>
+  <h1 style="font-size:96px; margin-top:24px">Сейчас покажем: 4 сценария за&nbsp;7&nbsp;минут</h1>
+  <div style="display:flex; flex-wrap:wrap; gap:24px; margin-top:64px; max-width:1600px">
+    <div class="chip"><span style="color:var(--soft)">1</span> Первый день без паники <span class="t">2:00</span></div>
+    <div class="chip"><span style="color:var(--soft)">2</span> Жаргон и правила <span class="t">1:30</span></div>
+    <div class="chip" style="background:var(--stuck-bg)"><span class="stuck">3</span> Тот, кто молчит <span class="t">1:45</span></div>
+    <div class="chip"><span style="color:var(--soft)">4</span> Ценность для бизнеса <span class="t">1:30</span></div>
+  </div>
+  <p class="lead" style="margin-top:56px">Стажёр → руководитель → наставник: три роли, один стенд. Внизу боковой панели — бейдж «Демо-режим · модель: правила (mock)».</p>
+  <div class="fn"><span>Перед показом — «Сбросить демо». Сценарии по шагам: specs/jury-scenarios.md.</span><span>6 / 11</span></div>
+</section>
+
+<!-- 7. Отличие -->
+<section class="slide">
+  <div class="kicker"><span class="num">7</span> Отличие</div>
+  <h1>Не бот по базе, а наставник рядом</h1>
+  <div class="cmp" style="margin-top:48px">
+    <div class="hd l" style="border-top:none"><span class="mark">✗</span>Бот по базе</div>
+    <div class="hd r" style="border-top:none"><span class="mark">✓</span>Бадди</div>
+    <div class="l">«можно в пт не прийти» — ничего не найдено</div>
+    <div class="r">Черновик отгула на пятницу; дата по московскому времени</div>
+    <div class="l">Кусок документа</div>
+    <div class="r">Коротко → Что сделать → Кого спросить + источник</div>
+    <div class="l">Ссылка на форму</div>
+    <div class="r">Сам готовит заявку, отправляет человек</div>
+    <div class="l">Не видит, кто застрял</div>
+    <div class="r"><span><span class="stuck" style="font-weight:800">Пульс и сигнал наставнику</span>; ответ возвращается стажёру</span></div>
+  </div>
+  <p class="lead" style="margin-top:36px">Нет в базе или вопрос не по теме — честный отказ и имя наставника, а не выдумка.</p>
+  <div class="fn"><span>В демо фразы разбирают правила и словари в коде (mock); с LLM_MOCK=false — модель, инварианты остаются в коде.</span><span>7 / 11</span></div>
+</section>
+
+<!-- 8. Доверие -->
+<section class="slide">
+  <div class="kicker"><span class="num">8</span> Доверие</div>
+  <h1>Ни одного действия без человека</h1>
+  <div class="flow" style="margin-top:44px">
+    <div class="step" style="background:var(--green)"><div class="who">1 · Бадди</div><h3>Черновик</h3><p>«Пока вы не нажали, заявка никуда не уходит»</p></div>
+    <div class="arrow"><svg viewBox="0 0 46 46"><path d="M8 23h30M28 13l10 10-10 10"/></svg></div>
+    <div class="step" style="background:var(--blue)"><div class="who">2 · Стажёр</div><h3>«Отправить заявку»</h3><p>подтверждает только автор</p></div>
+    <div class="arrow"><svg viewBox="0 0 46 46"><path d="M8 23h30M28 13l10 10-10 10"/></svg></div>
+    <div class="step" style="background:var(--peach)"><div class="who">3 · Руководитель</div><h3>Согласование</h3><p>шаг плана закрывается по факту</p></div>
+  </div>
+  <div class="card" style="margin-top:26px; padding:24px 36px; display:flex; align-items:center; gap:30px">
+    <div style="flex:none; display:flex; gap:12px; font-size:28px; font-weight:700">
+      <span style="background:var(--green); color:var(--green-ink); border-radius:999px; padding:8px 18px">✓ GitLab</span>
+      <span style="background:#efe9e4; color:var(--muted); border-radius:999px; padding:8px 18px">… Jira</span>
+      <span style="background:#efe9e4; color:var(--muted); border-radius:999px; padding:8px 18px">… Grafana</span>
+      <span style="background:var(--ink); color:#fff; border-radius:999px; padding:8px 18px">1/3</span>
+    </div>
+    <p style="font-size:28px">Шаг «Получить доступы» закрывается, только когда согласованы все три; до этого видно, каких систем не хватает.</p>
+  </div>
+  <div style="display:grid; grid-template-columns:1fr 1fr; gap:20px 24px; margin-top:26px; flex:1; margin-bottom:12px">
+    <div class="card rule" style="padding:22px 30px; align-items:center"><span class="k">Нет источника —</span><span>нет ответа: отказ и имя наставника</span></div>
+    <div class="card rule" style="padding:22px 30px; align-items:center"><span class="k">Зарплата —</span><span>отказ и маршрут к HR BP</span></div>
+    <div class="card rule" style="padding:22px 30px; align-items:center"><span class="k">Пробелы базы —</span><span>анонимно в «Чего нет в базе знаний»</span></div>
+    <div class="card rule" style="padding:22px 30px; align-items:center"><span class="k">Чужое —</span><span>403: заявки, шаги, диалоги по ролям</span></div>
+  </div>
+  <div class="fn"><span>Через MCP внешний агент тоже получает только черновик. Персональные данные маскируются до сохранения.</span><span>8 / 11</span></div>
+</section>
+
+<!-- 9. Ценность -->
+<section class="slide">
+  <div class="kicker"><span class="num">9</span> Ценность</div>
+  <h1>50 стажёров — до 42 часов наставников в день</h1>
+  <div class="row" style="margin-top:40px; flex:1; gap:40px; min-height:0">
+    <div class="card" style="flex:1; display:flex; flex-direction:column">
+      <div style="display:flex; justify-content:space-between; align-items:center"><div style="font-size:30px; font-weight:700">Время наставников в день, часы</div><span class="hyp">гипотеза</span></div>
+      <div class="bars" style="margin-top:30px; height:auto; flex:1">
+        <div class="b"><div class="v">0,8 ч</div><div class="fill" style="height:1.7%"></div></div>
+        <div class="b"><div class="v">8,3 ч</div><div class="fill" style="height:16.7%"></div></div>
+        <div class="b"><div class="v">41,7 ч</div><div class="fill" style="height:84%"></div></div>
+      </div>
+      <div class="xl"><div>1 стажёр</div><div>10 стажёров</div><div>50 стажёров</div></div>
+      <p style="font-size:28px; color:var(--muted); margin-top:18px">стажёры × 50 мин рутины в день (10 вопросов × 5 мин)</p>
+    </div>
+    <div class="col" style="flex:1.05; gap:24px">
+      <div class="card" style="background:var(--green); padding:26px 34px">
+        <div style="font-size:26px; font-weight:800; text-transform:uppercase; letter-spacing:.04em; color:var(--green-ink)">Честная формула в продукте</div>
+        <p style="font-size:30px; margin-top:10px; font-weight:600">(ответы с источником + ответы из словаря + подтверждённые заявки) × 5 мин</p>
+        <p style="font-size:28px; color:#35503f; margin-top:6px">Отказы и сигналы не считаются. «5 мин» — допущение, калибруем в пилоте.</p>
+      </div>
+      <div class="card" style="padding:26px 34px; flex:1">
+        <div style="display:flex; justify-content:space-between; align-items:center"><div style="font-size:30px; font-weight:800">Цели пилота</div><span class="hyp">гипотезы</span></div>
+        <div style="display:grid; grid-template-columns:1fr auto; gap:10px 24px; margin-top:14px; font-size:28px">
+          <span>Вопросы, закрытые без наставника</span><b>≥ 60%</b>
+          <span>Рутинные обращения к наставнику</span><b>−50%</b>
+          <span>Время до получения доступов</span><b>≤ 1 дня</b>
+          <span>Реакция на <span class="stuck" style="font-weight:700">«застрял»</span></span><b>≤ 4 раб. ч</b>
+        </div>
+        <p style="font-size:28px; color:var(--muted); margin-top:14px">A/B: контрольная команда без Бадди и базовая неделя 0.</p>
+      </div>
+    </div>
+  </div>
+  <div class="fn"><span>Верхняя граница: если Бадди закрывает всю рутину. Реальную долю измерит пилот (метрики buddy_* в /metrics).</span><span>9 / 11</span></div>
+</section>
+
+<!-- 10. Готово к Авито -->
+<section class="slide">
+  <div class="kicker"><span class="num">10</span> Внедрение</div>
+  <h1>Прототип уже разложен под стек Авито</h1>
+  <div class="map" style="margin-top:34px">
+    <div class="m"><span class="a"><code>X-Demo-User</code></span><span class="to">→</span><span class="b">SSO и ролевая модель</span></div>
+    <div class="m"><span class="a">память + JSON</span><span class="to">→</span><span class="b">PostgreSQL (целевая схема)</span></div>
+    <div class="m"><span class="a">mock-LLM</span><span class="to">→</span><span class="b">внутренняя LLM <code style="font-weight:400">LLM_MOCK=false</code></span></div>
+    <div class="m"><span class="a">rate limit, сессии</span><span class="to">→</span><span class="b">Redis</span></div>
+    <div class="m"><span class="a">имитации HR и IDM</span><span class="to">→</span><span class="b">адаптеры HR / IDM</span></div>
+    <div class="m"><span class="a">сигналы наставнику</span><span class="to">→</span><span class="b">Kafka</span></div>
+    <div class="m"><span class="a"><code>data/knowledge</code></span><span class="to">→</span><span class="b">Confluence</span></div>
+    <div class="m"><span class="a"><code>/metrics</code></span><span class="to">→</span><span class="b">Grafana</span></div>
+    <div class="m"><span class="a"><code>POST /mcp</code></span><span class="to">→</span><span class="b">корпоративные агенты</span></div>
+    <div class="m"><span class="a">события</span><span class="to">→</span><span class="b">Clickstream</span></div>
+  </div>
+  <div class="row" style="margin-top:26px; gap:22px">
+    <div class="tile" style="background:var(--green)"><div class="n">89,6%</div><div class="t">покрытие Go-кода</div></div>
+    <div class="tile" style="background:var(--blue)"><div class="n">99,0%</div><div class="t">покрытие фронтенда (строки)</div></div>
+    <div class="tile" style="background:var(--peach)"><div class="n">103</div><div class="t">golden-фразы в регрессии</div></div>
+    <div class="tile" style="background:var(--lilac)"><div class="n">152</div><div class="t">живые формулировки в тестах</div></div>
+  </div>
+  <p style="font-size:28px; margin-top:22px; color:var(--muted)"><b style="color:var(--ink)">Чат:</b> 202 + SSE, ответ не блокирует интерфейс, статус ожидания, degraded-ответ при сбое LLM. <b style="color:var(--ink)">SDD:</b> spec → тест.</p>
+  <div class="fn"><span>Справа от стрелок — целевые системы Авито, в прототипе их нет. SDD: specs/agent/spec.md → specs/traceability.md → тесты. Покрытие пересчитано 16.11.2026.</span><span>10 / 11</span></div>
+</section>
+
+<!-- 11. Запрос -->
+<section class="slide">
+  <div class="kicker"><span class="num">11</span> Запрос</div>
+  <h1>Дайте 1 команду и 4 недели — вернёмся с&nbsp;цифрами</h1>
+  <div class="row" style="margin-top:38px; gap:18px">
+    <div class="week"><div class="w">Неделя 1</div><h3>Подключение</h3><p>SSO, база из Confluence, внутренняя LLM</p></div>
+    <div class="week"><div class="w">Неделя 2</div><h3>Запуск</h3><p>5–10 стажёров, наставники, руководитель</p></div>
+    <div class="week"><div class="w">Неделя 3</div><h3>Доработка</h3><p>пробелы базы, адаптеры HR / IDM</p></div>
+    <div class="week" style="background:var(--green)"><div class="w">Неделя 4</div><h3>Цифры</h3><p>метрики против контрольной команды</p></div>
+  </div>
+  <div class="row" style="margin-top:30px; flex:1; gap:36px; min-height:0">
+    <div class="card" style="flex:1; padding:28px 36px">
+      <div style="font-size:30px; font-weight:800">Команда</div>
+      <div style="display:grid; grid-template-columns:auto 1fr; gap:12px 28px; margin-top:16px; font-size:30px">
+        <b>Эльзара</b><span class="muted">интерфейс</span>
+        <b>Егор</b><span class="muted">бэкенд</span>
+        <b>Алекс</b><span class="muted">агент, качество, деплой</span>
+        <b>Дмитрий</b><span class="muted">продукт и презентация</span>
+      </div>
+    </div>
+    <div class="card" style="flex:1.45; padding:28px 36px; display:flex; gap:32px; align-items:center">
+      <div style="flex:1; display:flex; flex-direction:column; gap:14px">
+        <div><div class="who">Демо</div><div style="font-size:30px; font-weight:700">ai-buddy-avito-demo.netlify.app</div></div>
+        <div><div class="who">Код</div><div style="font-size:30px; font-weight:700">github.com/ElzaraA/ai-buddy-avito</div></div>
+        <div style="display:inline-flex; align-self:flex-start; align-items:center; gap:14px; background:var(--ink); color:#fff; border-radius:999px; padding:10px 24px 10px 12px; font-size:28px; font-weight:700">
+          <span style="width:40px;height:40px;border-radius:50%;background:#fff;display:inline-flex;align-items:center;justify-content:center"><svg viewBox="0 0 20 20" width="18" height="18"><path d="M6 4l10 6-10 6z" fill="#1d1b26"/></svg></span>
+          Живое демо — откройте по QR
+        </div>
+      </div>
+      <div style="flex:none; width:220px; text-align:center">
+        <div style="width:220px; height:220px; border-radius:18px; overflow:hidden">
+<svg width="220" height="220" aria-label="QR: https://ai-buddy-avito-demo.netlify.app" role="img" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 37 37" shape-rendering="crispEdges"><rect width="37" height="37" fill="#fff"/><path fill="#1d1b26" d="M4,4h1v1h-1zM5,4h1v1h-1zM6,4h1v1h-1zM7,4h1v1h-1zM8,4h1v1h-1zM9,4h1v1h-1zM10,4h1v1h-1zM15,4h1v1h-1zM18,4h1v1h-1zM19,4h1v1h-1zM21,4h1v1h-1zM22,4h1v1h-1zM23,4h1v1h-1zM24,4h1v1h-1zM26,4h1v1h-1zM27,4h1v1h-1zM28,4h1v1h-1zM29,4h1v1h-1zM30,4h1v1h-1zM31,4h1v1h-1zM32,4h1v1h-1zM4,5h1v1h-1zM10,5h1v1h-1zM12,5h1v1h-1zM13,5h1v1h-1zM17,5h1v1h-1zM19,5h1v1h-1zM21,5h1v1h-1zM22,5h1v1h-1zM23,5h1v1h-1zM24,5h1v1h-1zM26,5h1v1h-1zM32,5h1v1h-1zM4,6h1v1h-1zM6,6h1v1h-1zM7,6h1v1h-1zM8,6h1v1h-1zM10,6h1v1h-1zM15,6h1v1h-1zM16,6h1v1h-1zM19,6h1v1h-1zM23,6h1v1h-1zM26,6h1v1h-1zM28,6h1v1h-1zM29,6h1v1h-1zM30,6h1v1h-1zM32,6h1v1h-1zM4,7h1v1h-1zM6,7h1v1h-1zM7,7h1v1h-1zM8,7h1v1h-1zM10,7h1v1h-1zM13,7h1v1h-1zM14,7h1v1h-1zM18,7h1v1h-1zM22,7h1v1h-1zM26,7h1v1h-1zM28,7h1v1h-1zM29,7h1v1h-1zM30,7h1v1h-1zM32,7h1v1h-1zM4,8h1v1h-1zM6,8h1v1h-1zM7,8h1v1h-1zM8,8h1v1h-1zM10,8h1v1h-1zM12,8h1v1h-1zM13,8h1v1h-1zM15,8h1v1h-1zM16,8h1v1h-1zM19,8h1v1h-1zM20,8h1v1h-1zM22,8h1v1h-1zM23,8h1v1h-1zM26,8h1v1h-1zM28,8h1v1h-1zM29,8h1v1h-1zM30,8h1v1h-1zM32,8h1v1h-1zM4,9h1v1h-1zM10,9h1v1h-1zM14,9h1v1h-1zM15,9h1v1h-1zM17,9h1v1h-1zM19,9h1v1h-1zM20,9h1v1h-1zM21,9h1v1h-1zM22,9h1v1h-1zM23,9h1v1h-1zM26,9h1v1h-1zM32,9h1v1h-1zM4,10h1v1h-1zM5,10h1v1h-1zM6,10h1v1h-1zM7,10h1v1h-1zM8,10h1v1h-1zM9,10h1v1h-1zM10,10h1v1h-1zM12,10h1v1h-1zM14,10h1v1h-1zM16,10h1v1h-1zM18,10h1v1h-1zM20,10h1v1h-1zM22,10h1v1h-1zM24,10h1v1h-1zM26,10h1v1h-1zM27,10h1v1h-1zM28,10h1v1h-1zM29,10h1v1h-1zM30,10h1v1h-1zM31,10h1v1h-1zM32,10h1v1h-1zM15,11h1v1h-1zM17,11h1v1h-1zM19,11h1v1h-1zM21,11h1v1h-1zM23,11h1v1h-1zM24,11h1v1h-1zM4,12h1v1h-1zM6,12h1v1h-1zM8,12h1v1h-1zM10,12h1v1h-1zM13,12h1v1h-1zM15,12h1v1h-1zM17,12h1v1h-1zM19,12h1v1h-1zM21,12h1v1h-1zM28,12h1v1h-1zM31,12h1v1h-1zM4,13h1v1h-1zM11,13h1v1h-1zM12,13h1v1h-1zM13,13h1v1h-1zM15,13h1v1h-1zM17,13h1v1h-1zM18,13h1v1h-1zM20,13h1v1h-1zM21,13h1v1h-1zM24,13h1v1h-1zM26,13h1v1h-1zM29,13h1v1h-1zM32,13h1v1h-1zM5,14h1v1h-1zM6,14h1v1h-1zM7,14h1v1h-1zM9,14h1v1h-1zM10,14h1v1h-1zM11,14h1v1h-1zM13,14h1v1h-1zM15,14h1v1h-1zM16,14h1v1h-1zM18,14h1v1h-1zM20,14h1v1h-1zM25,14h1v1h-1zM26,14h1v1h-1zM30,14h1v1h-1zM31,14h1v1h-1zM32,14h1v1h-1zM4,15h1v1h-1zM6,15h1v1h-1zM7,15h1v1h-1zM8,15h1v1h-1zM9,15h1v1h-1zM11,15h1v1h-1zM13,15h1v1h-1zM14,15h1v1h-1zM16,15h1v1h-1zM17,15h1v1h-1zM20,15h1v1h-1zM21,15h1v1h-1zM22,15h1v1h-1zM23,15h1v1h-1zM27,15h1v1h-1zM31,15h1v1h-1zM9,16h1v1h-1zM10,16h1v1h-1zM11,16h1v1h-1zM12,16h1v1h-1zM13,16h1v1h-1zM15,16h1v1h-1zM16,16h1v1h-1zM18,16h1v1h-1zM20,16h1v1h-1zM21,16h1v1h-1zM23,16h1v1h-1zM24,16h1v1h-1zM25,16h1v1h-1zM26,16h1v1h-1zM29,16h1v1h-1zM31,16h1v1h-1zM32,16h1v1h-1zM4,17h1v1h-1zM6,17h1v1h-1zM9,17h1v1h-1zM11,17h1v1h-1zM13,17h1v1h-1zM14,17h1v1h-1zM15,17h1v1h-1zM20,17h1v1h-1zM24,17h1v1h-1zM25,17h1v1h-1zM26,17h1v1h-1zM29,17h1v1h-1zM32,17h1v1h-1zM4,18h1v1h-1zM5,18h1v1h-1zM7,18h1v1h-1zM9,18h1v1h-1zM10,18h1v1h-1zM12,18h1v1h-1zM13,18h1v1h-1zM14,18h1v1h-1zM16,18h1v1h-1zM17,18h1v1h-1zM24,18h1v1h-1zM25,18h1v1h-1zM26,18h1v1h-1zM27,18h1v1h-1zM28,18h1v1h-1zM29,18h1v1h-1zM31,18h1v1h-1zM32,18h1v1h-1zM7,19h1v1h-1zM8,19h1v1h-1zM11,19h1v1h-1zM15,19h1v1h-1zM19,19h1v1h-1zM21,19h1v1h-1zM22,19h1v1h-1zM24,19h1v1h-1zM25,19h1v1h-1zM28,19h1v1h-1zM29,19h1v1h-1zM31,19h1v1h-1zM4,20h1v1h-1zM6,20h1v1h-1zM7,20h1v1h-1zM9,20h1v1h-1zM10,20h1v1h-1zM11,20h1v1h-1zM12,20h1v1h-1zM19,20h1v1h-1zM20,20h1v1h-1zM21,20h1v1h-1zM25,20h1v1h-1zM26,20h1v1h-1zM29,20h1v1h-1zM31,20h1v1h-1zM32,20h1v1h-1zM5,21h1v1h-1zM6,21h1v1h-1zM7,21h1v1h-1zM9,21h1v1h-1zM11,21h1v1h-1zM13,21h1v1h-1zM14,21h1v1h-1zM17,21h1v1h-1zM20,21h1v1h-1zM24,21h1v1h-1zM25,21h1v1h-1zM26,21h1v1h-1zM27,21h1v1h-1zM29,21h1v1h-1zM30,21h1v1h-1zM32,21h1v1h-1zM4,22h1v1h-1zM6,22h1v1h-1zM7,22h1v1h-1zM9,22h1v1h-1zM10,22h1v1h-1zM11,22h1v1h-1zM14,22h1v1h-1zM15,22h1v1h-1zM18,22h1v1h-1zM20,22h1v1h-1zM21,22h1v1h-1zM25,22h1v1h-1zM26,22h1v1h-1zM27,22h1v1h-1zM28,22h1v1h-1zM31,22h1v1h-1zM32,22h1v1h-1zM5,23h1v1h-1zM7,23h1v1h-1zM8,23h1v1h-1zM11,23h1v1h-1zM14,23h1v1h-1zM15,23h1v1h-1zM16,23h1v1h-1zM17,23h1v1h-1zM18,23h1v1h-1zM19,23h1v1h-1zM20,23h1v1h-1zM21,23h1v1h-1zM22,23h1v1h-1zM23,23h1v1h-1zM25,23h1v1h-1zM27,23h1v1h-1zM28,23h1v1h-1zM29,23h1v1h-1zM31,23h1v1h-1zM4,24h1v1h-1zM10,24h1v1h-1zM12,24h1v1h-1zM14,24h1v1h-1zM15,24h1v1h-1zM16,24h1v1h-1zM18,24h1v1h-1zM19,24h1v1h-1zM20,24h1v1h-1zM21,24h1v1h-1zM22,24h1v1h-1zM24,24h1v1h-1zM25,24h1v1h-1zM26,24h1v1h-1zM27,24h1v1h-1zM28,24h1v1h-1zM12,25h1v1h-1zM13,25h1v1h-1zM18,25h1v1h-1zM20,25h1v1h-1zM23,25h1v1h-1zM24,25h1v1h-1zM28,25h1v1h-1zM30,25h1v1h-1zM31,25h1v1h-1zM32,25h1v1h-1zM4,26h1v1h-1zM5,26h1v1h-1zM6,26h1v1h-1zM7,26h1v1h-1zM8,26h1v1h-1zM9,26h1v1h-1zM10,26h1v1h-1zM13,26h1v1h-1zM14,26h1v1h-1zM17,26h1v1h-1zM20,26h1v1h-1zM21,26h1v1h-1zM23,26h1v1h-1zM24,26h1v1h-1zM26,26h1v1h-1zM28,26h1v1h-1zM29,26h1v1h-1zM31,26h1v1h-1zM32,26h1v1h-1zM4,27h1v1h-1zM10,27h1v1h-1zM14,27h1v1h-1zM15,27h1v1h-1zM19,27h1v1h-1zM20,27h1v1h-1zM21,27h1v1h-1zM24,27h1v1h-1zM28,27h1v1h-1zM29,27h1v1h-1zM32,27h1v1h-1zM4,28h1v1h-1zM6,28h1v1h-1zM7,28h1v1h-1zM8,28h1v1h-1zM10,28h1v1h-1zM12,28h1v1h-1zM13,28h1v1h-1zM15,28h1v1h-1zM21,28h1v1h-1zM24,28h1v1h-1zM25,28h1v1h-1zM26,28h1v1h-1zM27,28h1v1h-1zM28,28h1v1h-1zM31,28h1v1h-1zM32,28h1v1h-1zM4,29h1v1h-1zM6,29h1v1h-1zM7,29h1v1h-1zM8,29h1v1h-1zM10,29h1v1h-1zM13,29h1v1h-1zM14,29h1v1h-1zM16,29h1v1h-1zM17,29h1v1h-1zM20,29h1v1h-1zM27,29h1v1h-1zM28,29h1v1h-1zM30,29h1v1h-1zM31,29h1v1h-1zM32,29h1v1h-1zM4,30h1v1h-1zM6,30h1v1h-1zM7,30h1v1h-1zM8,30h1v1h-1zM10,30h1v1h-1zM12,30h1v1h-1zM14,30h1v1h-1zM15,30h1v1h-1zM17,30h1v1h-1zM21,30h1v1h-1zM23,30h1v1h-1zM25,30h1v1h-1zM27,30h1v1h-1zM28,30h1v1h-1zM29,30h1v1h-1zM32,30h1v1h-1zM4,31h1v1h-1zM10,31h1v1h-1zM13,31h1v1h-1zM19,31h1v1h-1zM20,31h1v1h-1zM21,31h1v1h-1zM23,31h1v1h-1zM24,31h1v1h-1zM25,31h1v1h-1zM26,31h1v1h-1zM31,31h1v1h-1zM4,32h1v1h-1zM5,32h1v1h-1zM6,32h1v1h-1zM7,32h1v1h-1zM8,32h1v1h-1zM9,32h1v1h-1zM10,32h1v1h-1zM12,32h1v1h-1zM14,32h1v1h-1zM15,32h1v1h-1zM16,32h1v1h-1zM20,32h1v1h-1zM21,32h1v1h-1zM24,32h1v1h-1zM25,32h1v1h-1zM26,32h1v1h-1zM28,32h1v1h-1zM31,32h1v1h-1zM32,32h1v1h-1z"/></svg>
+        </div>
+        <div style="font-size:24px; color:var(--muted); margin-top:8px">демо по QR</div>
+      </div>
+    </div>
+  </div>
+  <div class="fn"><span>https://ai-buddy-avito-demo.netlify.app · https://github.com/ElzaraA/ai-buddy-avito</span><span>11 / 11</span></div>
+</section>
+
+</body>
+</html>

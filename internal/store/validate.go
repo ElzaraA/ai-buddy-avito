@@ -45,9 +45,9 @@ func ValidateAbsenceDates(from, to string, now time.Time) error {
 		return errors.New("date_from/date_to must be YYYY-MM-DD")
 	case t.Before(f):
 		return errors.New("date_to must be >= date_from")
-	case from < now.Format("2006-01-02"):
+	case from < LocalDate(now):
 		return errors.New("date_from is in the past")
-	case from > now.AddDate(MaxAbsenceAheadYears, 0, 0).Format("2006-01-02"):
+	case from > LocalDate(now.AddDate(MaxAbsenceAheadYears, 0, 0)):
 		return ErrTooFarAhead
 	case t.Sub(f) > MaxAbsenceDays*24*time.Hour:
 		return errors.New("absence longer than 30 days is not supported")

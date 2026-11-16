@@ -97,6 +97,22 @@ func (c contacts) salaryText() string {
 		c.BuddyDative + "."
 }
 
+// outOfScopeMarkers — кадровые темы, которых нет в базе знаний и которые нельзя подменять отгулом
+// или заявкой на доступ: командировка, ДМС, отпуск по уходу за ребёнком, парковка и т. п.
+var outOfScopeMarkers = []string{"командиров", "дмс", "страховк", "по уходу", "декрет", "материнск", "отцовск",
+	"парковк", "релокац", "переезд", "спортзал", "фитнес", "столов", "компенсац"}
+
+// outOfScope — вопрос о кадровой теме вне базы знаний (реплика уже нормализована).
+func outOfScope(q string) bool {
+	q = strings.ToLower(q)
+	for _, m := range outOfScopeMarkers {
+		if strings.Contains(q, m) {
+			return true
+		}
+	}
+	return false
+}
+
 // looksLikeInjection — вопрос похож на prompt injection (такие отказы не являются пробелом базы знаний).
 func looksLikeInjection(q string) bool {
 	q = strings.ToLower(q) + " "

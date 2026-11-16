@@ -5,18 +5,27 @@ import "time"
 // Счётчики «пользы»: сколько вопросов стажёров Бадди закрыл сам, сколько передал наставнику
 // и сколько раз отказал. Плюс личный счётчик вопросов стажёра (для достижений).
 
-// Исходы ответа на вопрос стажёра.
+// Исходы ответа на вопрос стажёра. «Сэкономлено наставнику» честное: закрытым считается только
+// ответ по базе знаний с источником и объяснение термина из словаря. Подтверждённое действие
+// учитывается отдельно — в момент подтверждения (RecordConfirmedAction), а не черновика.
+// Меню, small talk, просмотр чек-листа и черновики не считаются ни закрытыми, ни отказами.
 const (
-	OutcomeClosed  = "closed"  // answer / action / draft — вопрос закрыт без человека
-	OutcomeSignal  = "signal"  // сообщение передано наставнику
-	OutcomeRefusal = "refusal" // отказ: нет в базе знаний, нет прав и т. п.
+	OutcomeClosed   = "closed"   // ответ по базе знаний с источником (синоним OutcomeKB)
+	OutcomeKB       = "closed"   // ответ по базе знаний с источником
+	OutcomeGlossary = "glossary" // термин из словаря Бадди
+	OutcomeSignal   = "signal"   // сообщение передано наставнику
+	OutcomeRefusal  = "refusal"  // отказ: нет в базе знаний, нет прав и т. п.
+	OutcomeNeutral  = "neutral"  // меню, small talk, чек-лист, черновик — не экономия и не отказ
 )
 
-// TeamStats — счётчики команды.
+// TeamStats — счётчики команды. Closed = KBAnswers + Glossary + ConfirmedActions.
 type TeamStats struct {
-	Closed   int64 `json:"closed"`
-	Signals  int64 `json:"signals"`
-	Refusals int64 `json:"refusals"`
+	Closed           int64 `json:"closed"`
+	KBAnswers        int64 `json:"kb_answers"`
+	Glossary         int64 `json:"glossary"`
+	ConfirmedActions int64 `json:"confirmed_actions"`
+	Signals          int64 `json:"signals"`
+	Refusals         int64 `json:"refusals"`
 }
 
 // UserStats — личные счётчики пользователя.
@@ -41,10 +50,38 @@ func (s *Store) RecordQuestion(teamID, userID, outcome string) {
 	}
 	ts := s.teamStatsLocked(teamID)
 	switch outcome {
-	case OutcomeClosed:
+	case OutcomeKB:
+		ts.KBAnswers++
+		ts.Closed++
+	case OutcomeGlossary:
+		ts.Glossary++
 		ts.Closed++
 	case OutcomeRefusal:
 		ts.Refusals++
+	}
+	s.touch()
+}
+
+// RecordConfirmedAction учитывает подтверждённое стажёром действие (draft → pending): заявку
+// не пришлось оформлять с наставником. Черновики и отменённые заявки не считаются.
+func (s *Store) RecordConfirmedAction(teamID string) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	ts := s.teamStatsLocked(teamID)
+	ts.ConfirmedActions++
+	ts.Closed++
+	s.touch()
+}
+
+// UncountConfirmedAction списывает подтверждённое действие, которое стажёр затем отменил:
+// отмены в «Сэкономлено наставнику» не попадают никогда.
+func (s *Store) UncountConfirmedAction(teamID string) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	ts := s.teamStatsLocked(teamID)
+	if ts.ConfirmedActions > 0 {
+		ts.ConfirmedActions--
+		ts.Closed--
 	}
 	s.touch()
 }

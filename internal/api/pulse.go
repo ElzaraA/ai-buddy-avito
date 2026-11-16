@@ -101,9 +101,14 @@ func (h *Handlers) MyAchievements(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, h.Store.Achievements(u.TeamID, u.ID))
 }
 
-// savedStats — поля сводки «Сэкономлено наставнику».
+// savedStats — поля сводки «Сэкономлено наставнику». Честный учёт: questions_closed =
+// kb_answers (ответ по базе с источником) + glossary_answers (термин из словаря) + confirmed_actions
+// (заявка, подтверждённая стажёром). Меню, small talk, чек-лист, черновики и отмены не считаются.
 type savedStats struct {
 	QuestionsClosed    int64   `json:"questions_closed"`
+	KBAnswers          int64   `json:"kb_answers"`
+	GlossaryAnswers    int64   `json:"glossary_answers"`
+	ConfirmedActions   int64   `json:"confirmed_actions"`
 	SignalsTotal       int64   `json:"signals_total"`
 	RefusalsTotal      int64   `json:"refusals_total"`
 	MentorMinutesSaved int64   `json:"mentor_minutes_saved"`
@@ -114,6 +119,7 @@ type savedStats struct {
 func savedOf(ts store.TeamStats) savedStats {
 	s := savedStats{
 		QuestionsClosed: ts.Closed, SignalsTotal: ts.Signals, RefusalsTotal: ts.Refusals,
+		KBAnswers: ts.KBAnswers, GlossaryAnswers: ts.Glossary, ConfirmedActions: ts.ConfirmedActions,
 		MentorMinutesSaved: ts.Closed * MinutesPerQuestion, MinutesPerQuestion: MinutesPerQuestion,
 	}
 	if total := ts.Closed + ts.Signals + ts.Refusals; total > 0 {

@@ -138,6 +138,12 @@ func (h *Handlers) ConfirmAction(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusConflict, "conflict", "action is not a draft (already confirmed or cancelled)")
 		return
 	}
+	// «Сэкономлено наставнику»: действие засчитывается в момент подтверждения стажёром (не черновика);
+	// повторное подтверждение невозможно (409 выше), отмена ничего не добавляет.
+	if u.Role == auth.RoleIntern {
+		h.Store.RecordConfirmedAction(u.TeamID)
+		h.Metrics.Inc("buddy_questions_closed_total", "Вопросы стажёров, закрытые Бадди без наставника")
+	}
 	h.finish(w, upd)
 }
 
@@ -151,6 +157,10 @@ func (h *Handlers) CancelAction(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		writeError(w, http.StatusConflict, "conflict", "action is already decided")
 		return
+	}
+	// Отмена никогда не засчитывается: отменённая после подтверждения заявка списывается из «Сэкономлено наставнику».
+	if n := len(upd.History); n >= 2 && upd.History[n-2].Status == store.StatusPending && u.Role == auth.RoleIntern {
+		h.Store.UncountConfirmedAction(u.TeamID)
 	}
 	h.finish(w, upd)
 }

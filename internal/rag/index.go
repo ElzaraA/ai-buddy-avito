@@ -156,13 +156,30 @@ func prefixMatch(a, b string) bool {
 
 // termMatch — слово запроса и слово фрагмента совпадают: точно, по общему префиксу
 // или по основе после отрезания окончания («базу» ~ «база»).
+//
+// Общий префикс засчитывается, только если более короткая основа — начало более длинной и «хвост»
+// не длиннее maxTail букв. Раньше хватало пяти общих первых букв, и «командировку» совпадала
+// с «командой» — вопрос не по теме получал чужой фрагмент (про доступ к Jira).
 func termMatch(a, b string) bool {
-	if prefixMatch(a, b) {
+	if a == b {
 		return true
 	}
 	sa, sb := stem(a), stem(b)
-	return len([]rune(sa)) >= 3 && sa == sb
+	ra, rb := []rune(sa), []rune(sb)
+	if len(ra) >= 3 && sa == sb {
+		return true
+	}
+	if len(ra) > len(rb) {
+		ra, rb = rb, ra
+	}
+	if len(ra) < 4 || len(rb)-len(ra) > maxTail {
+		return false
+	}
+	return string(rb[:len(ra)]) == string(ra) && prefixMatch(a, b)
 }
+
+// maxTail — на сколько букв основа слова фрагмента может быть длиннее основы слова запроса (и наоборот).
+const maxTail = 3
 
 const (
 	minScore = 0.5

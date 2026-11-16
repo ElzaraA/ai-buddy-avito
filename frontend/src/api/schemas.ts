@@ -105,9 +105,24 @@ export const SignalSchema = z.object({
   topic: z.string().default('other'),
   at: z.string().optional(),
   done: z.boolean().default(false),
+  /** ответ наставника стажёру (необязателен; у старого бэка поля нет) */
+  reply: z.string().optional(),
+  resolved_by: z.string().optional(),
+  resolved_at: z.string().optional(),
 });
 export type Signal = z.infer<typeof SignalSchema>;
+/** GET /api/v1/team/signals (наставник) и GET /api/v1/signals/me (стажёр — свои обращения). */
 export const SignalsSchema = z.array(SignalSchema).nullable().transform((v) => v ?? []);
+
+/** GET /api/v1/demo — честно показываем, что это демо и какая модель отвечает. */
+export const DemoInfoSchema = z.object({
+  demo_mode: z.boolean().default(false),
+  llm: z.enum(['mock', 'real']).catch('mock'),
+});
+export type DemoInfo = z.infer<typeof DemoInfoSchema>;
+
+/** POST /api/v1/demo/reset → { ok: true } */
+export const OkSchema = z.object({ ok: z.boolean().default(true) }).passthrough();
 
 /** Запись истории заявки: кто и когда перевёл её в статус. */
 export const ActionEventSchema = z.object({

@@ -18,6 +18,8 @@ type Config struct {
 	StateFile       string // путь к снимку состояния; пусто — только в памяти
 	RateLimitPerMin int    // вопросов в минуту на пользователя; 0 — без ограничения
 	ReminderLeadMin int    // за сколько минут до встречи напоминать в чате
+	DemoMode        bool   // DEMO_MODE=true: доступен POST /api/v1/demo/reset
+	TZName          string // TZ_NAME: часовой пояс «сегодня» (по умолчанию Europe/Moscow)
 }
 
 func Load() Config {
@@ -36,6 +38,8 @@ func Load() Config {
 		StateFile:       os.Getenv("STATE_FILE"),
 		RateLimitPerMin: getint("RATE_LIMIT_PER_MIN", 60),
 		ReminderLeadMin: getint("REMINDER_LEAD_MIN", 15),
+		DemoMode:        os.Getenv("DEMO_MODE") == "true",
+		TZName:          getenv("TZ_NAME", "Europe/Moscow"),
 	}
 }
 
