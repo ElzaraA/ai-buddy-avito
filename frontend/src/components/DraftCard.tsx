@@ -145,7 +145,7 @@ export function DraftCard({ action = 'absence', args, text }: Props) {
               {confirm.isPending ? 'Отправляю…' : 'Отправить заявку'}
             </button>
             <button className="btn btn--ghost" onClick={onCancel} disabled={busy}>
-              Отменить
+              Отменить черновик
             </button>
           </div>
         </>

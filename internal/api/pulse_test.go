@@ -130,10 +130,28 @@ func TestSummarySavedMinutes(t *testing.T) {
 	ask("intern.backend", "передай наставнику: не работает VPN") // сигнал
 	ask("mentor.backend", "Какой стек у команды Backend?")       // не стажёр — не считается
 	ask("intern.other", "Какой стек у команды Frontend?")        // другая команда
+	// Честный учёт: меню, small talk, просмотр чек-листа и черновик не экономят время наставника.
+	ask("intern.backend", "помоги")
+	ask("intern.backend", "привет")
+	ask("intern.backend", "Что мне делать дальше?")
+	ask("intern.backend", "Хочу отгул в пятницу")
+	// Термин из словаря — засчитывается.
+	ask("intern.backend", "Что такое MR?")
+	// Подтверждённая заявка засчитывается в момент подтверждения; отменённая — никогда.
+	confirmed := newDraft(t, srv, "intern.backend", absenceBody)
+	post(t, srv, "/api/v1/actions/"+confirmed.ID+"/confirm", "intern.backend", nil)
+	cancelled := newDraft(t, srv, "intern.backend", absenceBody)
+	post(t, srv, "/api/v1/actions/"+cancelled.ID+"/confirm", "intern.backend", nil)
+	post(t, srv, "/api/v1/actions/"+cancelled.ID+"/cancel", "intern.backend", nil)
+	draftOnly := newDraft(t, srv, "intern.backend", absenceBody)
+	post(t, srv, "/api/v1/actions/"+draftOnly.ID+"/cancel", "intern.backend", nil)
 
 	_, raw := call(t, "GET", srv.URL+"/api/v1/team/summary", "lead.backend", nil)
 	var sum struct {
 		QuestionsClosed    int64   `json:"questions_closed"`
+		KBAnswers          int64   `json:"kb_answers"`
+		GlossaryAnswers    int64   `json:"glossary_answers"`
+		ConfirmedActions   int64   `json:"confirmed_actions"`
 		SignalsTotal       int64   `json:"signals_total"`
 		RefusalsTotal      int64   `json:"refusals_total"`
 		MentorMinutesSaved int64   `json:"mentor_minutes_saved"`
@@ -142,8 +160,11 @@ func TestSummarySavedMinutes(t *testing.T) {
 		Interns            int     `json:"interns"`
 	}
 	_ = json.Unmarshal(raw, &sum)
-	if sum.QuestionsClosed != 2 || sum.SignalsTotal != 1 || sum.RefusalsTotal != 1 || sum.MentorMinutesSaved != 10 ||
-		sum.MinutesPerQuestion != 5 || sum.ClosedShare != 0.5 || sum.Interns != 2 {
+	// 2 ответа по базе + 1 термин + 1 подтверждённая заявка = 4; подтверждённая и затем отменённая заявка
+	// списывается, черновик без подтверждения не считается.
+	if sum.KBAnswers != 2 || sum.GlossaryAnswers != 1 || sum.ConfirmedActions != 1 || sum.QuestionsClosed != 4 ||
+		sum.SignalsTotal != 1 || sum.RefusalsTotal != 1 || sum.MentorMinutesSaved != 20 ||
+		sum.MinutesPerQuestion != 5 || sum.ClosedShare != 0.67 || sum.Interns != 2 {
 		t.Fatalf("summary: %s", raw)
 	}
 }

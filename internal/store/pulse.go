@@ -12,7 +12,7 @@ import (
 // Заметку видят только наставник и руководитель команды стажёра; персональные данные в ней маскируются.
 
 type PulseEntry struct {
-	Date string    `json:"date"` // YYYY-MM-DD по времени сервера
+	Date string    `json:"date"` // YYYY-MM-DD в поясе продукта (TZ_NAME, по умолчанию Europe/Moscow)
 	Mood int       `json:"mood"`
 	Note string    `json:"note,omitempty"`
 	At   time.Time `json:"at"`
@@ -34,7 +34,7 @@ const dateLayout = "2006-01-02"
 func (s *Store) Today() string {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
-	return s.now().Format(dateLayout)
+	return LocalDate(s.now())
 }
 
 // SetClock подменяет часы хранилища (тесты и демо-сценарии).
@@ -54,7 +54,7 @@ func (s *Store) SetPulse(userID string, mood int, note string) PulseEntry {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	now := s.now()
-	e := PulseEntry{Date: now.Format(dateLayout), Mood: mood, Note: note, At: now}
+	e := PulseEntry{Date: LocalDate(now), Mood: mood, Note: note, At: now}
 	list := s.pulse[userID]
 	if n := len(list); n > 0 && list[n-1].Date == e.Date {
 		list = append(append([]PulseEntry(nil), list[:n-1]...), e)

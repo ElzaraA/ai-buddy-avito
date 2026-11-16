@@ -247,26 +247,73 @@ paths:
             application/json:
               schema:
                 type: array
-                items:
-                  type: object
-                  required: [id, user_id, text, topic, at, done]
-                  properties:
-                    id: { type: string, example: SIG-000001 }
-                    user_id: { type: string }
-                    text: { type: string, description: 'до 500 символов, персональные данные маскируются' }
-                    topic: { type: string, enum: [blocked, tech, unclear, other] }
-                    at: { type: string, format: date-time }
-                    done: { type: boolean }
+                items: { $ref: '#/components/schemas/Signal' }
         '403': { $ref: '#/components/responses/Error' }
 
   /team/signals/{signalId}/resolve:
     post:
-      summary: Наставник или руководитель отмечает сообщение своей команды разобранным (сигнал чужой команды — 404)
+      summary: Наставник или руководитель отмечает сообщение своей команды разобранным и (необязательно) отвечает стажёру (сигнал чужой команды — 404)
+      description: |
+        Тело необязательно (пустое тело — просто «разобрано»). reply ≤ 500 символов, персональные данные маскируются;
+        пустой reply не затирает ранее сохранённый ответ. Заполняются resolved_by (имя наставника) и resolved_at.
+        Стажёр видит ответ в GET /signals/me.
       parameters:
         - { name: signalId, in: path, required: true, schema: { type: string } }
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                reply: { type: string, maxLength: 500 }
       responses:
-        '200': { description: OK, content: { application/json: { schema: { type: object, properties: { ok: { type: boolean } } } } } }
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok: { type: boolean }
+                  signal: { $ref: '#/components/schemas/Signal' }
+        '400': { $ref: '#/components/responses/Error' }
         '403': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+        '413': { $ref: '#/components/responses/Error' }
+        '429': { $ref: '#/components/responses/Error' }
+
+  /signals/me:
+    get:
+      summary: Свои сообщения наставнику (стажёр), новые сверху, с ответом наставника (не стажёру — 403)
+      responses:
+        '200': { description: OK, content: { application/json: { schema: { type: array, items: { $ref: '#/components/schemas/Signal' } } } } }
+        '403': { $ref: '#/components/responses/Error' }
+
+  /demo:
+    get:
+      summary: Демо-режим и тип модели
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [demo_mode, llm]
+                properties:
+                  demo_mode: { type: boolean, description: 'DEMO_MODE=true — доступен POST /demo/reset' }
+                  llm: { type: string, enum: [mock, real], description: 'mock при LLM_MOCK=true или без LLM_API_KEY' }
+
+  /demo/reset:
+    post:
+      summary: Сбросить всё состояние в памяти к исходному сиду (как свежий старт); только при DEMO_MODE=true
+      description: |
+        Сбрасываются заявки, чек-листы (заново засеваются демо-чек-листы), сигналы и ответы, «Пульс», пробелы базы знаний,
+        «Сэкономлено наставнику», счётчики достижений, диалоги и сообщения чата. Доступно любому демо-пользователю,
+        ограничено по частоте. Без DEMO_MODE=true — 404 not_found.
+      responses:
+        '200': { description: OK, content: { application/json: { schema: { type: object, required: [ok], properties: { ok: { type: boolean, enum: [true] } } } } } }
         '404': { $ref: '#/components/responses/Error' }
         '429': { $ref: '#/components/responses/Error' }
 
@@ -305,7 +352,10 @@ paths:
                   actions: { type: object, additionalProperties: { type: integer }, description: число заявок по статусам }
                   unanswered_topics: { type: integer }
                   unanswered_requests: { type: integer }
-                  questions_closed: { type: integer, description: вопросы стажёров, закрытые Бадди без человека (answer / action / draft) }
+                  questions_closed: { type: integer, description: 'честный учёт: kb_answers + glossary_answers + confirmed_actions' }
+                  kb_answers: { type: integer, description: ответы по базе знаний с источником }
+                  glossary_answers: { type: integer, description: объяснения терминов из словаря Бадди }
+                  confirmed_actions: { type: integer, description: 'заявки, подтверждённые стажёром (считаются при confirm; отмена списывает; черновики, меню, small talk и чек-лист не считаются)' }
                   signals_total: { type: integer, description: сообщения стажёров, переданные наставнику }
                   refusals_total: { type: integer, description: отказы Бадди (нет в базе, нет прав) }
                   mentor_minutes_saved: { type: integer, description: 'оценка: questions_closed × minutes_per_question' }
@@ -465,6 +515,23 @@ components:
         kind: { type: string, description: access — шаг связан с заявками на доступ }
         related_action_id: { type: string, description: заявка, которой ждёт шаг }
         owner: { type: string }
+        sub_done: { type: integer, description: 'только kind=access: сколько систем (GitLab/Git, Jira, Grafana) уже одобрено' }
+        sub_total: { type: integer, description: 'только kind=access: всего систем в шаге (3)' }
+        missing: { type: array, items: { type: string, enum: [gitlab, jira, grafana] }, description: 'только kind=access: системы без заявки (ещё не запрошены)' }
+
+    Signal:
+      type: object
+      required: [id, user_id, text, topic, at, done]
+      properties:
+        id: { type: string, example: SIG-000001 }
+        user_id: { type: string }
+        text: { type: string, description: 'до 500 символов, персональные данные маскируются' }
+        topic: { type: string, enum: [blocked, tech, unclear, other] }
+        at: { type: string, format: date-time }
+        done: { type: boolean }
+        reply: { type: string, maxLength: 500, description: 'ответ наставника (PII маскируются); нет — поле отсутствует' }
+        resolved_by: { type: string, description: имя наставника или руководителя, разобравшего сообщение }
+        resolved_at: { type: string, format: date-time }
 
     Progress:
       type: object

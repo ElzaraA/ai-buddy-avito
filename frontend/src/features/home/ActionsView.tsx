@@ -2,6 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import { api } from '../../api/client';
 import { useChatStore } from '../../store/chat';
 import { ACTIONS_REFRESH_MS, MyActions } from '../progress/MyActions';
+import { MySignals } from '../progress/MySignals';
 
 /** Раздел «Мои заявки»: черновики и отправленные заявки; если пусто — подсказка, как создать. */
 export function ActionsView({ onAsk }: { onAsk: (question: string) => void }) {
@@ -33,6 +34,7 @@ export function ActionsView({ onAsk }: { onAsk: (question: string) => void }) {
         </div>
       )}
       <MyActions />
+      <MySignals />
     </section>
   );
 }

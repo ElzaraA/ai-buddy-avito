@@ -64,6 +64,11 @@ type ChecklistItem struct {
 	Kind     string `json:"kind,omitempty"`              // access — шаг связан с заявками на доступ
 	ActionID string `json:"related_action_id,omitempty"` // заявка, которой ждёт шаг
 	Owner    string `json:"owner"`
+	// Прогресс составного шага (kind=access): сколько систем из AccessSystems уже одобрено
+	// и какие ещё не запрошены. У обычных шагов полей нет (обратная совместимость).
+	SubDone  *int     `json:"sub_done,omitempty"`
+	SubTotal int      `json:"sub_total,omitempty"`
+	Missing  []string `json:"missing,omitempty"`
 }
 
 func (it *ChecklistItem) normalize() {
@@ -72,6 +77,9 @@ func (it *ChecklistItem) normalize() {
 		it.Status = StepDone
 	case it.Status == "" || it.Status == StepDone:
 		it.Status = StepTodo
+	}
+	if it.Kind == ActionAccess && it.SubTotal == 0 {
+		applyAccess(it, nil, "", "")
 	}
 }
 
@@ -100,7 +108,7 @@ func New() *Store {
 		pulse:     map[string][]PulseEntry{},
 		teamStats: map[string]*TeamStats{},
 		userStats: map[string]*UserStats{},
-		now:       time.Now,
+		now:       Now,
 		saveNow:   make(chan struct{}, 1),
 	}
 }

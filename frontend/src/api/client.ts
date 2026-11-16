@@ -7,7 +7,9 @@ import {
   PulseEntrySchema,
   TeamPulseSchema,
   ApiErrorSchema,
+  DemoInfoSchema,
   KnowledgeGapsSchema,
+  OkSchema,
   ProgressSchema,
   SignalsSchema,
   TeamProgressSchema,
@@ -126,8 +128,20 @@ export const api = {
   knowledgeGaps: () => request('/api/v1/team/knowledge-gaps', KnowledgeGapsSchema),
   /** Сообщения стажёров наставнику «что-то не так». */
   teamSignals: () => request('/api/v1/team/signals', SignalsSchema),
-  resolveSignal: (id: string) =>
-    request(`/api/v1/team/signals/${encodeURIComponent(id)}/resolve`, z.unknown(), { method: 'POST' }),
+  /** Закрыть сигнал; reply (≤500 символов) — необязательный ответ стажёру. */
+  resolveSignal: (id: string, reply = '') => {
+    const text = reply.trim().slice(0, 500);
+    return request(`/api/v1/team/signals/${encodeURIComponent(id)}/resolve`, z.unknown(), {
+      method: 'POST',
+      body: JSON.stringify(text ? { reply: text } : {}),
+    });
+  },
+  /** Обращения стажёра к наставнику и ответы на них. */
+  mySignals: () => request('/api/v1/signals/me', SignalsSchema),
+  /** Демо-режим и какая модель отвечает (404 — у старого бэка ручки нет). */
+  demo: () => request('/api/v1/demo', DemoInfoSchema),
+  /** Сброс демо-данных к исходному состоянию (404, если демо-режим выключен). */
+  resetDemo: () => request('/api/v1/demo/reset', OkSchema, { method: 'POST' }),
   /** Сводка «метрик пользы» по команде. */
   teamSummary: () => request('/api/v1/team/summary', TeamSummarySchema),
   /** «Пульс команды» — самочувствие стажёров своей команды. */

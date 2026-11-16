@@ -29,6 +29,9 @@ export const FOLLOW_UPS = ['Что мне делать дальше?', 'Как �
 
 export const PROBLEM_PREFIX = 'Передай наставнику: ';
 
+/** В поле только заготовка «Передай наставнику:» — стажёр ещё ничего не дописал. */
+export const isBarePrefix = (t: string) => t.trim() === PROBLEM_PREFIX.trim();
+
 export const SLOW_SEND_MS = 4000;
 export const SLOW_SEND_TEXT = 'Отправляю вопрос… Сервер просыпается после простоя — это может занять до минуты.';
 
@@ -50,6 +53,17 @@ export function ChatPanel({ staff = false }: { staff?: boolean }) {
     setText(PROBLEM_PREFIX);
     inputRef.current?.focus();
   };
+  // Заготовка без продолжения не должна «запирать» поле: другое действие (подсказка, карточка стола)
+  // её заменяет. Свой текст стажёра не трогаем.
+  const dropBarePrefix = () => setText((t) => (isBarePrefix(t) ? '' : t));
+  const sendSuggestion = (s: string) => {
+    dropBarePrefix();
+    void send(s);
+  };
+  const clear = () => {
+    setText('');
+    inputRef.current?.focus();
+  };
 
   // Запросы из оболочки: «Сообщить наставнику» в меню подставляет текст, подсказка — отправляет вопрос.
   const composer = useChatStore((s) => s.composer);
@@ -59,12 +73,14 @@ export function ChatPanel({ staff = false }: { staff?: boolean }) {
   useEffect(() => {
     if (!composer) return;
     if (composer.text) setText(composer.text);
+    else setText((t) => (isBarePrefix(t) ? '' : t)); // «Написать Бадди» после «Сообщить наставнику»
     inputRef.current?.focus();
   }, [composer]);
 
   useEffect(() => {
     if (!queued) return;
     takeQueued();
+    setText((t) => (isBarePrefix(t) ? '' : t));
     void send(queued.text);
   }, [queued, send, takeQueued]);
 
@@ -125,7 +141,7 @@ export function ChatPanel({ staff = false }: { staff?: boolean }) {
                       <button
                         key={s}
                         className="suggestion"
-                        onClick={() => void send(s)}
+                        onClick={() => sendSuggestion(s)}
                         // повторный клик, пока уходит первый вопрос, не отправляет его второй раз
                         disabled={sending}
                       >
@@ -181,7 +197,7 @@ export function ChatPanel({ staff = false }: { staff?: boolean }) {
       {messages.length > 0 && !staff && (
         <div className="followups" aria-label="Что можно сделать дальше">
           {followUps.map((s) => (
-            <button key={s} className="suggestion suggestion--small" onClick={() => void send(s)} disabled={sending}>
+            <button key={s} className="suggestion suggestion--small" onClick={() => sendSuggestion(s)} disabled={sending}>
               {s}
             </button>
           ))}
@@ -206,11 +222,12 @@ export function ChatPanel({ staff = false }: { staff?: boolean }) {
           onChange={(e) => setText(e.target.value)}
           maxLength={4000}
         />
-        <button
-          type="submit"
-          className="btn btn--primary"
-          disabled={!text.trim() || text.trim() === PROBLEM_PREFIX.trim()}
-        >
+        {text && (
+          <button type="button" className="composer__clear" onClick={clear} aria-label="Очистить поле" title="Очистить">
+            ×
+          </button>
+        )}
+        <button type="submit" className="btn btn--primary" disabled={!text.trim() || isBarePrefix(text)}>
           Отправить
         </button>
       </form>

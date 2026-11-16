@@ -1,6 +1,6 @@
 import { api, ApiError, getDemoUser, NETWORK_ERROR_TEXT, setDemoUser, userMessage } from './client';
 import { mockFetch } from '../test/utils';
-import { AgentResponseSchema, KnowledgeGapsSchema } from './schemas';
+import { AgentResponseSchema, DemoInfoSchema, KnowledgeGapsSchema, SignalsSchema } from './schemas';
 
 afterEach(() => {
   vi.unstubAllGlobals();
@@ -22,6 +22,40 @@ describe('схемы и фактические ответы бэкенда', () 
       { question: 'Сколько платят в Авито?', count: 1, last_at: '2026-11-14T10:47:48+03:00' },
     ]);
     expect(gaps[0].last_at).toBe('2026-11-14T10:47:48+03:00');
+  });
+});
+
+describe('контракт: демо-режим и ответы наставника', () => {
+  it('сигнал с ответом и без (старый бэк) разбирается; /demo — с безопасными значениями по умолчанию', () => {
+    const [old, withReply] = SignalsSchema.parse([
+      { id: 'SIG-1', text: 'VPN', topic: 'tech', done: false },
+      { id: 'SIG-2', text: 'x', done: true, reply: 'ок', resolved_by: 'mentor-1', resolved_at: '2026-11-15T10:00:00Z' },
+    ]);
+    expect(old.reply).toBeUndefined();
+    expect(withReply).toMatchObject({ reply: 'ок', resolved_by: 'mentor-1', resolved_at: '2026-11-15T10:00:00Z' });
+    expect(DemoInfoSchema.parse({ demo_mode: true, llm: 'real' })).toEqual({ demo_mode: true, llm: 'real' });
+    expect(DemoInfoSchema.parse({ llm: 'gpt' })).toEqual({ demo_mode: false, llm: 'mock' });
+  });
+
+  it('resolveSignal шлёт reply (обрезанный до 500) или пустое тело; mySignals, demo, resetDemo — по контракту', async () => {
+    const spy = mockFetch([
+      { method: 'POST', match: '/api/v1/team/signals/SIG-1/resolve', body: { ok: true } },
+      { match: '/api/v1/signals/me', body: [{ id: 'SIG-1', text: 'VPN', done: true, reply: 'ок' }] },
+      { match: '/api/v1/demo', body: { demo_mode: true, llm: 'mock' } },
+      { method: 'POST', match: '/api/v1/demo/reset', body: { ok: true } },
+    ]);
+    await api.resolveSignal('SIG-1', `  ${'a'.repeat(600)} `);
+    expect(JSON.parse(String(spy.mock.calls[0][1]?.body)).reply).toHaveLength(500);
+    await api.resolveSignal('SIG-1');
+    expect(JSON.parse(String(spy.mock.calls[1][1]?.body))).toEqual({});
+    expect((await api.mySignals())[0].reply).toBe('ок');
+    expect(await api.demo()).toEqual({ demo_mode: true, llm: 'mock' });
+    expect((await api.resetDemo()).ok).toBe(true);
+  });
+
+  it('сброс при выключенном демо — 404 как ApiError', async () => {
+    mockFetch([]);
+    await expect(api.resetDemo()).rejects.toMatchObject({ status: 404 });
   });
 });
 

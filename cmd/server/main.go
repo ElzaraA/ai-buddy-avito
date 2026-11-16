@@ -10,6 +10,8 @@ import (
 	"sync"
 	"syscall"
 	"time"
+	// База часовых поясов внутри бинарника: в docker-образе может не быть tzdata (TZ_NAME=Europe/Moscow).
+	_ "time/tzdata"
 
 	"github.com/ElzaraA/ai-buddy-avito/internal/api"
 	"github.com/ElzaraA/ai-buddy-avito/internal/config"

@@ -30,6 +30,9 @@ CREATE TABLE onboarding_steps (
     kind        TEXT CHECK (kind IN ('access')),-- шаг закрывается согласованной заявкой на доступ
     related_action_id TEXT,                     -- REQ-000001: заявка, которой ждёт шаг
     owner       TEXT NOT NULL,                  -- кто отвечает за шаг (стажёр, наставник)
+    sub_done    INT,                            -- kind=access: сколько систем (gitlab/git, jira, grafana) одобрено
+    sub_total   INT,                            -- kind=access: 3; шаг done только при sub_done = sub_total
+    missing     TEXT[],                         -- kind=access: системы без заявки
     updated_at  TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
@@ -69,6 +72,54 @@ CREATE TABLE knowledge_gaps (
     last_at     TIMESTAMPTZ NOT NULL,
     PRIMARY KEY (team_id, question_key)
 );
+
+-- Сообщения стажёра наставнику «что-то не так» и ответ наставника (store.Signal). Именные.
+-- text и reply — с замаскированными персональными данными, до 500 символов.
+CREATE TABLE mentor_signals (
+    id          TEXT PRIMARY KEY,               -- SIG-000001
+    team_id     TEXT NOT NULL REFERENCES teams(id),
+    user_id     TEXT NOT NULL REFERENCES users(id),
+    text        TEXT NOT NULL,
+    topic       TEXT NOT NULL CHECK (topic IN ('blocked','tech','unclear','other')),
+    at          TIMESTAMPTZ NOT NULL,
+    done        BOOLEAN NOT NULL DEFAULT FALSE,
+    reply       TEXT CHECK (char_length(reply) <= 500),
+    resolved_by TEXT,                           -- имя наставника или руководителя
+    resolved_at TIMESTAMPTZ
+);
+
+-- «Пульс»: одна отметка самочувствия стажёра в день (store.PulseEntry). Дата — по TZ_NAME (Europe/Moscow).
+CREATE TABLE pulse_entries (
+    user_id     TEXT NOT NULL REFERENCES users(id),
+    date        DATE NOT NULL,
+    mood        INT  NOT NULL CHECK (mood BETWEEN 1 AND 5),
+    note        TEXT CHECK (char_length(note) <= 300), -- видят наставник и руководитель; PII маскируются
+    at          TIMESTAMPTZ NOT NULL,
+    PRIMARY KEY (user_id, date)
+);
+
+-- Честные счётчики «Сэкономлено наставнику» (store.TeamStats):
+-- closed = kb_answers + glossary + confirmed_actions; меню, small talk, чек-лист и черновики не считаются,
+-- подтверждённая и затем отменённая заявка списывается.
+CREATE TABLE team_stats (
+    team_id           TEXT PRIMARY KEY REFERENCES teams(id),
+    closed            BIGINT NOT NULL DEFAULT 0,
+    kb_answers        BIGINT NOT NULL DEFAULT 0,
+    glossary          BIGINT NOT NULL DEFAULT 0,
+    confirmed_actions BIGINT NOT NULL DEFAULT 0,
+    signals           BIGINT NOT NULL DEFAULT 0,
+    refusals          BIGINT NOT NULL DEFAULT 0
+);
+
+-- Личные счётчики для достижений (store.UserStats). Сами достижения выводятся из состояния, не хранятся.
+CREATE TABLE user_stats (
+    user_id           TEXT PRIMARY KEY REFERENCES users(id),
+    questions         BIGINT NOT NULL DEFAULT 0,
+    first_question_at TIMESTAMPTZ,
+    first_signal_at   TIMESTAMPTZ,
+    first_signal_team TEXT REFERENCES teams(id)
+);
+-- Демо-сброс (POST /api/v1/demo/reset, только DEMO_MODE=true) = TRUNCATE всех таблиц состояния + сид чек-листов.
 
 -- Асинхронный чат (store.Session, store.Message)
 CREATE TABLE chat_sessions (

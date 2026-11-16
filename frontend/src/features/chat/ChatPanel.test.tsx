@@ -1,6 +1,6 @@
 import { act, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { ChatPanel, SLOW_SEND_MS, SLOW_SEND_TEXT, SUGGESTIONS } from './ChatPanel';
+import { ChatPanel, isBarePrefix, PROBLEM_PREFIX, SLOW_SEND_MS, SLOW_SEND_TEXT, SUGGESTIONS } from './ChatPanel';
 import { AGENT_TIMEOUT_MS } from './useChat';
 import { useChatStore } from '../../store/chat';
 import { FakeEventSource, mockFetch, renderWithQuery } from '../../test/utils';
@@ -268,5 +268,61 @@ describe('ChatPanel', () => {
     expect(await screen.findByText('Ответ v1')).toBeInTheDocument();
     act(() => es.emit('error', { messageId: 'a2', error: 'agent failed' }));
     expect(await screen.findByText(/agent failed/)).toBeInTheDocument();
+  });
+});
+
+describe('ChatPanel: заготовка «Передай наставнику:» не запирает поле', () => {
+  const input = () => screen.getByLabelText('Сообщение');
+
+  it('клик по подсказке, когда в поле только заготовка, — заготовка убирается, подсказка отправляется', async () => {
+    mockFetch(chatRoutes());
+    renderWithQuery(<ChatPanel />);
+    await userEvent.click(screen.getByRole('button', { name: 'Сообщить наставнику' }));
+    expect(input()).toHaveValue(PROBLEM_PREFIX);
+    await userEvent.click(screen.getByText(SUGGESTIONS[0]));
+    expect(input()).toHaveValue('');
+    expect(await screen.findByText(SUGGESTIONS[0], { selector: '.msg--user' })).toBeInTheDocument();
+  });
+
+  it('свой текст стажёра подсказка не стирает', async () => {
+    mockFetch(chatRoutes());
+    renderWithQuery(<ChatPanel />);
+    await userEvent.click(screen.getByRole('button', { name: 'Сообщить наставнику' }));
+    await userEvent.type(input(), 'VPN не работает');
+    await userEvent.click(screen.getByText(SUGGESTIONS[0]));
+    expect(input()).toHaveValue(`${PROBLEM_PREFIX}VPN не работает`);
+  });
+
+  it('действие со стола (вопрос из другого раздела) и «Написать Бадди» заменяют голую заготовку', async () => {
+    mockFetch(chatRoutes());
+    renderWithQuery(<ChatPanel />);
+    act(() => useChatStore.getState().prefill(PROBLEM_PREFIX));
+    expect(input()).toHaveValue(PROBLEM_PREFIX);
+    act(() => useChatStore.getState().prefill(''));
+    expect(input()).toHaveValue('');
+
+    act(() => useChatStore.getState().prefill(PROBLEM_PREFIX));
+    act(() => useChatStore.getState().ask('Запроси доступ в GitLab'));
+    expect(input()).toHaveValue('');
+    expect(await screen.findByText('Запроси доступ в GitLab', { selector: '.msg--user' })).toBeInTheDocument();
+  });
+
+  it('кнопка «×» появляется при тексте и очищает поле', async () => {
+    mockFetch(chatRoutes());
+    renderWithQuery(<ChatPanel />);
+    expect(screen.queryByRole('button', { name: 'Очистить поле' })).not.toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'Сообщить наставнику' }));
+    expect(screen.getByRole('button', { name: 'Отправить' })).toBeDisabled();
+    await userEvent.click(screen.getByRole('button', { name: 'Очистить поле' }));
+    expect(input()).toHaveValue('');
+    expect(input()).toHaveFocus();
+    expect(screen.queryByRole('button', { name: 'Очистить поле' })).not.toBeInTheDocument();
+  });
+
+  it('isBarePrefix: только заготовка, с пробелами или без', () => {
+    expect(isBarePrefix(PROBLEM_PREFIX)).toBe(true);
+    expect(isBarePrefix('Передай наставнику:')).toBe(true);
+    expect(isBarePrefix(`${PROBLEM_PREFIX}VPN`)).toBe(false);
+    expect(isBarePrefix('')).toBe(false);
   });
 });

@@ -17,6 +17,8 @@ type Config struct {
 	CORSOrigins     []string
 	StateFile       string // путь к снимку состояния; пусто — только в памяти
 	RateLimitPerMin int    // вопросов в минуту на пользователя; 0 — без ограничения
+	DemoMode        bool   // DEMO_MODE=true: доступен POST /api/v1/demo/reset
+	TZName          string // TZ_NAME: часовой пояс «сегодня» (по умолчанию Europe/Moscow)
 }
 
 func Load() Config {
@@ -34,6 +36,8 @@ func Load() Config {
 		CORSOrigins:     splitList(os.Getenv("CORS_ORIGINS")),
 		StateFile:       os.Getenv("STATE_FILE"),
 		RateLimitPerMin: getint("RATE_LIMIT_PER_MIN", 60),
+		DemoMode:        os.Getenv("DEMO_MODE") == "true",
+		TZName:          getenv("TZ_NAME", "Europe/Moscow"),
 	}
 }
 

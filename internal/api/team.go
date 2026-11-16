@@ -2,6 +2,7 @@ package api
 
 import (
 	"net/http"
+	"unicode/utf8"
 
 	"github.com/go-chi/chi/v5"
 
@@ -76,17 +77,54 @@ func (h *Handlers) TeamSignals(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, h.Store.Signals(u.TeamID))
 }
 
-// ResolveSignal — наставник отмечает сообщение разобранным.
+type resolveReq struct {
+	Reply string `json:"reply"`
+}
+
+// ResolveSignal — наставник отмечает сообщение разобранным и (необязательно) отвечает стажёру:
+// тело {"reply": "..."} не длиннее 500 символов; пустое тело тоже допустимо. Ответ виден стажёру в GET /signals/me.
 func (h *Handlers) ResolveSignal(w http.ResponseWriter, r *http.Request) {
 	u, ok := h.teamUser(w, r)
 	if !ok {
 		return
 	}
-	if !h.Store.ResolveSignal(u.TeamID, chi.URLParam(r, "id")) {
+	var body resolveReq
+	if err := decodeOptional(r, &body); err != nil {
+		badBody(w, err)
+		return
+	}
+	if utf8.RuneCountInString(body.Reply) > store.MaxSignalReplyLen {
+		writeError(w, http.StatusBadRequest, "bad_request", "reply too long (max 500 chars)")
+		return
+	}
+	by := u.Name
+	if by == "" {
+		by = u.ID
+	}
+	sig, found := h.Store.ResolveSignalWithReply(u.TeamID, chi.URLParam(r, "id"), by, body.Reply)
+	if !found {
 		writeError(w, http.StatusNotFound, "not_found", "signal not found")
 		return
 	}
-	writeJSON(w, http.StatusOK, map[string]bool{"ok": true})
+	h.Store.RequestSave()
+	if sig.Reply != "" {
+		h.Metrics.Inc("buddy_signal_replies_total", "Ответы наставника на сообщения стажёров")
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"ok": true, "signal": sig})
+}
+
+// MySignals — GET /signals/me: свои сообщения наставнику (новые сверху) с ответами наставника.
+func (h *Handlers) MySignals(w http.ResponseWriter, r *http.Request) {
+	u, ok := auth.FromCtx(r.Context())
+	if !ok {
+		writeError(w, http.StatusUnauthorized, "unauthorized", "no user")
+		return
+	}
+	if u.Role != auth.RoleIntern {
+		writeError(w, http.StatusForbidden, "forbidden", "only interns have own signals")
+		return
+	}
+	writeJSON(w, http.StatusOK, h.Store.SignalsOf(u.ID))
 }
 
 type teamSummary struct {

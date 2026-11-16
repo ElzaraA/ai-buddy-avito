@@ -117,6 +117,6 @@ export const useChatStore = create<ChatState>((set) => {
       }),
     resolve: (id, response) => settle(id, { kind: 'done', response }),
     fail: (id, error) => settle(id, { kind: 'failed', error }),
-    reset: () => set({ sessionId: null, messages: [], early: {} }),
+    reset: () => set({ sessionId: null, messages: [], early: {}, composer: null, queued: null }),
   };
 });

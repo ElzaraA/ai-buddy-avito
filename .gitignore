@@ -1,4 +1,5 @@
 .env
 body.json
 *.exe
-bin/coverage/coverage
+bin/
+coverage/coverage

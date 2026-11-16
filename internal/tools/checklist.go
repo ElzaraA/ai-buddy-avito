@@ -3,6 +3,7 @@ package tools
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"github.com/ElzaraA/ai-buddy-avito/internal/auth"
 	"github.com/ElzaraA/ai-buddy-avito/internal/store"
@@ -45,6 +46,14 @@ func stepHowTo(it store.ChecklistItem) string {
 	switch {
 	case it.Status == store.StepWaiting:
 		return "Заявка уже отправлена и ждёт руководителя. Шаг закроется сам после согласования — ничего делать не нужно."
+	case it.Kind == store.ActionAccess && len(it.Missing) > 0 && len(it.Missing) < len(store.AccessSystems):
+		// Шаг выполнен частично: называем, каких систем ещё не хватает.
+		names := make([]string, 0, len(it.Missing))
+		for _, m := range it.Missing {
+			names = append(names, store.AccessSystemTitle(m))
+		}
+		return "Осталось запросить доступ: " + strings.Join(names, ", ") + ". Напишите здесь, например «Запроси доступ в " +
+			names[0] + "». Шаг закроется, когда руководитель одобрит доступы ко всем системам (Git, Jira, Grafana)."
 	case it.Kind == store.ActionAccess:
 		return "Напишите здесь, к какой системе нужен доступ, например «Запроси доступ в GitLab». Помощник заполнит заявку, вы нажмёте «Отправить»."
 	default:
