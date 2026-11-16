@@ -11,7 +11,9 @@ import (
 	"github.com/ElzaraA/ai-buddy-avito/internal/agent"
 	"github.com/ElzaraA/ai-buddy-avito/internal/auth"
 	"github.com/ElzaraA/ai-buddy-avito/internal/metrics"
+	"github.com/ElzaraA/ai-buddy-avito/internal/rag"
 	"github.com/ElzaraA/ai-buddy-avito/internal/store"
+	"github.com/ElzaraA/ai-buddy-avito/internal/tasks"
 	"github.com/go-chi/chi/v5"
 )
 
@@ -33,6 +35,10 @@ type Handlers struct {
 	// DemoMode — DEMO_MODE=true: доступен POST /api/v1/demo/reset. LLMMock — отвечает mock-модель.
 	DemoMode bool
 	LLMMock  bool
+	// Tasks — задачи адаптации и рекомендации (nil — каталог не загружен, API отвечает 503).
+	Tasks *tasks.Service
+	// Knowledge — просмотр базы знаний с теми же правами, что у поиска (nil — 503).
+	Knowledge *rag.Library
 }
 
 type askReq struct {

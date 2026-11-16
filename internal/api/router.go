@@ -73,6 +73,17 @@ func NewRouterWithOrigins(h *Handlers, origins []string) *chi.Mux {
 			r.Get("/team/signals", h.TeamSignals)
 			r.With(wl).Post("/team/signals/{id}/resolve", h.ResolveSignal)
 			r.Get("/team/pulse", h.TeamPulse)
+			r.Get("/team/interns/{id}", h.TeamIntern)
+
+			// задачи адаптации и рекомендации следующей задачи (internal/recsys)
+			r.Get("/tasks", h.ListTasks)
+			r.Get("/tasks/{id}", h.GetTask)
+			r.With(wl).Post("/tasks/{id}/{op}", h.MoveTask)
+			r.Get("/recommendations", h.Recommendations)
+
+			// база знаний: список, поиск и статья — только видимые роли и команде разделы
+			r.Get("/knowledge", h.ListKnowledge)
+			r.Get("/knowledge/{id}", h.GetKnowledge)
 			// Свои сообщения наставнику и ответы на них (стажёр)
 			r.Get("/signals/me", h.MySignals)
 
@@ -87,6 +98,7 @@ func NewRouterWithOrigins(h *Handlers, origins []string) *chi.Mux {
 
 			if h.Chat != nil {
 				r.With(h.WriteLimiter.Middleware).Post("/chat/sessions", h.Chat.CreateSession)
+				r.Get("/chat/sessions", h.ListSessions)
 				r.Get("/chat/sessions/{id}/messages", h.Chat.ListMessages)
 				r.With(h.Limiter.Middleware).Post("/chat/sessions/{id}/messages", h.Chat.SendMessage)
 				r.Get("/chat/sessions/{id}/events", h.Chat.Events)

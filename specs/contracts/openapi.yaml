@@ -56,6 +56,12 @@ paths:
         '404': { $ref: '#/components/responses/Error' }
 
   /chat/sessions:
+    get:
+      summary: История своих диалогов с Бадди (с хотя бы одним сообщением), новые первыми
+      responses:
+        '200':
+          description: OK
+          content: { application/json: { schema: { type: array, items: { $ref: '#/components/schemas/SessionSummary' } } } }
     post:
       summary: Создать диалог
       responses:
@@ -411,6 +417,103 @@ paths:
         '204': { description: OK }
         '400': { $ref: '#/components/responses/Error' }
 
+  /tasks:
+    get:
+      summary: Задачи адаптации своей команды; у стажёра — с его статусами
+      parameters:
+        - { name: status, in: query, required: false, schema: { type: string, enum: [todo, in_progress, done, skipped] } }
+      responses:
+        '200':
+          description: OK
+          content: { application/json: { schema: { type: array, items: { $ref: '#/components/schemas/TaskView' } } } }
+        '400': { $ref: '#/components/responses/Error' }
+        '503': { $ref: '#/components/responses/Error' }
+
+  /tasks/{id}:
+    parameters:
+      - { name: id, in: path, required: true, schema: { type: string, example: be-02 } }
+    get:
+      summary: Задача своей команды (чужая — 404)
+      responses:
+        '200': { description: OK, content: { application/json: { schema: { $ref: '#/components/schemas/TaskView' } } } }
+        '404': { $ref: '#/components/responses/Error' }
+
+  /tasks/{id}/{op}:
+    parameters:
+      - { name: id, in: path, required: true, schema: { type: string } }
+      - { name: op, in: path, required: true, schema: { type: string, enum: [start, complete, skip, reopen] } }
+    post:
+      summary: |
+        Сменить статус задачи (только стажёр, только своей команды). start — взять в работу (не больше 3 одновременно),
+        complete — сделано (из «в работе»), skip — отложить, reopen — вернуть отложенную.
+      responses:
+        '200': { description: OK, content: { application/json: { schema: { $ref: '#/components/schemas/TaskView' } } } }
+        '403': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+        '409': { $ref: '#/components/responses/Error' }
+
+  /recommendations:
+    get:
+      summary: |
+        Рекомендованные следующие задачи стажёра. Модель — логистическая регрессия (ml/recsys), веса data/recsys/model.json;
+        без весов — прозрачное правило, source=rule_based. Только для стажёра (403 для наставника и руководителя).
+      parameters:
+        - { name: limit, in: query, required: false, schema: { type: integer, minimum: 1, maximum: 10, default: 3 } }
+      responses:
+        '200': { description: OK, content: { application/json: { schema: { $ref: '#/components/schemas/Recommendations' } } } }
+        '400': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+
+  /knowledge:
+    get:
+      summary: |
+        Статьи базы знаний, в которых пользователю виден хотя бы один раздел (роль и команда — как у поиска Бадди).
+        С параметром q — поиск по разделам: { query, hits[] }.
+      parameters:
+        - { name: q, in: query, required: false, schema: { type: string, maxLength: 300 } }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  documents: { type: array, items: { $ref: '#/components/schemas/KnowledgeDoc' } }
+                  query: { type: string }
+                  hits:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        doc_id: { type: string }
+                        title: { type: string }
+                        section: { type: string }
+                        snippet: { type: string }
+                        score: { type: number }
+        '400': { $ref: '#/components/responses/Error' }
+
+  /knowledge/{id}:
+    parameters:
+      - { name: id, in: path, required: true, schema: { type: string, example: tools.md } }
+    get:
+      summary: Статья с видимыми пользователю разделами (закрытая или чужой команды — 404)
+      responses:
+        '200': { description: OK, content: { application/json: { schema: { $ref: '#/components/schemas/KnowledgeDoc' } } } }
+        '404': { $ref: '#/components/responses/Error' }
+
+  /team/interns/{id}:
+    parameters:
+      - { name: id, in: path, required: true, schema: { type: string, example: intern-1 } }
+    get:
+      summary: |
+        Карточка стажёра своей команды для наставника и руководителя: прогресс, «Пульс», заявки (без черновиков),
+        обращения и задачи с рекомендациями. Стажёр другой команды — 404, роль стажёра — 403.
+      responses:
+        '200': { description: OK, content: { application/json: { schema: { type: object } } } }
+        '403': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+
   /team/summary:
     get:
       summary: Сводка метрик пользы по команде
@@ -547,6 +650,60 @@ components:
       content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } }
 
   schemas:
+    TaskView:
+      type: object
+      properties:
+        id: { type: string, example: be-02 }
+        team: { type: string }
+        title: { type: string }
+        summary: { type: string }
+        steps: { type: array, items: { type: string } }
+        definition_of_done: { type: string }
+        difficulty: { type: integer, minimum: 1, maximum: 5 }
+        tags: { type: array, items: { type: string } }
+        popularity: { type: integer }
+        estimate_hours: { type: integer }
+        knowledge: { type: string, example: code-review.md }
+        status: { type: string, enum: [todo, in_progress, done, skipped] }
+        started_at: { type: string, format: date-time }
+        done_at: { type: string, format: date-time }
+    Recommendations:
+      type: object
+      properties:
+        source: { type: string, enum: [model, rule_based] }
+        model: { type: string, example: logreg-v1 }
+        items:
+          type: array
+          items:
+            allOf:
+              - { $ref: '#/components/schemas/TaskView' }
+              - type: object
+                properties:
+                  score: { type: number, example: 0.71 }
+                  reasons: { type: array, items: { type: string } }
+    KnowledgeDoc:
+      type: object
+      properties:
+        id: { type: string, example: tools.md }
+        title: { type: string }
+        stages: { type: array, items: { type: string } }
+        disclaimer: { type: string }
+        sections:
+          type: array
+          items:
+            type: object
+            properties:
+              title: { type: string }
+              stage: { type: string }
+              text: { type: string }
+    SessionSummary:
+      type: object
+      properties:
+        id: { type: string }
+        created_at: { type: string, format: date-time }
+        last_at: { type: string, format: date-time }
+        first_question: { type: string }
+        messages: { type: integer }
     Occurrence:
       type: object
       properties:

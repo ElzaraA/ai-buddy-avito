@@ -57,6 +57,10 @@ var specs = map[string]Spec{
 			"kind": map[string]any{"type": "string", "enum": []string{"standup", "one_on_one", "planning", "retro"}, "description": "только встречи одного вида"},
 		}),
 	},
+	"tasks_recommend": {
+		Description: "Подобрать стажёру следующие задачи адаптации моделью рекомендаций (с объяснением)",
+		InputSchema: object(nil, map[string]any{}),
+	},
 	"schedule_add": {
 		Description: "Добавить личный созвон в расписание пользователя; Бадди напомнит о нём в чате",
 		InputSchema: object(nil, map[string]any{

@@ -1,0 +1,52 @@
+{
+  "trained_at": "2026-11-16T00:25:39Z",
+  "seed": 42,
+  "C": 1.0,
+  "feature_names": [
+    "tag_overlap_count",
+    "tag_overlap_ratio",
+    "avg_competency_level",
+    "max_competency_level",
+    "track_match",
+    "task_difficulty",
+    "skill_gap",
+    "difficulty_penalty",
+    "task_popularity",
+    "intern_prior_pos",
+    "intern_prior_neg"
+  ],
+  "n_train": 4189,
+  "n_val": 919,
+  "n_test": 892,
+  "sklearn_version": "1.9.1",
+  "source_baseline": "internal/api/sprint12.go:scoreTaskAgainst",
+  "dataset_meta": {
+    "generated_at": "2026-11-15T23:56:03Z",
+    "seed": 42,
+    "synthetic": true,
+    "size": {
+      "interns": 60,
+      "tasks": 50,
+      "interactions": 6000
+    },
+    "schema_ref": "internal/store/entities.go (InternProfile, Task, Interaction)"
+  },
+  "notes": "Synthetic dataset. Метрики отражают поведение модели на синтетике, не на реальных данных Avito.",
+  "n_interns_total": 60,
+  "n_interns_train": 42,
+  "n_interns_val": 9,
+  "n_interns_test": 9,
+  "n_features": 11,
+  "models": {
+    "logistic_regression": {
+      "artifact": "internal/recsys (Go-native, no .cbm)",
+      "role": "production",
+      "reason": "Go-native inference already implemented and tested; CatBoost gain on synthetic 60-intern data is 0.005 NDCG@5 (within noise); CatBoost JSON tree inference in Go is substantial engineering work not justified for this gain."
+    },
+    "catboost_classifier": {
+      "artifact": "C:\\Users\\peace\\CodeGPT\\effectivnost-360\\avito-buddy\\work clone\\ml\\recsys\\artifacts\\recsys_cb.cbm",
+      "role": "experimental_best",
+      "reason": "Highest NDCG@5 in v2 experiment (0.6266 vs LR 0.6212); ready to deploy when Go-native tree inference is implemented or when real data warrants the upgrade."
+    }
+  }
+}

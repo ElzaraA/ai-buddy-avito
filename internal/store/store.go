@@ -95,9 +95,11 @@ type Store struct {
 	userStats    map[string]*UserStats           // user → личные счётчики (вопросы Бадди)
 	meetings     map[string]Meeting              // личные созвоны (встречи команды считаются по правилам)
 	reminderAcks map[string]map[string]time.Time // user → напоминания о встречах, которые уже показаны
-	version      atomic.Int64                    // растёт при каждом изменении (для сохранения на диск)
-	now          func() time.Time
-	saveNow      chan struct{} // сигнал Persister'у «сохранить сейчас» (буфер 1)
+	// tasks — статусы задач адаптации: user → task → состояние
+	tasks   map[string]map[string]TaskState
+	version atomic.Int64 // растёт при каждом изменении (для сохранения на диск)
+	now     func() time.Time
+	saveNow chan struct{} // сигнал Persister'у «сохранить сейчас» (буфер 1)
 }
 
 func New() *Store {
@@ -112,6 +114,7 @@ func New() *Store {
 		userStats:    map[string]*UserStats{},
 		meetings:     map[string]Meeting{},
 		reminderAcks: map[string]map[string]time.Time{},
+		tasks:        map[string]map[string]TaskState{},
 		now:          Now,
 		saveNow:      make(chan struct{}, 1),
 	}

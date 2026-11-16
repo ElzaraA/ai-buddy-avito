@@ -24,6 +24,7 @@ type snapshot struct {
 	UserStats map[string]*UserStats           `json:"user_stats,omitempty"`
 	Meetings  map[string]Meeting              `json:"meetings,omitempty"`
 	Reminders map[string]map[string]time.Time `json:"reminder_acks,omitempty"`
+	Tasks     map[string]map[string]TaskState `json:"tasks,omitempty"`
 	Sessions  map[string]Session              `json:"sessions"`
 	Messages  map[string]Message              `json:"messages"`
 	BySess    map[string][]string             `json:"by_session"`
@@ -82,6 +83,9 @@ func (p *Persister) Load() error {
 	if snap.Reminders != nil {
 		s.reminderAcks = snap.Reminders
 	}
+	if snap.Tasks != nil {
+		s.tasks = snap.Tasks
+	}
 	if snap.Pulse != nil {
 		s.pulse = snap.Pulse
 	}
@@ -128,7 +132,7 @@ func (p *Persister) Save() error {
 		V: snapshotVersion, SavedAt: time.Now(),
 		Actions: s.absences, Checklist: s.checklist, Seq: s.seq, Gaps: s.gaps, Signals: s.signals,
 		Pulse: s.pulse, TeamStats: s.teamStats, UserStats: s.userStats,
-		Meetings: s.meetings, Reminders: s.reminderAcks,
+		Meetings: s.meetings, Reminders: s.reminderAcks, Tasks: s.tasks,
 		Sessions: m.sessions, Messages: m.messages, BySess: m.bySess,
 	})
 	m.mu.RUnlock()
