@@ -1,0 +1,310 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>AI-buddy — презентация</title>
+<!-- Сборка PDF: msedge --headless=new --no-pdf-header-footer --print-to-pdf=docs/presentation.pdf docs/presentation/index.html -->
+<style>
+  @page { size: 1920px 1080px; margin: 0; }
+  :root {
+    --ink: #1d1b26; --muted: #5d5a6b; --soft: #8a8698;
+    --green: #dcefc9; --blue: #c5e6ef; --pink: #f6cbe3; --peach: #fde0c4; --lilac: #e3dcf7;
+    --risk: #c0392b; --card: #ffffff;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { background: #fbefe2; }
+  body {
+    font-family: "Golos Text", "Segoe UI", Inter, system-ui, -apple-system, sans-serif;
+    color: var(--ink); -webkit-print-color-adjust: exact; print-color-adjust: exact;
+  }
+  .slide {
+    width: 1920px; height: 1080px; position: relative; overflow: hidden;
+    page-break-after: always; break-after: page;
+    background: linear-gradient(135deg, #fdf3df 0%, #fbe6dc 48%, #f8dde6 100%);
+    padding: 72px 96px 64px;
+    display: flex; flex-direction: column;
+  }
+  .slide:last-child { page-break-after: auto; break-after: auto; }
+  .kicker { display: inline-flex; align-items: center; gap: 12px; font-size: 22px; font-weight: 600; color: var(--muted); letter-spacing: .04em; text-transform: uppercase; }
+  .kicker .num { background: var(--ink); color: #fff; border-radius: 999px; padding: 4px 14px; font-size: 18px; }
+  h1 { font-size: 64px; line-height: 1.08; font-weight: 800; letter-spacing: -.01em; margin-top: 18px; }
+  h2 { font-size: 30px; font-weight: 700; margin-bottom: 14px; }
+  .lead { font-size: 30px; color: var(--muted); margin-top: 14px; line-height: 1.35; max-width: 1500px; }
+  .body { flex: 1; margin-top: 44px; display: flex; gap: 32px; min-height: 0; }
+  .card { background: rgba(255,255,255,.88); border-radius: 32px; padding: 34px 38px; box-shadow: 0 10px 40px rgba(120,80,60,.08); }
+  .card p, .card li { font-size: 24px; line-height: 1.42; color: #2c2a36; }
+  .card ul { list-style: none; }
+  .card li { padding-left: 30px; position: relative; margin: 8px 0; }
+  .card li::before { content: ""; position: absolute; left: 4px; top: 13px; width: 12px; height: 12px; border-radius: 50%; background: #f0a37d; }
+  .g { background: var(--green); } .b { background: var(--blue); } .p { background: var(--pink); } .o { background: var(--peach); } .l { background: var(--lilac); }
+  .tag { display: inline-block; font-size: 17px; font-weight: 700; padding: 5px 14px; border-radius: 999px; background: rgba(255,255,255,.9); color: var(--muted); }
+  .tag.h { background: #fff3c4; color: #7a5a00; }
+  .foot { position: absolute; left: 96px; right: 96px; bottom: 26px; display: flex; justify-content: space-between; font-size: 17px; color: var(--soft); }
+  .shot { border-radius: 24px; box-shadow: 0 16px 50px rgba(90,60,40,.18); display: block; }
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 28px; }
+  .grid3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 28px; }
+  .grid4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 24px; }
+  .big { font-size: 64px; font-weight: 800; line-height: 1; }
+  .small { font-size: 19px !important; color: var(--muted) !important; }
+  code { font-family: Consolas, "Cascadia Mono", monospace; font-size: .88em; background: rgba(29,27,38,.07); padding: 1px 8px; border-radius: 8px; }
+  table { border-collapse: separate; border-spacing: 0; width: 100%; font-size: 22px; }
+  th, td { text-align: left; padding: 14px 18px; vertical-align: top; line-height: 1.35; }
+  th { font-size: 18px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); border-bottom: 2px solid #ecdcd0; }
+  td { border-bottom: 1px solid #f0e4da; }
+  tr:last-child td { border-bottom: none; }
+  .yes { color: #2e7d4f; font-weight: 700; } .no { color: #a0566a; }
+  .flow { display: flex; align-items: stretch; gap: 0; }
+  .flow .step { flex: 1; border-radius: 26px; padding: 26px 26px; }
+  .flow .arrow { width: 56px; display: flex; align-items: center; justify-content: center; font-size: 40px; color: #c98a6a; }
+  .step h3 { font-size: 26px; margin: 10px 0 8px; }
+  .step p { font-size: 21px; line-height: 1.38; color: #34313f; }
+  .box { border-radius: 22px; padding: 18px 22px; font-size: 22px; font-weight: 600; text-align: center; }
+  .tight { gap: 14px !important; }
+  .tight .card { padding: 16px 26px !important; }
+  .tight .card p { font-size: 20px; line-height: 1.36; }
+  .tight .card h2 { font-size: 23px !important; }
+  .note { font-size: 19px; color: var(--muted); margin-top: 16px; }
+</style>
+</head>
+<body>
+
+<!-- 1. Титул -->
+<section class="slide" style="padding-top:88px">
+  <div class="kicker">Hack&amp;Change 2026 · кейс Авито «AI-buddy: ИИ-наставник для стажёров»</div>
+  <div style="display:flex; gap:56px; margin-top:40px; flex:1">
+    <div style="flex:1.05; display:flex; flex-direction:column">
+      <div style="display:flex; align-items:center; gap:28px">
+        <div style="width:132px;height:132px;border-radius:36px;background:linear-gradient(135deg,var(--green),var(--blue));display:flex;align-items:center;justify-content:center;font-size:64px;font-weight:800;box-shadow:0 10px 30px rgba(0,0,0,.08)">ai</div>
+        <div><div style="font-size:92px;font-weight:800;line-height:1">Бадди</div><div style="font-size:30px;color:var(--muted);margin-top:8px">AI-buddy — помощник стажёра</div></div>
+      </div>
+      <h1 style="font-size:58px; margin-top:52px">ИИ-наставник, который закрывает рутину стажёра и первым замечает тех, кто застрял</h1>
+      <div class="card" style="margin-top:auto; padding:28px 34px">
+        <p><b>Демо:</b> ai-buddy-avito-demo.netlify.app</p>
+        <p><b>Код:</b> github.com/ElzaraA/ai-buddy-avito</p>
+        <p><b>Сценарий показа:</b> specs/jury-scenarios.md</p>
+        <p><b>Видео:</b> <span style="color:var(--soft)">ссылка будет добавлена</span></p>
+      </div>
+    </div>
+    <div style="flex:1; display:flex; align-items:center">
+      <img class="shot" src="img/desk.png" style="width:100%" alt="Рабочий стол стажёра">
+    </div>
+  </div>
+  <div class="foot"><span>Прототип на синтетических данных. Инструкции тестовые и не являются регламентами Авито.</span><span>1 / 11</span></div>
+</section>
+
+<!-- 2. Проблема -->
+<section class="slide">
+  <div class="kicker"><span class="num">2</span> Проблема</div>
+  <h1>Десятки мелких вопросов наставнику — и молчание о самом важном</h1>
+  <div class="body">
+    <div class="card" style="flex:1.25">
+      <h2>День стажёра в первые недели</h2>
+      <div style="display:flex; flex-direction:column; gap:16px; margin-top:10px">
+        <div class="box g" style="text-align:left">9:40 — «Что мне вообще делать?» <span class="small">наставник на встрече</span></div>
+        <div class="box b" style="text-align:left">12:00 — «Кто даёт доступ в GitLab? Что такое MR?»</div>
+        <div class="box o" style="text-align:left">15:10 — «Можно в пятницу взять отгул? Как оформить?»</div>
+        <div class="box p" style="text-align:left">14:20 → 17:20 — проект не запускается, <b>три часа тишины</b>: «неудобно отвлекать»</div>
+      </div>
+      <p class="note">Правила лежат в Confluence. Но новичок не знает, что спросить, не понимает жаргон, стесняется писать и не знает, к кому идти. Наставник узнаёт о проблеме слишком поздно.</p>
+    </div>
+    <div style="flex:.9; display:flex; flex-direction:column; gap:24px">
+      <div class="card o"><span class="tag h">гипотеза</span><div class="big" style="margin-top:14px">10–20</div><p>обращений к наставнику в день на одного стажёра</p></div>
+      <div class="card b"><span class="tag h">допущение</span><div class="big" style="margin-top:14px">≈ 5 мин</div><p>наставника на одно рутинное обращение с переключением контекста</p></div>
+      <div class="card g"><span class="tag h">оценка</span><div class="big" style="margin-top:14px">≈ 50 мин</div><p>времени наставника в день на стажёра (10 × 5 мин)</p></div>
+    </div>
+  </div>
+  <div class="foot"><span>Цифры — оценки команды, интервью не проводились; проверяются в пилоте.</span><span>2 / 11</span></div>
+</section>
+
+<!-- 3. Решение -->
+<section class="slide">
+  <div class="kicker"><span class="num">3</span> Решение</div>
+  <h1>Отвечает. Действует с подтверждения. Замечает людей. Считает пользу.</h1>
+  <div class="body">
+    <img class="shot" src="img/desk.png" style="height:100%; max-height:740px" alt="Рабочий стол">
+    <div class="tight" style="flex:1; display:flex; flex-direction:column; gap:20px">
+      <div class="card g" style="padding:24px 30px"><h2 style="font-size:27px;margin:0 0 6px">Отвечает по базе — со ссылкой</h2><p>«Коротко → Что сделать 1-2-3 → Кого спросить», словарь жаргона. Нет фрагмента базы — честный отказ и имя наставника.</p></div>
+      <div class="card b" style="padding:24px 30px"><h2 style="font-size:27px;margin:0 0 6px">Готовит заявки, но не отправляет сам</h2><p>Отгул и доступы — черновик → «Отправить заявку» → согласование руководителя. Шаг плана закрывается по факту.</p></div>
+      <div class="card p" style="padding:24px 30px"><h2 style="font-size:27px;margin:0 0 6px">Замечает тех, кто застрял</h2><p>«Как вы сегодня?», правило 15–20 минут, «Сообщить наставнику» в один клик. Наставник отвечает — стажёр видит «наставник ответил».</p></div>
+      <div class="card o" style="padding:24px 30px"><h2 style="font-size:27px;margin:0 0 6px">Показывает пользу и пробелы</h2><p>Оценка сэкономленных минут с открытой формулой и список «Чего нет в базе знаний».</p></div>
+    </div>
+  </div>
+  <div class="foot"><span>Скриншот: живой стенд ai-buddy-avito-demo.netlify.app, роль «Стажёр Backend».</span><span>3 / 11</span></div>
+</section>
+
+<!-- 4. Демо -->
+<section class="slide">
+  <div class="kicker"><span class="num">4</span> Демо-маршрут · ≈ 7 минут</div>
+  <h1>Первый день → жаргон → тот, кто молчит → польза для руководителя</h1>
+  <div class="body">
+    <div class="tight" style="flex:1; display:flex; flex-direction:column; gap:18px">
+      <div class="card g" style="padding:22px 28px"><span class="tag">Сценарий 1 · стажёр → руководитель</span><p style="margin-top:8px">«помоги» → меню; «Запроси доступ в GitLab» → черновик → «Отправить заявку». Руководитель согласует — у стажёра сам закрывается шаг плана (когда выданы GitLab, Jira и Grafana), прогресс растёт.</p></div>
+      <div class="card b" style="padding:22px 28px"><span class="tag">Сценарий 2 · жаргон и правила</span><p style="margin-top:8px">«что такое MR?» — словарь + как принято в команде; «можно в пт не прийти» — черновик отгула на дату; «сколько платят?» — честный отказ.</p></div>
+      <div class="card p" style="padding:22px 28px"><span class="tag">Сценарий 3 · тот, кто молчит</span><p style="margin-top:8px">«Тяжело» в пульсе, «не запускается проект» → правило 15–20 минут → сигнал наставнику. Наставник видит «нужно внимание», жмёт «Ответить и закрыть».</p></div>
+      <div class="card o" style="padding:22px 28px"><span class="tag">Сценарий 4 · руководитель</span><p style="margin-top:8px">Оценка сэкономленных минут, очередь согласований, пробелы базы. Перед показом — кнопка «Сбросить демо».</p></div>
+    </div>
+    <img class="shot" src="img/chat.png" style="height:100%; max-height:740px" alt="Ответ на вопрос о код-ревью">
+  </div>
+  <div class="foot"><span>Справа: ответ на «Как у нас устроено код-ревью?» — коротко, шаги, кого спросить, термины, источники.</span><span>4 / 11</span></div>
+</section>
+
+<!-- 5. Отличия -->
+<section class="slide">
+  <div class="kicker"><span class="num">5</span> Чем отличаемся</div>
+  <h1>Не чат-бот по базе, а наставник, который ведёт и замечает</h1>
+  <div class="body">
+    <div class="card" style="flex:1; padding:28px 40px">
+      <table>
+        <tr><th style="width:30%">Что</th><th style="width:30%">Обычный бот по базе</th><th>Бадди</th></tr>
+        <tr><td><b>Разговорные формулировки</b></td><td class="no">ищет по словам: «пт не прийти» не находит</td><td>синонимы, сленг, сокращения дней, словарь жаргона (MR, CI, апрув, 1:1). В демо — <b>детерминированные правила</b>, с LLM — понимание модели</td></tr>
+        <tr><td><b>Формат ответа</b></td><td class="no">кусок документа</td><td>«Коротко → Что сделать → Кого спросить» + «Источник: файл.md» + кнопки следующего шага</td></tr>
+        <tr><td><b>Действия</b></td><td class="no">ссылка на форму</td><td>сам заполняет черновик заявки; отправляет только человек, согласует руководитель</td></tr>
+        <tr><td><b>Люди</b></td><td class="no">не видит, кто застрял</td><td>«Пульс», сигналы «застрял», «нужно внимание» у наставника, ответ наставника виден стажёру</td></tr>
+        <tr><td><b>Польза</b></td><td class="no">не считается</td><td>оценка минут наставника с открытой формулой + пробелы базы знаний</td></tr>
+      </table>
+    </div>
+  </div>
+  <div class="foot"><span>Бадди не заменяет наставника: эмоции, сложные проблемы и всё, чего нет в базе, он отдаёт человеку.</span><span>5 / 11</span></div>
+</section>
+
+<!-- 6. Безопасность -->
+<section class="slide">
+  <div class="kicker"><span class="num">6</span> Безопасность и приватность</div>
+  <h1>Ни одного действия без человека, ни одного ответа без источника</h1>
+  <div class="flow" style="margin-top:40px">
+    <div class="step g"><span class="tag">1 · Бадди</span><h3>Черновик</h3><p>«Пока вы не нажали, заявка никуда не уходит». Даже вызов инструмента от LLM или внешнего агента по MCP даёт только черновик.</p></div>
+    <div class="arrow">→</div>
+    <div class="step b"><span class="tag">2 · Стажёр</span><h3>«Отправить заявку»</h3><p>Подтверждает только владелец; повторно — 409, чужую — 403; 30 параллельных подтверждений → ровно одно.</p></div>
+    <div class="arrow">→</div>
+    <div class="step o"><span class="tag">3 · Руководитель</span><h3>Согласование</h3><p>Только руководитель своей команды; история: кто, когда, с каким комментарием.</p></div>
+  </div>
+  <div class="grid4" style="margin-top:30px">
+    <div class="card" style="padding:24px 28px"><h2 style="font-size:24px">Нет источника — нет ответа</h2><p style="font-size:20px">Инвариант в коде агента: текст без найденного фрагмента базы превращается в отказ. Это не гарантия, что каждый ответ верен, — но выдуманный ответ без источника не пройдёт.</p></div>
+    <div class="card" style="padding:24px 28px"><h2 style="font-size:24px">Роли и команды</h2><p style="font-size:20px">RBAC в каждом инструменте и API: чужие заявки, шаги и диалоги — 403; фрагменты базы deny-by-default по команде и аудитории.</p></div>
+    <div class="card" style="padding:24px 28px"><h2 style="font-size:24px">Персональные данные</h2><p style="font-size:20px">Вопросы без ответа — без автора; e-mail, телефоны, номера маскируются до сохранения; тела запросов в логи не пишутся.</p></div>
+    <div class="card" style="padding:24px 28px"><h2 style="font-size:24px">Prompt-injection</h2><p style="font-size:20px">Три слоя: фильтр по списку фраз («игнорируй инструкции»…) → отказ; права проверяются в коде; любое действие — только с подтверждения.</p></div>
+  </div>
+  <div class="foot"><span>Инварианты описаны в specs/agent/spec.md, связь «инвариант → тест» — specs/traceability.md.</span><span>6 / 11</span></div>
+</section>
+
+<!-- 7. Ценность и метрики -->
+<section class="slide">
+  <div class="kicker"><span class="num">7</span> Ценность и метрики пилота</div>
+  <h1>Польза в минутах — с открытой и честной формулой</h1>
+  <div class="body">
+    <div style="flex:1; display:flex; flex-direction:column; gap:22px">
+      <img class="shot" src="img/mentor.png" style="width:100%; max-height:450px; object-fit:cover; object-position:top" alt="Кабинет наставника">
+      <div class="card g" style="padding:22px 28px">
+        <p><b>«Бадди сэкономил наставнику ≈ N мин» — оценка, не замер.</b> Считаются только ответы со ссылкой на источник, ответы из словаря и подтверждённые стажёром действия × 5 мин (допущение). Отказы, «помоги» и сигналы наставнику в экономию не входят.</p>
+      </div>
+    </div>
+    <div class="card" style="flex:1; padding:26px 34px">
+      <h2>Цели пилота <span class="tag h" style="vertical-align:middle">все — гипотезы</span></h2>
+      <table style="font-size:21px">
+        <tr><th>Метрика</th><th>Цель</th></tr>
+        <tr><td>Доля вопросов, закрытых без наставника</td><td><b>≥ 60%</b></td></tr>
+        <tr><td>Рутинные обращения к наставнику (опрос + контрольная команда)</td><td><b>−50%</b> за 2 нед.</td></tr>
+        <tr><td>Время до получения доступов</td><td><b>≤ 1</b> раб. дня</td></tr>
+        <tr><td>Реакция наставника на сигнал «застрял»</td><td><b>≤ 4</b> раб. часа</td></tr>
+        <tr><td>Охват «Пульса»</td><td><b>≥ 70%</b> раб. дней</td></tr>
+        <tr><td>Повторяющиеся пробелы базы к 4-й неделе</td><td><b>−50%</b></td></tr>
+      </table>
+      <p class="note">Источники: <code>GET /metrics</code> (buddy_*), <code>/api/v1/team/summary</code>, история заявок; удовлетворённость — опрос вне продукта.</p>
+    </div>
+  </div>
+  <div class="foot"><span>Скриншот: кабинет «Наставник Backend» на демо-стенде (данные синтетические).</span><span>7 / 11</span></div>
+</section>
+
+<!-- 8. Архитектура -->
+<section class="slide">
+  <div class="kicker"><span class="num">8</span> Архитектура</div>
+  <h1>Агент, API и интерфейс уже разделены — имитации заменяются адаптерами</h1>
+  <div class="body" style="flex-direction:column; gap:26px">
+    <div class="flow">
+      <div class="step l"><span class="tag">Интерфейс</span><h3>React 18 + TanStack Query</h3><p>рабочий стол, чат (202 + SSE), план, заявки, кабинет команды</p></div>
+      <div class="arrow">→</div>
+      <div class="step b"><span class="tag">API · Go (chi)</span><h3>RBAC, rate limit, CSRF</h3><p>чат, действия, чек-лист, команда, <code>POST /mcp</code> для внешних агентов</p></div>
+      <div class="arrow">→</div>
+      <div class="step g"><span class="tag">Agent</span><h3>RAG (BM25) + LLM</h3><p>правила понимания → поиск → LLM или mock → инварианты</p></div>
+      <div class="arrow">→</div>
+      <div class="step o"><span class="tag">Tools</span><h3>5 инструментов</h3><p>чек-лист, правила отгула, владелец; отгул и доступ — только через черновик</p></div>
+      <div class="arrow">→</div>
+      <div class="step p"><span class="tag">Системы</span><h3>HR / IDM / Store</h3><p>в прототипе — имитации и память со снимком на диск</p></div>
+    </div>
+    <div class="grid3">
+      <div class="card"><h2 style="font-size:26px">Проверяемость</h2><ul><li>Go-тесты + golden-набор из 93 фраз</li><li>100 параллельных диалогов без потерь</li><li>CI: gofmt, vet, -race, порог покрытия 80%</li></ul></div>
+      <div class="card"><h2 style="font-size:26px">Покрытие тестами</h2><ul><li>бэкенд (Go): <b>89,6%</b> операторов</li><li>фронтенд (Vitest): <b>99,0%</b> строк</li><li class="small">пересчитано 16.11.2026; Go — 10 пакетов, фронтенд — 129 тестов, отчёты — coverage/ и frontend/coverage-summary.md</li></ul></div>
+      <div class="card"><h2 style="font-size:26px">Устойчивость LLM</h2><ul><li>повторы → резервная модель → понятная ошибка</li><li>ответ помечается <code>degraded</code></li><li>таймауты: прогон 60 с, инструмент 10 с</li></ul></div>
+    </div>
+  </div>
+  <div class="foot"><span>Подробно: README.md, разделы «Архитектура» и «Внедрение в Авито»; контракты — specs/contracts/.</span><span>8 / 11</span></div>
+</section>
+
+<!-- 9. Интеграция -->
+<section class="slide">
+  <div class="kicker"><span class="num">9</span> Как встраивается в Авито — честно</div>
+  <h1>Что работает сейчас и что меняется при внедрении</h1>
+  <div class="body">
+    <div class="card" style="flex:1.45; padding:24px 34px">
+      <table style="font-size:21px">
+        <tr><th>Сейчас в прототипе</th><th>В Авито</th><th>Что меняется</th></tr>
+        <tr><td><b>mock-LLM</b> — детерминированные правила, без ключа и интернета</td><td>LLM во внутреннем контуре</td><td><code>LLM_MOCK=false</code>, <code>LLM_BASE_URL</code>, <code>LLM_API_KEY</code></td></tr>
+        <tr><td>Заголовок <code>X-Demo-User</code></td><td>SSO / JWT</td><td>новый middleware, те же проверки прав</td></tr>
+        <tr><td>Имитации отгулов и доступов</td><td>HR-система, IDM</td><td>адаптеры за интерфейсом <code>tools.Tool</code></td></tr>
+        <tr><td><code>data/knowledge/*.md</code></td><td>Confluence</td><td>выгрузка с полями team и audience</td></tr>
+        <tr><td>Память + JSON-снимок</td><td>PostgreSQL</td><td>новый Store по <b>целевой</b> схеме <code>schema.sql</code> (не реализован)</td></tr>
+      </table>
+    </div>
+    <div style="flex:1; display:flex; flex-direction:column; gap:22px">
+      <div class="card o"><h2 style="font-size:26px">Что показывает демо</h2><p>Стенд работает на mock: понимание фраз — словари и правила в коде, поэтому ответы повторяемы и проверяются тестами. В интерфейсе бейдж показывает режим: <b>mock</b> или <b>LLM</b>.</p></div>
+      <div class="card b"><h2 style="font-size:26px">Что даёт реальная LLM</h2><p>Свободные формулировки и связный ответ по найденным фрагментам. Инварианты (источник, права, черновик) живут в коде агента и не зависят от модели.</p></div>
+      <div class="card g"><h2 style="font-size:26px">MCP</h2><p>Корпоративные агенты вызывают те же 5 инструментов с теми же правами; мутирующие — только черновик.</p></div>
+    </div>
+  </div>
+  <div class="foot"><span>Нагрузку 1000 одновременных пользователей не замеряли — это задача пилота.</span><span>9 / 11</span></div>
+</section>
+
+<!-- 10. Roadmap -->
+<section class="slide">
+  <div class="kicker"><span class="num">10</span> Roadmap</div>
+  <h1>Пилот на одной команде за 2–4 недели</h1>
+  <div class="flow" style="margin-top:56px">
+    <div class="step g"><span class="tag">Неделя 0</span><h3>Подключение</h3><p>SSO вместо X-Demo-User; выгрузка базы знаний команды из Confluence; LLM во внутреннем контуре (mock — резерв).</p></div>
+    <div class="arrow">→</div>
+    <div class="step b"><span class="tag">Недели 1–2</span><h3>Пилот</h3><p>5–10 стажёров, их наставники и руководитель. Адаптеры HR и IDM — после проверки на тестовом контуре. Еженедельный разбор «Чего нет в базе».</p></div>
+    <div class="arrow">→</div>
+    <div class="step o"><span class="tag">Месяц 2</span><h3>Расширение</h3><p>PostgreSQL; эскалация неразобранных сигналов руководителю; метрика времени реакции; эмбеддинги поверх BM25; другие команды.</p></div>
+    <div class="arrow">→</div>
+    <div class="step p"><span class="tag">Дальше</span><h3>Платформа</h3><p>Бадди как MCP-инструмент для корпоративных ассистентов; калибровка допущения «5 минут» опросом наставников.</p></div>
+  </div>
+  <div class="card" style="margin-top:36px">
+    <p><b>Решение по итогам пилота</b> — по метрикам слайда 7: доля закрытых без наставника, скорость доступов, реакция на сигналы, пробелы базы. Сравнение с контрольной командой.</p>
+  </div>
+  <div class="foot"><span>Эскалация сигналов, PostgreSQL и эмбеддинги сейчас не реализованы.</span><span>10 / 11</span></div>
+</section>
+
+<!-- 11. Команда -->
+<section class="slide">
+  <div class="kicker"><span class="num">11</span> Команда и запрос</div>
+  <h1>Нужна одна команда-пилот и выгрузка её базы знаний</h1>
+  <div class="body">
+    <div class="card" style="flex:1.1">
+      <h2>Команда — у каждого своя зона</h2>
+      <div class="grid2" style="margin-top:16px">
+        <div class="box p" style="text-align:left">Эльзара<br><span class="small">интерфейс · frontend/</span></div>
+        <div class="box b" style="text-align:left">Егор<br><span class="small">бэкенд · internal/</span></div>
+        <div class="box g" style="text-align:left">Алекс<br><span class="small">агент, качество, деплой</span></div>
+        <div class="box o" style="text-align:left">Дмитрий<br><span class="small">продукт и презентация</span></div>
+      </div>
+      <p class="note">Сначала договорённость в specs/contracts (OpenAPI, MCP), затем код; расхождение контракта MCP с кодом ловит тест.</p>
+    </div>
+    <div style="flex:1; display:flex; flex-direction:column; gap:22px">
+      <div class="card l"><h2>Что просим</h2><ul><li>Команда-пилот: 5–10 стажёров на 2–4 недели</li><li>Доступ к внутренней LLM</li><li>Контакт владельцев HR-системы и IDM</li></ul></div>
+      <div class="card"><p><b>Демо:</b> ai-buddy-avito-demo.netlify.app</p><p><b>Код:</b> github.com/ElzaraA/ai-buddy-avito</p><p><b>Видео:</b> <span style="color:var(--soft)">ссылка будет добавлена</span></p></div>
+    </div>
+  </div>
+  <div class="foot"><span>Спасибо! Вопросы и ответы со ссылками на тесты — specs/jury-scenarios.md, docs/FAQ.md.</span><span>11 / 11</span></div>
+</section>
+
+</body>
+</html>
