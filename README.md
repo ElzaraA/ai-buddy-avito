@@ -6,7 +6,6 @@
 > - **Презентация (PDF):** [docs/presentation.pdf](docs/presentation.pdf) (исходник — [docs/presentation/index.html](docs/presentation/index.html))
 > - **Сценарий показа жюри:** [specs/jury-scenarios.md](specs/jury-scenarios.md) — шаг 0: нажать «Сбросить демо»
 > - **Онлайн-демо:** https://ai-buddy-avito-demo.netlify.app
-> - **Видео:** ссылка будет добавлена
 >
 > Демо работает на **mock-LLM**: понимание фраз — детерминированные правила и словари в коде, без ключа и интернета. Реальная модель подключается через `LLM_MOCK=false` (см. «Переменные окружения»). Данные синтетические.
 
@@ -353,7 +352,7 @@ flowchart LR
 расхождение контракта MCP с кодом ловит тест `internal/tools/spec_sync_test.go`, связь «сценарий → тест» —
 `specs/traceability.md`. План первых часов хакатона — `docs/history/KICKOFF.md` (исторический).
 
-## Видео и демо
-- Видео: ссылка будет добавлена.
+## Демо
+- Онлайн-демо: https://ai-buddy-avito-demo.netlify.app (перед показом — «Сбросить демо»).
 - Презентация: [`docs/presentation.pdf`](docs/presentation.pdf); сценарий показа жюри — [`specs/jury-scenarios.md`](specs/jury-scenarios.md).
 - Сценарий видео по таймкодам и подготовка к записи — `docs/DEMO.md`; ответы на частые вопросы — `docs/FAQ.md`.

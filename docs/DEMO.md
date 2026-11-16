@@ -4,7 +4,7 @@
 правила и словари в коде, поэтому ответы повторяются от записи к записи, а фразы из сценария нужно вводить точно.
 В кадре бейдж режима показывает `mock` — не скрывайте его. Реальная модель подключается через `LLM_MOCK=false`.
 
-Ссылка на видео: будет добавлена. Презентация — [`docs/presentation.pdf`](presentation.pdf), полный сценарий показа — [`specs/jury-scenarios.md`](../specs/jury-scenarios.md).
+Видео не записывали: демо показывается вживую на https://ai-buddy-avito-demo.netlify.app, этот сценарий годится и для записи. Презентация — [`docs/presentation.pdf`](presentation.pdf), полный сценарий показа — [`specs/jury-scenarios.md`](../specs/jury-scenarios.md).
 
 ## Подготовка к записи
 
