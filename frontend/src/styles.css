@@ -212,7 +212,7 @@ ul, ol { list-style: none; margin: 0; padding: 0; }
   /* contain: size — длинная переписка не раздувает карточку: её размер задаёт свободное место, не контент */
   /* min-height: лента сообщений (≥ 280px) + подсказки, вход к наставнику и поле ввода помещаются всегда;
      если окно ниже — прокручивается рабочая область, а не сжимается лента */
-  .workspace__body--chat > .chat-card { flex: 1 1 0; height: auto; min-height: 480px; contain: size; }
+  .workspace__body--chat > .persistent > .chat-card { flex: 1 1 0; height: auto; min-height: 480px; contain: size; }
 }
 
 /*
@@ -225,9 +225,9 @@ ul, ol { list-style: none; margin: 0; padding: 0; }
     /* высоту задаёт окно, а не содержимое колонки: min-height 0, колонка прокручивается сама */
     grid-template-rows: auto minmax(480px, 1fr); column-gap: 18px; row-gap: 0; min-height: 0;
   }
-  .workspace__body--desk > .desk-slot, .workspace__body--desk .desk { display: contents; }
+  .workspace__body--desk > .persistent > .desk-slot, .workspace__body--desk .desk { display: contents; }
   .workspace__body--desk .pulse { grid-column: 1 / -1; grid-row: 1; margin-bottom: 14px; }
-  .workspace__body--desk > .chat-card { grid-column: 2; grid-row: 2; min-height: 480px; }
+  .workspace__body--desk > .persistent > .chat-card { grid-column: 2; grid-row: 2; min-height: 480px; }
   .workspace__body--desk .desk__rail {
     grid-column: 1; grid-row: 2; min-height: 0; overflow-y: auto; scrollbar-width: thin;
     display: flex; flex-direction: column; gap: 12px;
@@ -912,3 +912,6 @@ a.task-row__title:hover { text-decoration: underline; }
   .rec__score { grid-column: 2; font-size: 16px; }
   .login__card { padding: 22px; }
 }
+
+/* обёртка постоянно смонтированных разделов не должна ломать сетку «стол | чат» */
+.persistent:not([hidden]) { display: contents; }
