@@ -3,3 +3,7 @@ body.json
 *.exe
 bin/
 coverage/coverage
+
+# Python
+__pycache__/
+*.pyc
