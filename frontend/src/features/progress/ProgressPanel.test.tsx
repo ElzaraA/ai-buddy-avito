@@ -53,8 +53,8 @@ describe('ProgressPanel', () => {
         body: { error: { code: 'forbidden', message: 'Нет прав на этот шаг' } },
       },
     ]);
-    renderWithQuery(<ProgressPanel />);
-    await userEvent.click(await screen.findByRole('button', { name: /Прочитать Playbook/ }));
+    renderWithQuery(<ProgressPanel withActions={false} />);
+    await userEvent.click(await screen.findByRole('button', { name: 'Отметить «Прочитать Playbook» выполненным' }));
     expect(await screen.findByRole('alert')).toHaveTextContent('Нет прав на этот шаг');
   });
 

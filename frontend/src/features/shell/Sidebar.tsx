@@ -57,6 +57,7 @@ export function Sidebar({ views, view, staff, me, onNavigate, badges = {}, onWri
   const setUser = useChatStore((s) => s.setUser);
   const main = views.filter((v) => v.group === 'main');
   const help = views.filter((v) => v.group === 'help');
+  const account = views.filter((v) => v.group === 'account');
 
   return (
     <aside className="sidebar">
@@ -93,19 +94,31 @@ export function Sidebar({ views, view, staff, me, onNavigate, badges = {}, onWri
             ))}
           </ul>
         </div>
-        {!staff && (
+        {help.length > 0 && (
           <div className="nav__group">
             <h2 className="nav__heading">Помощь</h2>
             <ul className="nav__list">
               {help.map((v) => (
                 <NavItem key={v.id} v={v} active={view === v.id} onClick={() => onNavigate(v.id)} />
               ))}
-              <li>
-                <button type="button" className="nav__item" onClick={onReport}>
-                  <IconFlag className="nav__icon" />
-                  <span>Сообщить наставнику</span>
-                </button>
-              </li>
+              {!staff && (
+                <li>
+                  <button type="button" className="nav__item" onClick={onReport}>
+                    <IconFlag className="nav__icon" />
+                    <span>Сообщить наставнику</span>
+                  </button>
+                </li>
+              )}
+            </ul>
+          </div>
+        )}
+        {account.length > 0 && (
+          <div className="nav__group">
+            <h2 className="nav__heading">Аккаунт</h2>
+            <ul className="nav__list">
+              {account.map((v) => (
+                <NavItem key={v.id} v={v} active={view === v.id} onClick={() => onNavigate(v.id)} />
+              ))}
             </ul>
           </div>
         )}

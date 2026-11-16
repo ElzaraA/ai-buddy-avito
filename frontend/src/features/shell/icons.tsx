@@ -64,6 +64,13 @@ export const IconTeam = (p: IconProps) => (
   </svg>
 );
 
+export const IconProfile = (p: IconProps) => (
+  <svg {...base} {...p}>
+    <circle cx="10" cy="6.5" r="3" />
+    <path d="M3.5 17c.6-3.1 2.8-4.8 6.5-4.8s5.9 1.7 6.5 4.8" />
+  </svg>
+);
+
 export const IconArrow = (p: IconProps) => (
   <svg {...base} {...p}>
     <path d="M4 10h12M11.5 5.5 16 10l-4.5 4.5" />

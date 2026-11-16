@@ -139,4 +139,30 @@ describe('MyActions', () => {
     const { container } = renderWithQuery(<MyActions />);
     await waitFor(() => expect(container).toBeEmptyDOMElement());
   });
+
+  it('ошибка загрузки заявок не маскируется под пустой список и допускает повтор', async () => {
+    const spy = mockFetch([
+      { match: '/api/v1/actions', status: 500, body: { error: { code: 'internal', message: 'Сервер недоступен' } } },
+    ]);
+    renderWithQuery(<MyActions />);
+    expect(await screen.findByText('Не удалось загрузить заявки.')).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'Повторить' }));
+    await waitFor(() => expect(spy).toHaveBeenCalledTimes(2));
+  });
+
+  it('429 при подтверждении черновика показывает серверную ошибку, не объявляя заявку отправленной', async () => {
+    mockFetch([
+      { match: '/api/v1/actions', body: [draft] },
+      {
+        method: 'POST',
+        match: '/api/v1/actions/ABS-000003/confirm',
+        status: 429,
+        body: { error: { code: 'rate_limited', message: 'Слишком много запросов, попробуйте позже' } },
+      },
+    ]);
+    renderWithQuery(<MyActions />);
+    await userEvent.click(await screen.findByRole('button', { name: 'Отправить заявку ABS-000003' }));
+    expect(await screen.findByRole('alert')).toHaveTextContent('Слишком много запросов, попробуйте позже');
+    expect(screen.getByLabelText('Ждут вашего подтверждения')).toHaveTextContent('ABS-000003');
+  });
 });

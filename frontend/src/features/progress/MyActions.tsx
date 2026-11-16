@@ -30,7 +30,7 @@ export function decisionComment(a: Absence) {
 export function MyActions() {
   const user = useChatStore((s) => s.user);
   const qc = useQueryClient();
-  const { data } = useQuery({
+  const { data, isLoading, isError, refetch } = useQuery({
     queryKey: ['actions', user],
     queryFn: api.listActions,
     refetchInterval: ACTIONS_REFRESH_MS,
@@ -46,6 +46,16 @@ export function MyActions() {
   const cancel = useMutation({ mutationFn: api.cancelAction, onSuccess: refresh, onError });
   const confirm = useMutation({ mutationFn: api.confirmAction, onSuccess: refresh, onError });
   const busy = cancel.isPending || confirm.isPending;
+
+  if (isLoading) return <p className="muted" role="status">Загружаю заявки…</p>;
+  if (isError) {
+    return (
+      <div className="error" role="alert">
+        Не удалось загрузить заявки.{' '}
+        <button className="btn btn--link" onClick={() => void refetch()}>Повторить</button>
+      </div>
+    );
+  }
 
   const all = data ?? [];
   const drafts = all.filter((a) => a.status === 'draft');
