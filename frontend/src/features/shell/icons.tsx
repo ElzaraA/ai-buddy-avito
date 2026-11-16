@@ -64,6 +64,13 @@ export const IconTeam = (p: IconProps) => (
   </svg>
 );
 
+export const IconProfile = (p: IconProps) => (
+  <svg {...base} {...p}>
+    <circle cx="10" cy="6.5" r="3" />
+    <path d="M3.5 17c.6-3.1 2.8-4.8 6.5-4.8s5.9 1.7 6.5 4.8" />
+  </svg>
+);
+
 export const IconArrow = (p: IconProps) => (
   <svg {...base} {...p}>
     <path d="M4 10h12M11.5 5.5 16 10l-4.5 4.5" />
@@ -95,3 +102,25 @@ export function BuddyAvatar({ size = 56 }: { size?: number }) {
     </svg>
   );
 }
+
+export const IconTasks = (p: IconProps) => (
+  <svg {...base} {...p}>
+    <rect x="3" y="3.5" width="14" height="13" rx="2" />
+    <path d="M6.5 8h7M6.5 11h7M6.5 14h4" />
+    <path d="M7 3.5V2.5M13 3.5V2.5" />
+  </svg>
+);
+
+export const IconBook = (p: IconProps) => (
+  <svg {...base} {...p}>
+    <path d="M3.5 4.5c2.2-.9 4.4-.9 6.5.5v11c-2.1-1.4-4.3-1.4-6.5-.5v-11Z" />
+    <path d="M16.5 4.5c-2.2-.9-4.4-.9-6.5.5v11c2.1-1.4 4.3-1.4 6.5-.5v-11Z" />
+  </svg>
+);
+
+export const IconHistory = (p: IconProps) => (
+  <svg {...base} {...p}>
+    <path d="M3.5 10a6.5 6.5 0 1 0 1.9-4.6" />
+    <path d="M3.5 3.5v2.8h2.8M10 6.5V10l2.5 1.5" />
+  </svg>
+);

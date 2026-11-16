@@ -10,7 +10,18 @@ import {
   OccurrenceSchema,
   RemindersSchema,
   ScheduleSchema,
+  DemoInfoSchema,
+  InternCardSchema,
+  KnowledgeDocSchema,
+  KnowledgeListSchema,
+  KnowledgeSearchSchema,
+  RecommendationsSchema,
+  SessionsSchema,
+  StoredMessagesSchema,
+  TaskSchema,
+  TasksSchema,
   KnowledgeGapsSchema,
+  OkSchema,
   ProgressSchema,
   SignalsSchema,
   TeamProgressSchema,
@@ -121,6 +132,25 @@ export const api = {
     request(`/api/v1/actions/${encodeURIComponent(id)}/confirm`, AbsenceSchema, { method: 'POST' }),
   /** Мои заявки (черновики и отправленные), новые сверху. */
   listActions: () => request('/api/v1/actions', ActionListSchema),
+  /** Заявка на доступ из формы — черновик; уходит руководителю только после confirmAction. */
+  createAccessDraft: (args: { resource: string; reason?: string }) =>
+    request('/api/v1/actions', AbsenceSchema, { method: 'POST', body: JSON.stringify({ type: 'access', ...args }) }),
+  /** Задачи адаптации своей команды и рекомендации следующей. */
+  tasks: () => request('/api/v1/tasks', TasksSchema),
+  task: (id: string) => request(`/api/v1/tasks/${encodeURIComponent(id)}`, TaskSchema),
+  moveTask: (id: string, op: 'start' | 'complete' | 'skip' | 'reopen') =>
+    request(`/api/v1/tasks/${encodeURIComponent(id)}/${op}`, TaskSchema, { method: 'POST' }),
+  recommendations: (limit = 3) => request(`/api/v1/recommendations?limit=${limit}`, RecommendationsSchema),
+  /** База знаний: статьи, поиск по разделам и статья — с правами по роли и команде. */
+  knowledge: () => request('/api/v1/knowledge', KnowledgeListSchema),
+  searchKnowledge: (q: string) => request(`/api/v1/knowledge?q=${encodeURIComponent(q)}`, KnowledgeSearchSchema),
+  article: (id: string) => request(`/api/v1/knowledge/${encodeURIComponent(id)}`, KnowledgeDocSchema),
+  /** История диалогов и сообщения одного диалога. */
+  sessions: () => request('/api/v1/chat/sessions', SessionsSchema),
+  sessionMessages: (id: string) =>
+    request(`/api/v1/chat/sessions/${encodeURIComponent(id)}/messages`, StoredMessagesSchema),
+  /** Карточка стажёра своей команды (наставник, руководитель). */
+  teamIntern: (id: string) => request(`/api/v1/team/interns/${encodeURIComponent(id)}`, InternCardSchema),
   /** Расписание: встречи команды и личные созвоны на days дней вперёд. */
   schedule: (days = 7) => request(`/api/v1/schedule?days=${days}`, ScheduleSchema),
   createMeeting: (m: { title: string; start: string; duration_min: number; with?: string }) =>
@@ -139,8 +169,20 @@ export const api = {
   knowledgeGaps: () => request('/api/v1/team/knowledge-gaps', KnowledgeGapsSchema),
   /** Сообщения стажёров наставнику «что-то не так». */
   teamSignals: () => request('/api/v1/team/signals', SignalsSchema),
-  resolveSignal: (id: string) =>
-    request(`/api/v1/team/signals/${encodeURIComponent(id)}/resolve`, z.unknown(), { method: 'POST' }),
+  /** Закрыть сигнал; reply (≤500 символов) — необязательный ответ стажёру. */
+  resolveSignal: (id: string, reply = '') => {
+    const text = reply.trim().slice(0, 500);
+    return request(`/api/v1/team/signals/${encodeURIComponent(id)}/resolve`, z.unknown(), {
+      method: 'POST',
+      body: JSON.stringify(text ? { reply: text } : {}),
+    });
+  },
+  /** Обращения стажёра к наставнику и ответы на них. */
+  mySignals: () => request('/api/v1/signals/me', SignalsSchema),
+  /** Демо-режим и какая модель отвечает (404 — у старого бэка ручки нет). */
+  demo: () => request('/api/v1/demo', DemoInfoSchema),
+  /** Сброс демо-данных к исходному состоянию (404, если демо-режим выключен). */
+  resetDemo: () => request('/api/v1/demo/reset', OkSchema, { method: 'POST' }),
   /** Сводка «метрик пользы» по команде. */
   teamSummary: () => request('/api/v1/team/summary', TeamSummarySchema),
   /** «Пульс команды» — самочувствие стажёров своей команды. */

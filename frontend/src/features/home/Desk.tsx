@@ -4,12 +4,13 @@ import { api } from '../../api/client';
 import { statusLabel } from '../../components/format';
 import { useChatStore } from '../../store/chat';
 import { actionTitle, ACTIONS_REFRESH_MS } from '../progress/MyActions';
+import { SignalIndicator, signalSummary, useMySignals } from '../progress/MySignals';
 import { percentDone } from '../progress/ProgressPanel';
 import { Achievements } from '../pulse/Achievements';
 import { PulseStrip } from '../pulse/PulseStrip';
 
 interface CardProps {
-  tone: 'green' | 'blue' | 'pink';
+  tone: 'green' | 'blue' | 'pink' | 'peach';
   tag: string;
   title: string;
   text: string;
@@ -48,11 +49,13 @@ const plural = (n: number, one: string, few: string, many: string) => {
 interface Props {
   onOpenPlan: () => void;
   onOpenActions: () => void;
+  /** «Следующая задача» — раздел задач с рекомендациями */
+  onOpenTasks?: () => void;
   onReport: () => void;
 }
 
 /** Три карточки рабочего стола стажёра: что делать дальше, что с заявками, куда идти, если застрял. */
-export function Desk({ onOpenPlan, onOpenActions, onReport }: Props) {
+export function Desk({ onOpenPlan, onOpenActions, onOpenTasks, onReport }: Props) {
   const user = useChatStore((s) => s.user);
   const progress = useQuery({
     queryKey: ['progress', user],
@@ -65,6 +68,13 @@ export function Desk({ onOpenPlan, onOpenActions, onReport }: Props) {
     refetchInterval: ACTIONS_REFRESH_MS,
   });
 
+  const recs = useQuery({
+    queryKey: ['recommendations', user, 1],
+    queryFn: () => api.recommendations(1),
+    enabled: Boolean(onOpenTasks),
+  });
+  const topTask = recs.data?.items[0];
+
   const p = progress.data;
   const pct = p ? Math.round(p.percent_done ?? percentDone(p.items)) : 0;
   const nextTitle = progress.isLoading
@@ -73,7 +83,12 @@ export function Desk({ onOpenPlan, onOpenActions, onReport }: Props) {
       ? 'План пока недоступен'
       : p.next_step || (p.items.length > 0 ? 'Все шаги выполнены' : 'План пока пуст');
 
-  const list = actions.data ?? [];
+  // обращения к наставнику: необязательный индикатор, без ручки на бэке просто не показывается
+  const mySignals = useMySignals().data ?? [];
+  const help = signalSummary(mySignals);
+
+  // отменённые заявки не считаем: на столе — только живые черновики и отправленные
+  const list = (actions.data ?? []).filter((a) => a.status !== 'cancelled');
   const drafts = list.filter((a) => a.status === 'draft').length;
   const pending = list.filter((a) => a.status === 'pending').length;
   // API отдаёт заявки новыми сверху: последняя — первая в списке
@@ -126,6 +141,18 @@ export function Desk({ onOpenPlan, onOpenActions, onReport }: Props) {
             label={`Мои заявки: ${actionsTitle}. Открыть заявки`}
             onClick={onOpenActions}
           />
+          {onOpenTasks && (recs.isLoading || recs.data) && (
+            <DeskCard
+              tone="peach"
+              tag="Следующая задача"
+              title={recs.isLoading ? 'Подбираю задачу…' : (topTask?.title ?? 'Все задачи взяты')}
+              text={topTask?.reasons[0] ?? 'Бадди подбирает задачи по вашим навыкам'}
+              pill="Все задачи"
+              meta={topTask ? `подходит на ${Math.round(topTask.score * 100)}%` : ''}
+              label={`Следующая задача: ${topTask?.title ?? 'нет'}. Открыть задачи`}
+              onClick={onOpenTasks}
+            />
+          )}
           <DeskCard
             tone="pink"
             tag="Нужна помощь?"
@@ -133,9 +160,11 @@ export function Desk({ onOpenPlan, onOpenActions, onReport }: Props) {
             text="Напишите пару слов — Бадди передаст наставнику"
             pill="Сообщить"
             meta="наставнику"
-            label="Нужна помощь? Сообщить наставнику"
+            label={`Нужна помощь? Сообщить наставнику${help.text ? `. Мои обращения: ${help.text}` : ''}`}
             onClick={onReport}
-          />
+          >
+            <SignalIndicator signals={mySignals} />
+          </DeskCard>
         </ul>
         <Achievements />
       </div>

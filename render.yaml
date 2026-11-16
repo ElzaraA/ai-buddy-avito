@@ -25,6 +25,12 @@ services:
         value: "true"
       - key: RATE_LIMIT_PER_MIN
         value: "60"
+      # Демо-стенд: кнопка «Сбросить демо» (POST /api/v1/demo/reset) возвращает исходное состояние.
+      - key: DEMO_MODE
+        value: "true"
+      # «Сегодня» для дат отгулов и «Пульса» — по Москве (tzdata встроена в бинарник, запасной вариант — UTC+3).
+      - key: TZ_NAME
+        value: "Europe/Moscow"
       # Адрес фронтенда на Netlify: без него браузер получит ошибку CORS,
       # а запросы на запись — 403 «cross-origin request blocked».
       - key: CORS_ORIGINS

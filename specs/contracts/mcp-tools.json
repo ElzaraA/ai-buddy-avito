@@ -126,6 +126,22 @@
           "meeting": { "type": "string", "example": "пн 16.11, 17:00 — Созвон с Катей" }
         }
       }
+    },
+    {
+      "name": "tasks_recommend",
+      "description": "Подобрать стажёру следующие задачи адаптации моделью рекомендаций (с объяснением)",
+      "permission": "tasks.read",
+      "requiresConfirmation": false,
+      "inputSchema": { "type": "object", "properties": {} },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "recommended": { "type": "string", "example": "Покрыть тестами обработчик заявок" },
+          "task_id": { "type": "string", "example": "be-02" },
+          "why": { "type": "string" },
+          "source": { "type": "string", "enum": ["model", "rule_based"] }
+        }
+      }
     }
   ]
 }

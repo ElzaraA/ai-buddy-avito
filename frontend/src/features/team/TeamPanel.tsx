@@ -5,6 +5,7 @@ import type { ChecklistItem } from '../../api/schemas';
 import { useGuard } from '../../components/useGuard';
 import { useChatStore } from '../../store/chat';
 import { actionTitle } from '../progress/MyActions';
+import { Link } from '../shell/Link';
 import { TeamPulse } from './TeamPulse';
 
 /** Как часто перечитываем кабинет: новые заявки и вопросы стажёров появляются сами. */
@@ -55,9 +56,16 @@ export function TeamPanel({ role }: Props) {
   const summary = useQuery({ queryKey: ['team-summary', user], queryFn: api.teamSummary, ...opts });
   // сообщения стажёров «что-то не так»: необязательный блок, кабинет работает и без него
   const signals = useQuery({ queryKey: ['team-signals', user], queryFn: api.teamSignals, ...opts });
+  // ответ стажёру у каждого сигнала свой; закрыть можно и без ответа
+  const [replies, setReplies] = useState<Record<string, string>>({});
   const resolve = useMutation({
-    mutationFn: api.resolveSignal,
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['team-signals', user] }),
+    mutationFn: (v: { id: string; reply: string }) => api.resolveSignal(v.id, v.reply),
+    onSuccess: (_d, v) => {
+      setReplies(({ [v.id]: _, ...rest }) => rest);
+      qc.invalidateQueries({ queryKey: ['team-signals', user] });
+    },
+    // 409/404: сигнал уже закрыт в другом окне — перечитываем список
+    onError: () => qc.invalidateQueries({ queryKey: ['team-signals', user] }),
   });
 
   const refresh = () => {
@@ -86,7 +94,7 @@ export function TeamPanel({ role }: Props) {
     },
   });
 
-  // двойной клик по «Согласовать» / «Разобрано» не отправляет решение дважды (второе — 409 и ошибка)
+  // двойной клик по «Согласовать» / «Ответить и закрыть» не отправляет решение дважды (второе — 409 и ошибка)
   const guard = useGuard();
   const decideOnce = (id: string, title: string, decision: 'approve' | 'reject') =>
     guard((done) => decide.mutate({ id, title, decision, comment: comments[id] ?? '' }, { onSettled: done }));
@@ -229,20 +237,50 @@ export function TeamPanel({ role }: Props) {
                   </div>
                   <p className="signal__text">{s.text}</p>
                   {!s.done ? (
-                    <button
-                      className="btn btn--link"
-                      onClick={() => guard((done) => resolve.mutate(s.id, { onSettled: done }))}
-                      disabled={resolve.isPending}
-                      aria-label={`Отметить ${s.id} разобранным`}
+                    <form
+                      className="signal__answer"
+                      onSubmit={(e) => {
+                        e.preventDefault();
+                        guard((done) =>
+                          resolve.mutate({ id: s.id, reply: replies[s.id] ?? '' }, { onSettled: done }),
+                        );
+                      }}
                     >
-                      Разобрано
-                    </button>
+                      <input
+                        className="comment"
+                        aria-label={`Ответ стажёру на ${s.id} (необязательно)`}
+                        placeholder="Ответ стажёру (необязательно)"
+                        value={replies[s.id] ?? ''}
+                        onChange={(e) => setReplies((r) => ({ ...r, [s.id]: e.target.value }))}
+                        maxLength={500}
+                      />
+                      <button
+                        type="submit"
+                        className="btn btn--small btn--primary"
+                        disabled={resolve.isPending}
+                        aria-label={`Ответить и закрыть ${s.id}`}
+                      >
+                        Ответить и закрыть
+                      </button>
+                    </form>
                   ) : (
-                    <span className="muted">разобрано</span>
+                    <>
+                      {s.reply && (
+                        <p className="signal__reply">
+                          <span className="signal__reply-label">Ответ стажёру:</span> {s.reply}
+                        </p>
+                      )}
+                      <span className="muted">{s.reply ? 'отвечено, закрыто' : 'разобрано'}</span>
+                    </>
                   )}
                 </li>
               ))}
             </ul>
+          )}
+          {resolve.isError && (
+            <div className="error" role="alert">
+              Не удалось закрыть обращение: {(resolve.error as Error).message}
+            </div>
           )}
         </section>
       )}
@@ -260,7 +298,9 @@ export function TeamPanel({ role }: Props) {
             return (
               <li key={i.user.id} className="intern">
                 <div className="intern__head">
-                  <span className="intern__name">{i.user.name}</span>
+                  <Link to={`/team/interns/${encodeURIComponent(i.user.id)}`} className="intern__name intern__link">
+                    {i.user.name}
+                  </Link>
                   <span className="intern__pct">{Math.round(i.percent_done)}%</span>
                 </div>
                 {/* полоска из шагов маршрута: видно, сколько пройдено и что ждёт заявки */}

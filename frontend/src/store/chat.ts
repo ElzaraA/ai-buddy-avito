@@ -22,6 +22,10 @@ export const DEMO_USERS = [
 
 interface ChatState {
   user: string;
+  /** Вошёл ли пользователь в демо-режиме (выбрал учётку на /login). Учётка живёт до закрытия вкладки. */
+  signedIn: boolean;
+  /** Выход: забыть учётку и вернуться на экран входа. */
+  signOut: () => void;
   sessionId: string | null;
   messages: ChatMessage[];
   /** Ответы, пришедшие по SSE раньше, чем сообщение попало в список (быстрый агент). */
@@ -56,6 +60,15 @@ let nonce = 0;
 const USER_KEY = 'ai-buddy.user';
 const DEFAULT_USER = 'intern.backend';
 const isDemoUser = (login: string | null): login is string => DEMO_USERS.some((u) => u.login === login);
+
+/** Учётка уже выбрана в этой вкладке — экран входа не нужен. */
+export function hasSavedUser(): boolean {
+  try {
+    return isDemoUser(sessionStorage.getItem(USER_KEY));
+  } catch {
+    return false;
+  }
+}
 
 export function loadUser(): string {
   try {
@@ -97,6 +110,7 @@ export const useChatStore = create<ChatState>((set) => {
 
   return {
     user: loadUser(),
+    signedIn: hasSavedUser(),
     sessionId: null,
     messages: [],
     early: {},
@@ -105,7 +119,15 @@ export const useChatStore = create<ChatState>((set) => {
     unreadReminders: 0,
     setUser: (login) => {
       saveUser(login);
-      set({ user: login, sessionId: null, messages: [], early: {}, composer: null, queued: null, unreadReminders: 0 });
+      set({ user: login, signedIn: true, sessionId: null, messages: [], early: {}, composer: null, queued: null, unreadReminders: 0 });
+    },
+    signOut: () => {
+      try {
+        sessionStorage.removeItem(USER_KEY);
+      } catch {
+        // хранилище недоступно — достаточно сбросить состояние
+      }
+      set({ signedIn: false, sessionId: null, messages: [], early: {}, composer: null, queued: null, unreadReminders: 0 });
     },
     addReminder: (id, text) =>
       set((s) =>
@@ -132,6 +154,6 @@ export const useChatStore = create<ChatState>((set) => {
       }),
     resolve: (id, response) => settle(id, { kind: 'done', response }),
     fail: (id, error) => settle(id, { kind: 'failed', error }),
-    reset: () => set({ sessionId: null, messages: [], early: {} }),
+    reset: () => set({ sessionId: null, messages: [], early: {}, composer: null, queued: null }),
   };
 });

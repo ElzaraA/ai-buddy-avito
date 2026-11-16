@@ -112,6 +112,9 @@ type Agent struct {
 	Now      func() time.Time
 	// OnFallback вызывается при переходе на резервную модель (метрика).
 	OnFallback func(err error)
+	// AccessStatus — состояние заявок пользователя на доступ по системам (store.AccessStatus);
+	// nil — подсказки не сверяются с заявками.
+	AccessStatus func(userID string) map[string]string
 }
 
 type Response struct {
@@ -132,13 +135,18 @@ type Response struct {
 	// Signal — сообщение наставнику, которое API сохранит в кабинет команды.
 	Signal      string `json:"-"`
 	SignalTopic string `json:"-"`
+	// Kind — служебная пометка происхождения ответа для учёта пользы (KindGlossary — словарь Бадди).
+	Kind string `json:"-"`
 }
+
+// KindGlossary — ответ из словаря терминов Бадди.
+const KindGlossary = "glossary"
 
 func (a *Agent) now() time.Time {
 	if a.Now != nil {
 		return a.Now()
 	}
-	return time.Now()
+	return store.Now()
 }
 
 // Ask отвечает на одиночный вопрос без истории диалога.
@@ -170,6 +178,15 @@ func (a *Agent) complete(ctx context.Context, msgs []llm.Message) (raw string, d
 
 // AskWithHistory отвечает на вопрос с учётом последних реплик диалога (history — в хронологическом порядке).
 func (a *Agent) AskWithHistory(ctx context.Context, user auth.User, question string, history []llm.Message) (Response, error) {
+	resp, err := a.askWithHistory(ctx, user, question, history)
+	// Не предлагаем «Запроси доступ в GitLab», если заявка на GitLab уже отправлена или одобрена.
+	if err == nil && a.AccessStatus != nil && len(resp.Suggestions) > 0 {
+		resp.Suggestions = freshAccessChips(resp.Suggestions, a.AccessStatus(user.ID))
+	}
+	return resp, err
+}
+
+func (a *Agent) askWithHistory(ctx context.Context, user auth.User, question string, history []llm.Message) (Response, error) {
 	ctx, cancel := context.WithTimeout(ctx, 60*time.Second)
 	defer cancel()
 
@@ -215,6 +232,14 @@ func (a *Agent) AskWithHistory(ctx context.Context, user auth.User, question str
 	}
 	// Зарплаты и доходы — чувствительные данные: отказываем явно и подсказываем, к кому идти,
 	// а не общим «не нашёл» (вопрос всё равно попадает в пробелы базы знаний для наставника).
+	// «Кому написать про условия стажировки?» — безопасный следующий шаг после отказа про зарплату.
+	if isConditionsQuestion(nq) && !isSalaryQuestion(nq) {
+		r := Response{Type: "answer", Text: c.conditionsText(), Buddy: c.Buddy}
+		if !c.staff {
+			r.Suggestions = []string{chipNext}
+		}
+		return r, nil
+	}
 	if isSalaryQuestion(nq) {
 		r := c.refusal(c.salaryText())
 		r.NoSource = isKnowledgeGap(nq)
@@ -228,6 +253,13 @@ func (a *Agent) AskWithHistory(ctx context.Context, user auth.User, question str
 	}
 	// Ответ есть, но в материале для другой аудитории (например, «только для наставников»): это не пробел базы.
 	restricted := len(hits) == 0 && a.Index.Restricted(nq, user.TeamID, string(user.Role))
+	// Кадровые темы вне базы (командировка, ДМС, декрет…) похожи на действия «отгул/заявка», но ими не являются:
+	// без фрагмента базы честно отказываем, не давая модели подменить вопрос политикой отгулов.
+	if len(hits) == 0 && !restricted && outOfScope(nq) {
+		r := c.refusal(c.refusalText())
+		r.NoSource = isKnowledgeGap(nq)
+		return c.coach(question, nq, r), nil
+	}
 
 	// Действия (отгул, доступ, чек-лист) не зависят от базы знаний, поэтому LLM вызываем всегда,
 	// а инвариант «нет источника — нет ответа» проверяем ниже для текстовых ответов.
@@ -288,7 +320,7 @@ func (a *Agent) glossaryResponse(user auth.User, c contacts, question string, t 
 			break
 		}
 	}
-	r := Response{Type: "answer", Text: glossaryAnswer(t, line), Sources: srcs, Buddy: c.Buddy}
+	r := Response{Type: "answer", Text: glossaryAnswer(t, line), Sources: srcs, Buddy: c.Buddy, Kind: KindGlossary}
 	if !c.staff {
 		r.Suggestions = []string{chipNext, "Передай наставнику: ответ не помог — " + quote(question)}
 	}

@@ -1,0 +1,30 @@
+{
+  "feature_names": [
+    "tag_overlap_count",
+    "tag_overlap_ratio",
+    "avg_competency_level",
+    "max_competency_level",
+    "track_match",
+    "task_difficulty",
+    "skill_gap",
+    "difficulty_penalty",
+    "task_popularity",
+    "intern_prior_pos",
+    "intern_prior_neg"
+  ],
+  "coef": [
+    -0.03070684349826702,
+    0.6406988718957957,
+    -0.04477110838643294,
+    -0.03895811779620475,
+    0.6143363805099563,
+    0.1060117277295652,
+    0.15078283611591442,
+    -0.49195428481397235,
+    0.00216174676061531,
+    0.018320343303605817,
+    -0.01923210748452261
+  ],
+  "intercept": -0.13540511283530357,
+  "n_features": 11
+}

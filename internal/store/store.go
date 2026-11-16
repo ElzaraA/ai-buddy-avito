@@ -64,6 +64,11 @@ type ChecklistItem struct {
 	Kind     string `json:"kind,omitempty"`              // access — шаг связан с заявками на доступ
 	ActionID string `json:"related_action_id,omitempty"` // заявка, которой ждёт шаг
 	Owner    string `json:"owner"`
+	// Прогресс составного шага (kind=access): сколько систем из AccessSystems уже одобрено
+	// и какие ещё не запрошены. У обычных шагов полей нет (обратная совместимость).
+	SubDone  *int     `json:"sub_done,omitempty"`
+	SubTotal int      `json:"sub_total,omitempty"`
+	Missing  []string `json:"missing,omitempty"`
 }
 
 func (it *ChecklistItem) normalize() {
@@ -72,6 +77,9 @@ func (it *ChecklistItem) normalize() {
 		it.Status = StepDone
 	case it.Status == "" || it.Status == StepDone:
 		it.Status = StepTodo
+	}
+	if it.Kind == ActionAccess && it.SubTotal == 0 {
+		applyAccess(it, nil, "", "")
 	}
 }
 
@@ -87,9 +95,11 @@ type Store struct {
 	userStats    map[string]*UserStats           // user → личные счётчики (вопросы Бадди)
 	meetings     map[string]Meeting              // личные созвоны (встречи команды считаются по правилам)
 	reminderAcks map[string]map[string]time.Time // user → напоминания о встречах, которые уже показаны
-	version      atomic.Int64                    // растёт при каждом изменении (для сохранения на диск)
-	now          func() time.Time
-	saveNow      chan struct{} // сигнал Persister'у «сохранить сейчас» (буфер 1)
+	// tasks — статусы задач адаптации: user → task → состояние
+	tasks   map[string]map[string]TaskState
+	version atomic.Int64 // растёт при каждом изменении (для сохранения на диск)
+	now     func() time.Time
+	saveNow chan struct{} // сигнал Persister'у «сохранить сейчас» (буфер 1)
 }
 
 func New() *Store {
@@ -104,7 +114,8 @@ func New() *Store {
 		userStats:    map[string]*UserStats{},
 		meetings:     map[string]Meeting{},
 		reminderAcks: map[string]map[string]time.Time{},
-		now:          time.Now,
+		tasks:        map[string]map[string]TaskState{},
+		now:          Now,
 		saveNow:      make(chan struct{}, 1),
 	}
 }

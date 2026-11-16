@@ -1,6 +1,7 @@
 package store
 
 import (
+	"sort"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -117,4 +118,44 @@ func (s *MessageStore) PendingCount(sessionID string) int {
 		}
 	}
 	return n
+}
+
+// SessionSummary — диалог в истории: когда начат, с чего и сколько сообщений.
+type SessionSummary struct {
+	ID            string    `json:"id"`
+	CreatedAt     time.Time `json:"created_at"`
+	LastAt        time.Time `json:"last_at"`
+	FirstQuestion string    `json:"first_question"`
+	Messages      int       `json:"messages"`
+}
+
+// SessionsByUser — диалоги пользователя с хотя бы одним сообщением, новые первыми.
+func (s *MessageStore) SessionsByUser(userID string) []SessionSummary {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	out := make([]SessionSummary, 0)
+	for id, sess := range s.sessions {
+		if sess.UserID != userID || len(s.bySess[id]) == 0 {
+			continue
+		}
+		sum := SessionSummary{ID: id, CreatedAt: sess.CreatedAt, LastAt: sess.CreatedAt}
+		for _, mid := range s.bySess[id] {
+			m := s.messages[mid]
+			sum.Messages++
+			if m.CreatedAt.After(sum.LastAt) {
+				sum.LastAt = m.CreatedAt
+			}
+			if sum.FirstQuestion == "" && m.Role == "user" {
+				sum.FirstQuestion = m.Content
+			}
+		}
+		out = append(out, sum)
+	}
+	sort.Slice(out, func(i, j int) bool {
+		if !out[i].LastAt.Equal(out[j].LastAt) {
+			return out[i].LastAt.After(out[j].LastAt)
+		}
+		return out[i].ID < out[j].ID
+	})
+	return out
 }

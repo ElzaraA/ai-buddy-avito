@@ -111,10 +111,10 @@ func (h *ChatHandlers) withDialogContext(sessionID, q string) string {
 	if strings.Contains(strings.ToLower(q), "отгул") {
 		return q
 	}
-	if from, _ := agent.ParseDatesAt(q, time.Now()); from != "" {
+	if from, _ := agent.ParseDatesAt(q, store.Now()); from != "" {
 		return "Хочу отгул " + q
 	}
-	if _, ok := agent.ParseWeekday(q, time.Now()); ok {
+	if _, ok := agent.ParseWeekday(q, store.Now()); ok {
 		return "Хочу отгул " + q
 	}
 	return q

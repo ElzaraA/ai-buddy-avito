@@ -88,6 +88,13 @@ func (MockClient) Complete(_ context.Context, msgs []Message) (string, error) {
 		return answerFromContext(prompt)
 	}
 
+	// «Какую задачу мне взять?» — рекомендации модели по каталогу задач адаптации.
+	if hasWord(w, "какую задачу", "какую задачку", "что взять в работу", "посоветуй задачу", "порекомендуй задачу",
+		"рекомендуй задачу", "подбери задачу", "какие задачи мне", "задачу по силам", "рекомендации задач",
+		"какую задачу взять", "следующую задачу", "задачу посложнее", "задачу полегче") {
+		return toolCall("tasks_recommend", map[string]string{})
+	}
+
 	// «Добавь в расписание завтра встречу в 15:00» — создать созвон, а не показать расписание.
 	if wantsAddMeeting(w) {
 		return toolCall("schedule_add", scheduleAddArgs(q, w))

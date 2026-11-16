@@ -31,8 +31,8 @@ npm run dev        # http://localhost:5173, /api проксируется на :
 ## Тесты и покрытие
 
 ```bash
-npm test           # vitest, 79 тестов
-npm run coverage   # отчёт: frontend/coverage/index.html, порог строк 80% (сейчас 100%)
+npm test           # vitest (129 тестов на 16.11.2026, покрытие — coverage-summary.md)
+npm run coverage   # отчёт: frontend/coverage/index.html, порог строк 80% (16.11.2026 — 98,96% строк)
 npm run typecheck
 npm run build
 ```

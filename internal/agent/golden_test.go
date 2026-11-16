@@ -12,6 +12,7 @@ import (
 	"github.com/ElzaraA/ai-buddy-avito/internal/llm"
 	"github.com/ElzaraA/ai-buddy-avito/internal/rag"
 	"github.com/ElzaraA/ai-buddy-avito/internal/store"
+	"github.com/ElzaraA/ai-buddy-avito/internal/tasks"
 	"github.com/ElzaraA/ai-buddy-avito/internal/tools"
 )
 
@@ -53,6 +54,11 @@ func TestGolden(t *testing.T) {
 	reg.Register(&tools.DirectoryFindOwner{})
 	reg.Register(&tools.ScheduleGet{S: st})
 	reg.Register(&tools.ScheduleAdd{S: st})
+	catalog, err := tasks.LoadCatalog("../../data/tasks/catalog.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	reg.Register(&tools.TasksRecommend{Svc: &tasks.Service{Catalog: catalog, Store: st}})
 	a := &Agent{LLM: llm.MockClient{}, Index: rag.NewIndex(chunks), Tools: reg, Now: func() time.Time {
 		return time.Date(2026, 11, 11, 10, 0, 0, 0, time.UTC)
 	}}

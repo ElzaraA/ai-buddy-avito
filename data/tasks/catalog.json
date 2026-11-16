@@ -1,0 +1,136 @@
+{
+  "_comment": "Синтетический каталог задач адаптации прототипа. Не является задачами Авито. tags — в словаре ml/recsys (go, sql, postgres, testing, ci, docker, review, metrics, observability, redis, grpc, kafka, linux, chi …) плюс фронтенд-теги. popularity — сколько стажёров уже выполнили задачу (синтетика).",
+  "tasks": [
+    {
+      "id": "be-01", "team": "backend", "title": "Запустить сервис локально и пройти make test",
+      "summary": "Поднять сервис команды на своём ноутбуке: зависимости, PostgreSQL в Docker, прогон тестов.",
+      "steps": ["Склонировать репозиторий сервиса", "Поднять PostgreSQL через docker compose", "Запустить make test и убедиться, что всё зелёное", "Если что-то падает дольше 20 минут — написать наставнику"],
+      "done": "make test проходит локально, сервис отвечает на /health.",
+      "difficulty": 1, "tags": ["go", "docker", "postgres", "linux"], "popularity": 29, "estimate_hours": 3, "knowledge": "tools.md"
+    },
+    {
+      "id": "be-02", "team": "backend", "title": "Покрыть тестами обработчик заявок",
+      "summary": "Добавить табличные тесты на граничные случаи HTTP-обработчика: пустое тело, чужая заявка, повторное подтверждение.",
+      "steps": ["Найти обработчик и существующие тесты рядом с ним", "Описать кейсы таблицей", "Проверить покрытие go test -cover", "Отправить MR и пройти ревью"],
+      "done": "Новые тесты в MR, покрытие пакета не упало, ревью пройдено.",
+      "difficulty": 2, "tags": ["go", "testing", "review"], "popularity": 22, "estimate_hours": 5, "knowledge": "code-review.md"
+    },
+    {
+      "id": "be-03", "team": "backend", "title": "Добавить линтер в CI",
+      "summary": "Подключить golangci-lint в пайплайн, чтобы стиль проверялся до ревью.",
+      "steps": ["Добавить конфиг линтера с правилами команды", "Добавить шаг в CI", "Починить найденные замечания или согласовать исключения"],
+      "done": "Пайплайн падает на нарушениях стиля, текущая ветка main зелёная.",
+      "difficulty": 2, "tags": ["go", "ci", "review"], "popularity": 14, "estimate_hours": 4, "knowledge": "code-review.md"
+    },
+    {
+      "id": "be-04", "team": "backend", "title": "Написать миграцию: индекс для частого запроса",
+      "summary": "Найти медленный запрос по EXPLAIN и добавить индекс миграцией без блокировки таблицы.",
+      "steps": ["Снять EXPLAIN ANALYZE запроса", "Написать миграцию CREATE INDEX CONCURRENTLY", "Проверить откат миграции", "Сравнить время запроса до и после"],
+      "done": "Миграция в MR с замерами до/после, откат проверен.",
+      "difficulty": 3, "tags": ["sql", "postgres", "go"], "popularity": 11, "estimate_hours": 6, "knowledge": "tools.md"
+    },
+    {
+      "id": "be-05", "team": "backend", "title": "Добавить метрики Prometheus в обработчик",
+      "summary": "Счётчик запросов и гистограмма времени ответа для новой ручки, панель в Grafana.",
+      "steps": ["Добавить метрики в код", "Проверить их на /metrics локально", "Собрать панель в Grafana по примеру соседних"],
+      "done": "Метрики видны в Grafana на стенде, панель добавлена в дашборд команды.",
+      "difficulty": 3, "tags": ["go", "metrics", "observability"], "popularity": 9, "estimate_hours": 5, "knowledge": "tools.md"
+    },
+    {
+      "id": "be-06", "team": "backend", "title": "Сделать ревью MR коллеги",
+      "summary": "Пройти чужой MR по чек-листу код-ревью команды и оставить полезные комментарии.",
+      "steps": ["Прочитать описание задачи и MR целиком", "Пройтись по чек-листу ревью", "Оставить комментарии: вопрос, предложение или блокер", "Обсудить спорное с наставником"],
+      "done": "Не меньше трёх содержательных комментариев, автор MR их разобрал.",
+      "difficulty": 2, "tags": ["review", "go"], "popularity": 25, "estimate_hours": 2, "knowledge": "code-review.md"
+    },
+    {
+      "id": "be-07", "team": "backend", "title": "Кэш в Redis для справочника",
+      "summary": "Закэшировать редко меняющийся справочник с TTL и инвалидацией при обновлении.",
+      "steps": ["Описать ключи и TTL", "Добавить чтение через кэш с фолбэком в базу", "Покрыть тестами промах и попадание", "Добавить метрику hit rate"],
+      "done": "Время ответа ручки снизилось, hit rate виден в метриках.",
+      "difficulty": 4, "tags": ["go", "redis", "testing", "metrics"], "popularity": 6, "estimate_hours": 10, "knowledge": "tools.md"
+    },
+    {
+      "id": "be-08", "team": "backend", "title": "gRPC-клиент к соседнему сервису",
+      "summary": "Сгенерировать клиент по proto, добавить таймауты и ретраи, обработать ошибки.",
+      "steps": ["Сгенерировать код по proto", "Обернуть вызов таймаутом и ретраями", "Написать тест с фейковым сервером"],
+      "done": "Клиент в MR, ошибки соседа не роняют наш сервис.",
+      "difficulty": 4, "tags": ["go", "grpc", "testing"], "popularity": 5, "estimate_hours": 12, "knowledge": "tools.md"
+    },
+    {
+      "id": "be-09", "team": "backend", "title": "Консьюмер Kafka для событий объявлений",
+      "summary": "Читать события из топика, идемпотентно обрабатывать и коммитить офсеты.",
+      "steps": ["Разобраться со схемой события", "Сделать обработку идемпотентной", "Добавить метрики лага", "Прогнать на стенде"],
+      "done": "Консьюмер работает на стенде без дублей, лаг на дашборде.",
+      "difficulty": 5, "tags": ["go", "kafka", "metrics", "observability"], "popularity": 3, "estimate_hours": 16, "knowledge": "tools.md"
+    },
+    {
+      "id": "be-10", "team": "backend", "title": "Разобрать алерт и написать постмортем",
+      "summary": "Вместе с дежурным пройти по свежему алерту: графики, логи, причина, что поменять.",
+      "steps": ["Найти алерт и его панель в Grafana", "Восстановить хронологию по логам", "Описать причину и действия в шаблоне постмортема"],
+      "done": "Постмортем в базе команды, пункты действий заведены задачами.",
+      "difficulty": 3, "tags": ["observability", "metrics", "linux"], "popularity": 8, "estimate_hours": 4, "knowledge": "team-rituals.md"
+    },
+    {
+      "id": "be-11", "team": "backend", "title": "Описать ручку в OpenAPI",
+      "summary": "Дописать контракт для ручки без описания: параметры, ответы, ошибки, пример.",
+      "steps": ["Сверить реальные ответы ручки", "Описать схему в openapi.yaml", "Проверить линтером спецификаций"],
+      "done": "Контракт в MR, линтер спецификаций без ошибок.",
+      "difficulty": 1, "tags": ["review", "testing"], "popularity": 18, "estimate_hours": 2, "knowledge": "code-review.md"
+    },
+    {
+      "id": "be-12", "team": "backend", "title": "Ускорить сборку Docker-образа",
+      "summary": "Многоступенчатая сборка и кэш зависимостей, чтобы CI собирал образ быстрее.",
+      "steps": ["Замерить текущее время сборки", "Разделить сборку на стадии и вынести go mod download", "Сравнить время и размер образа"],
+      "done": "Сборка в CI быстрее, замеры в описании MR.",
+      "difficulty": 3, "tags": ["docker", "ci", "linux"], "popularity": 7, "estimate_hours": 4, "knowledge": "tools.md"
+    },
+    {
+      "id": "fe-01", "team": "frontend", "title": "Запустить фронтенд локально и прогнать тесты",
+      "summary": "Установить зависимости, поднять дев-сервер с моками API и пройти тесты.",
+      "steps": ["Установить Node нужной версии", "npm ci и npm run dev", "npm test — всё зелёное"],
+      "done": "Приложение открывается локально, тесты проходят.",
+      "difficulty": 1, "tags": ["typescript", "testing", "ci"], "popularity": 27, "estimate_hours": 2, "knowledge": "frontend.md"
+    },
+    {
+      "id": "fe-02", "team": "frontend", "title": "Компонент пустого состояния",
+      "summary": "Сделать переиспользуемый компонент «пусто» с иконкой, текстом и действием, заменить им три самописных.",
+      "steps": ["Собрать варианты из макетов", "Сделать компонент с тестами", "Заменить старые реализации"],
+      "done": "Компонент в дизайн-системе, три экрана используют его.",
+      "difficulty": 2, "tags": ["react", "typescript", "testing", "review"], "popularity": 16, "estimate_hours": 5, "knowledge": "frontend.md"
+    },
+    {
+      "id": "fe-03", "team": "frontend", "title": "Доступность формы: метки и фокус",
+      "summary": "Пройти форму с клавиатуры и скринридером, починить метки, порядок фокуса и сообщения об ошибках.",
+      "steps": ["Проверить форму с клавиатуры", "Добавить label и aria-describedby для ошибок", "Добавить тест на доступные имена"],
+      "done": "Форма проходится с клавиатуры, ошибки озвучиваются.",
+      "difficulty": 2, "tags": ["react", "a11y", "testing"], "popularity": 12, "estimate_hours": 4, "knowledge": "frontend.md"
+    },
+    {
+      "id": "fe-04", "team": "frontend", "title": "Типизировать ответ API через схему",
+      "summary": "Заменить any в клиенте API на схему с проверкой ответа и понятной ошибкой при несовпадении.",
+      "steps": ["Описать схему ответа", "Проверять ответ в клиенте", "Покрыть тестом битый ответ"],
+      "done": "В клиенте нет any, битый ответ даёт понятную ошибку.",
+      "difficulty": 3, "tags": ["typescript", "testing", "review"], "popularity": 9, "estimate_hours": 5, "knowledge": "frontend.md"
+    },
+    {
+      "id": "fe-05", "team": "frontend", "title": "Ускорить первую загрузку страницы",
+      "summary": "Разделить бандл, отложить тяжёлые компоненты и замерить Web Vitals до и после.",
+      "steps": ["Снять замеры Lighthouse", "Вынести тяжёлое в ленивую загрузку", "Сравнить метрики"],
+      "done": "LCP улучшился, замеры в MR.",
+      "difficulty": 4, "tags": ["react", "metrics", "ci"], "popularity": 5, "estimate_hours": 8, "knowledge": "frontend.md"
+    },
+    {
+      "id": "fe-06", "team": "frontend", "title": "Сделать ревью MR коллеги",
+      "summary": "Пройти чужой MR по чек-листу ревью и оставить полезные комментарии.",
+      "steps": ["Прочитать MR целиком", "Пройтись по чек-листу", "Оставить комментарии и обсудить спорное"],
+      "done": "Не меньше трёх содержательных комментариев.",
+      "difficulty": 2, "tags": ["review", "react"], "popularity": 21, "estimate_hours": 2, "knowledge": "frontend.md"
+    }
+  ],
+  "profiles": {
+    "intern-1": {"go": 2, "sql": 1, "docker": 1, "testing": 1},
+    "intern-3": {"go": 1, "linux": 2},
+    "intern-2": {"typescript": 2, "react": 2, "testing": 1}
+  }
+}

@@ -41,7 +41,7 @@ function stepClass(it: ChecklistItem, nextStep: string) {
 }
 
 /** withActions — показывать «Мои заявки» под планом (в оболочке заявки живут в отдельном разделе). */
-export function ProgressPanel({ withActions = true }: { withActions?: boolean }) {
+export function ProgressPanel({ withActions = true, onOpenStep }: { withActions?: boolean; onOpenStep?: (id: string) => void }) {
   const user = useChatStore((s) => s.user);
   const qc = useQueryClient();
   const { data, isLoading, isError, refetch } = useQuery({
@@ -95,7 +95,14 @@ export function ProgressPanel({ withActions = true }: { withActions?: boolean })
             <ul className="steps">
               {g.items.map((it) => (
                 <li key={it.id} className={stepClass(it, data.next_step)}>
-                  <span className="step__title">{it.title}</span>
+                  <button
+                    type="button"
+                    className="step__title step__title--link"
+                    onClick={() => onOpenStep?.(it.id)}
+                    aria-label={`Подробнее: ${it.title}`}
+                  >
+                    {it.title}
+                  </button>
                   {!it.done && it.status === 'waiting' && (
                     <span
                       className="badge badge--pending"

@@ -1,4 +1,4 @@
-import { screen, waitFor } from '@testing-library/react';
+import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { actionTitle, decisionComment, MyActions } from './MyActions';
 import { mockFetch, renderWithQuery } from '../../test/utils';
@@ -64,13 +64,45 @@ describe('MyActions', () => {
     });
   });
 
-  it('черновик можно удалить: вызывается cancel на сервере', async () => {
+  it('отменённые заявки и черновики не попадают в «Отправленные» — отдельный приглушённый блок', async () => {
+    const cancelledDraft = { ...draft, id: 'ABS-000009', status: 'cancelled' };
+    mockFetch([{ match: '/api/v1/actions', body: [pending, cancelledDraft] }]);
+    renderWithQuery(<MyActions />);
+    const sent = await screen.findByLabelText('Отправленные');
+    expect(sent).toHaveTextContent('ABS-000002');
+    expect(sent).not.toHaveTextContent('ABS-000009');
+    const cancelled = screen.getByLabelText('Отменённые');
+    expect(cancelled).toHaveClass('block--muted');
+    expect(cancelled).toHaveTextContent('ABS-000009');
+    expect(cancelled).toHaveTextContent('отменена');
+    // у отменённых нет кнопок действий
+    expect(within(cancelled).queryByRole('button')).not.toBeInTheDocument();
+  });
+
+  it('только отменённые — блока «Отправленные» нет', async () => {
+    mockFetch([{ match: '/api/v1/actions', body: [{ ...draft, status: 'cancelled' }] }]);
+    renderWithQuery(<MyActions />);
+    expect(await screen.findByLabelText('Отменённые')).toBeInTheDocument();
+    expect(screen.queryByLabelText('Отправленные')).not.toBeInTheDocument();
+  });
+
+  it('кнопки честно называются «Отменить черновик» / «Отменить заявку» — без «Удалить»', async () => {
+    mockFetch([{ match: '/api/v1/actions', body: [pending, draft] }]);
+    renderWithQuery(<MyActions />);
+    expect(await screen.findByRole('button', { name: 'Отменить черновик ABS-000003' })).toHaveTextContent(
+      'Отменить черновик',
+    );
+    expect(screen.getByRole('button', { name: 'Отменить заявку ABS-000002' })).toHaveTextContent('Отменить заявку');
+    expect(screen.queryByText(/Удалить/)).not.toBeInTheDocument();
+  });
+
+  it('черновик можно отменить: вызывается cancel на сервере', async () => {
     const spy = mockFetch([
       { match: '/api/v1/actions', body: [draft] },
       { method: 'POST', match: '/api/v1/actions/ABS-000003/cancel', body: { ...draft, status: 'cancelled' } },
     ]);
     renderWithQuery(<MyActions />);
-    await userEvent.click(await screen.findByRole('button', { name: 'Удалить черновик ABS-000003' }));
+    await userEvent.click(await screen.findByRole('button', { name: 'Отменить черновик ABS-000003' }));
     await waitFor(() => expect(spy.mock.calls.some(([u]) => String(u).endsWith('/ABS-000003/cancel'))).toBe(true));
   });
 
@@ -106,5 +138,31 @@ describe('MyActions', () => {
     mockFetch([{ match: '/api/v1/actions', body: null }]);
     const { container } = renderWithQuery(<MyActions />);
     await waitFor(() => expect(container).toBeEmptyDOMElement());
+  });
+
+  it('ошибка загрузки заявок не маскируется под пустой список и допускает повтор', async () => {
+    const spy = mockFetch([
+      { match: '/api/v1/actions', status: 500, body: { error: { code: 'internal', message: 'Сервер недоступен' } } },
+    ]);
+    renderWithQuery(<MyActions />);
+    expect(await screen.findByText('Не удалось загрузить заявки.')).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'Повторить' }));
+    await waitFor(() => expect(spy).toHaveBeenCalledTimes(2));
+  });
+
+  it('429 при подтверждении черновика показывает серверную ошибку, не объявляя заявку отправленной', async () => {
+    mockFetch([
+      { match: '/api/v1/actions', body: [draft] },
+      {
+        method: 'POST',
+        match: '/api/v1/actions/ABS-000003/confirm',
+        status: 429,
+        body: { error: { code: 'rate_limited', message: 'Слишком много запросов, попробуйте позже' } },
+      },
+    ]);
+    renderWithQuery(<MyActions />);
+    await userEvent.click(await screen.findByRole('button', { name: 'Отправить заявку ABS-000003' }));
+    expect(await screen.findByRole('alert')).toHaveTextContent('Слишком много запросов, попробуйте позже');
+    expect(screen.getByLabelText('Ждут вашего подтверждения')).toHaveTextContent('ABS-000003');
   });
 });

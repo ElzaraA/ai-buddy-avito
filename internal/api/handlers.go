@@ -11,7 +11,9 @@ import (
 	"github.com/ElzaraA/ai-buddy-avito/internal/agent"
 	"github.com/ElzaraA/ai-buddy-avito/internal/auth"
 	"github.com/ElzaraA/ai-buddy-avito/internal/metrics"
+	"github.com/ElzaraA/ai-buddy-avito/internal/rag"
 	"github.com/ElzaraA/ai-buddy-avito/internal/store"
+	"github.com/ElzaraA/ai-buddy-avito/internal/tasks"
 	"github.com/go-chi/chi/v5"
 )
 
@@ -30,6 +32,13 @@ type Handlers struct {
 	Now func() time.Time
 	// ReminderLead — за сколько до встречи напоминать в чате (0 — DefaultReminderLead).
 	ReminderLead time.Duration
+	// DemoMode — DEMO_MODE=true: доступен POST /api/v1/demo/reset. LLMMock — отвечает mock-модель.
+	DemoMode bool
+	LLMMock  bool
+	// Tasks — задачи адаптации и рекомендации (nil — каталог не загружен, API отвечает 503).
+	Tasks *tasks.Service
+	// Knowledge — просмотр базы знаний с теми же правами, что у поиска (nil — 503).
+	Knowledge *rag.Library
 }
 
 type askReq struct {
@@ -84,22 +93,33 @@ func observe(m *metrics.Registry, st *store.Store, u auth.User, question string,
 	if u.Role == auth.RoleIntern {
 		outcome := outcomeOf(resp)
 		st.RecordQuestion(u.TeamID, u.ID, outcome)
-		if outcome == store.OutcomeClosed {
+		if isClosed(outcome) {
 			m.Inc("buddy_questions_closed_total", "Вопросы стажёров, закрытые Бадди без наставника")
 		}
 	}
 }
 
-// outcomeOf — чем закончился вопрос стажёра: закрыт Бадди, передан наставнику или отказ.
+// outcomeOf — чем закончился вопрос стажёра. Честный учёт «Сэкономлено наставнику»: закрытым считается
+// только ответ по базе знаний с источником и объяснение термина из словаря. Меню, small talk, просмотр
+// чек-листа и черновики нейтральны (черновик засчитается при подтверждении — см. ConfirmAction).
 func outcomeOf(resp agent.Response) string {
 	switch {
 	case resp.Signal != "":
 		return store.OutcomeSignal
-	case resp.Type == "answer" || resp.Type == "action" || resp.Type == "draft":
-		return store.OutcomeClosed
-	default:
+	case resp.Kind == agent.KindGlossary:
+		return store.OutcomeGlossary
+	case resp.Type == "answer" && len(resp.Sources) > 0:
+		return store.OutcomeKB
+	case resp.Type == "refusal":
 		return store.OutcomeRefusal
+	default:
+		return store.OutcomeNeutral
 	}
+}
+
+// isClosed — исход, который засчитывается в «Сэкономлено наставнику».
+func isClosed(outcome string) bool {
+	return outcome == store.OutcomeKB || outcome == store.OutcomeGlossary
 }
 
 // saveSignal сохраняет сообщение стажёра наставнику и дописывает его номер в ответ.

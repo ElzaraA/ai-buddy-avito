@@ -36,10 +36,52 @@ describe('TeamPanel', () => {
     renderWithQuery(<TeamPanel role="buddy" />);
     expect(await screen.findByText('не работает VPN')).toBeInTheDocument();
     expect(screen.getByText('Стажёры просят помощи')).toBeInTheDocument();
-    await userEvent.click(screen.getByRole('button', { name: 'Отметить SIG-000001 разобранным' }));
-    await waitFor(() =>
-      expect(spy.mock.calls.some(([u]) => String(u).endsWith('/api/v1/team/signals/SIG-000001/resolve'))).toBe(true),
-    );
+    // голого «Разобрано» больше нет — закрываем без ответа: тело запроса пустое
+    expect(screen.queryByRole('button', { name: /разобранным/ })).not.toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'Ответить и закрыть SIG-000001' }));
+    await waitFor(() => {
+      const call = spy.mock.calls.find(([u]) => String(u).endsWith('/api/v1/team/signals/SIG-000001/resolve'));
+      expect(call).toBeDefined();
+      expect(JSON.parse(String(call![1]?.body))).toEqual({});
+    });
+  });
+
+  it('наставник отвечает стажёру inline: ответ уходит в теле resolve, закрытый сигнал показывает ответ', async () => {
+    const spy = mockFetch([
+      ...base,
+      { match: '/api/v1/team/actions?status=pending', body: [] },
+      {
+        match: '/api/v1/team/signals',
+        body: [
+          { id: 'SIG-000001', user_id: 'intern-1', text: 'не работает VPN', topic: 'tech', done: false },
+          {
+            id: 'SIG-000002',
+            user_id: 'intern-3',
+            text: 'где Playbook?',
+            topic: 'unclear',
+            done: true,
+            reply: 'В Confluence, раздел Onboarding',
+            resolved_by: 'mentor-1',
+            resolved_at: '2026-11-15T10:00:00Z',
+          },
+        ],
+      },
+      { method: 'POST', match: '/api/v1/team/signals/SIG-000001/resolve', body: { ok: true } },
+    ]);
+    renderWithQuery(<TeamPanel role="buddy" />);
+    const input = await screen.findByRole('textbox', { name: 'Ответ стажёру на SIG-000001 (необязательно)' });
+    expect(input).toHaveAttribute('placeholder', 'Ответ стажёру (необязательно)');
+    expect(input).toHaveAttribute('maxlength', '500');
+    // у закрытого сигнала поля нет, виден ответ
+    expect(screen.queryByRole('textbox', { name: /SIG-000002/ })).not.toBeInTheDocument();
+    expect(screen.getByText('В Confluence, раздел Onboarding')).toBeInTheDocument();
+
+    await userEvent.type(input, '  Перезапусти клиент VPN  ');
+    await userEvent.click(screen.getByRole('button', { name: 'Ответить и закрыть SIG-000001' }));
+    await waitFor(() => {
+      const call = spy.mock.calls.find(([u]) => String(u).endsWith('/SIG-000001/resolve'));
+      expect(JSON.parse(String(call![1]?.body))).toEqual({ reply: 'Перезапусти клиент VPN' });
+    });
   });
 
   it('руководитель видит заявки, прогресс стажёров и пробелы базы; согласует с комментарием', async () => {

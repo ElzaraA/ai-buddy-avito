@@ -3,6 +3,7 @@ package api
 import (
 	"log/slog"
 	"net/http"
+	"path/filepath"
 	"time"
 
 	"github.com/ElzaraA/ai-buddy-avito/internal/agent"
@@ -10,7 +11,9 @@ import (
 	"github.com/ElzaraA/ai-buddy-avito/internal/llm"
 	"github.com/ElzaraA/ai-buddy-avito/internal/metrics"
 	"github.com/ElzaraA/ai-buddy-avito/internal/rag"
+	"github.com/ElzaraA/ai-buddy-avito/internal/recsys"
 	"github.com/ElzaraA/ai-buddy-avito/internal/store"
+	"github.com/ElzaraA/ai-buddy-avito/internal/tasks"
 	"github.com/ElzaraA/ai-buddy-avito/internal/tools"
 )
 
@@ -78,6 +81,8 @@ func Build(cfg config.Config, knowledgeDir string) (*App, error) {
 	if err != nil {
 		return nil, err
 	}
+	// «Сегодня» для дат и «Пульса» — по поясу продукта (TZ_NAME, по умолчанию Europe/Moscow).
+	store.SetLocation(cfg.TZName)
 	st := store.New()
 	msgs := store.NewMessageStore()
 
@@ -100,10 +105,15 @@ func Build(cfg config.Config, knowledgeDir string) (*App, error) {
 	reg.Register(&tools.ScheduleGet{S: st})
 	reg.Register(&tools.ScheduleAdd{S: st, Lead: time.Duration(cfg.ReminderLeadMin) * time.Minute})
 
+	taskSvc := loadTasks(cfg, knowledgeDir, st)
+	if taskSvc != nil {
+		reg.Register(&tools.TasksRecommend{Svc: taskSvc})
+	}
+
 	m := metrics.New()
 	m.Add("buddy_knowledge_chunks", "Фрагментов в базе знаний", float64(len(chunks)))
 
-	ag := &agent.Agent{LLM: NewLLM(cfg), Index: rag.NewIndex(chunks), Tools: reg, Now: time.Now}
+	ag := &agent.Agent{LLM: NewLLM(cfg), Index: rag.NewIndex(chunks), Tools: reg, Now: store.Now, AccessStatus: st.AccessStatus}
 	if !cfg.LLMMock && cfg.LLMFallback {
 		// Реальная модель недоступна → отвечает детерминированная резервная, ответ помечается degraded.
 		ag.Fallback = llm.MockClient{}
@@ -123,6 +133,35 @@ func Build(cfg config.Config, knowledgeDir string) (*App, error) {
 		Limiter:      NewRateLimiter(cfg.RateLimitPerMin, time.Minute),
 		WriteLimiter: NewRateLimiter(cfg.RateLimitPerMin, time.Minute),
 		ReminderLead: time.Duration(cfg.ReminderLeadMin) * time.Minute,
+		DemoMode:     cfg.DemoMode,
+		LLMMock:      cfg.LLMMock,
+		Tasks:        taskSvc,
+		Knowledge:    rag.NewLibrary(chunks, knowledgeDir),
 	}
 	return &App{Handler: NewRouterWithOrigins(h, origins), Persister: persister, Metrics: m, Store: st}, nil
+}
+
+// loadTasks — каталог задач и модель рекомендаций. Нет каталога — раздел задач выключен (API 503),
+// нет весов модели — рекомендации по прозрачному правилу (source=rule_based). Сервер стартует в любом случае.
+func loadTasks(cfg config.Config, knowledgeDir string, st *store.Store) *tasks.Service {
+	dataDir := filepath.Dir(filepath.Clean(knowledgeDir))
+	catalogPath := cfg.TasksFile
+	if catalogPath == "" {
+		catalogPath = filepath.Join(dataDir, "tasks", "catalog.json")
+	}
+	catalog, err := tasks.LoadCatalog(catalogPath)
+	if err != nil {
+		slog.Error("task catalog not loaded, tasks API disabled", "path", catalogPath, "err", err)
+		return nil
+	}
+	modelPath := cfg.RecsysModel
+	if modelPath == "" {
+		modelPath = filepath.Join(dataDir, "recsys", "model.json")
+	}
+	model, err := recsys.Load(modelPath)
+	if err != nil {
+		slog.Warn("recsys model not loaded, using rule-based ranking", "path", modelPath, "err", err)
+		model = nil
+	}
+	return &tasks.Service{Catalog: catalog, Model: model, Store: st}
 }

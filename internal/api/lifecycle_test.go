@@ -149,24 +149,58 @@ func stepStatus(t *testing.T, srv *httptest.Server, user, stepID string) (status
 	return
 }
 
-// S2: заявка на доступ двигает шаг чек-листа: отправлена → waiting, одобрена → done, отклонена → todo.
+// accessStep — прогресс составного шага «Получить доступы».
+func accessStep(t *testing.T, srv *httptest.Server, user, stepID string) (subDone, subTotal int, missing []string) {
+	t.Helper()
+	_, raw := call(t, "GET", srv.URL+"/api/v1/onboarding/progress", user, nil)
+	var p struct {
+		Items []struct {
+			ID       string   `json:"id"`
+			SubDone  *int     `json:"sub_done"`
+			SubTotal int      `json:"sub_total"`
+			Missing  []string `json:"missing"`
+		} `json:"items"`
+	}
+	_ = json.Unmarshal(raw, &p)
+	for _, it := range p.Items {
+		if it.ID == stepID {
+			if it.SubDone == nil {
+				t.Fatalf("sub_done missing: %s", raw)
+			}
+			return *it.SubDone, it.SubTotal, it.Missing
+		}
+	}
+	t.Fatalf("step %s not found in %s", stepID, raw)
+	return
+}
+
+// S2: заявки на доступ двигают шаг «Получить доступы (Git, Jira, Grafana)». Шаг закрывается, только когда
+// одобрены ВСЕ три системы; пока чего-то не хватает — todo с прогрессом sub_done/sub_total и списком missing;
+// всё запрошено и ждёт решения — waiting; отклонённая заявка возвращает систему в missing.
 func TestAccessRequestDrivesChecklistStep(t *testing.T) {
 	srv := newChatServer(t)
 	const step = "c2-intern-1"
 	if st, _, pct := stepStatus(t, srv, "intern.backend", step); st != "todo" || pct != 25 {
 		t.Fatalf("initial: %s %d", st, pct)
 	}
+	if d, total, miss := accessStep(t, srv, "intern.backend", step); d != 0 || total != 3 || len(miss) != 3 {
+		t.Fatalf("initial sub: %d/%d %v", d, total, miss)
+	}
 	a := newDraft(t, srv, "intern.backend", map[string]string{"type": "access", "resource": "gitlab"})
 	if st, _, _ := stepStatus(t, srv, "intern.backend", step); st != "todo" {
 		t.Fatalf("draft must not move step: %s", st)
 	}
 	post(t, srv, "/api/v1/actions/"+a.ID+"/confirm", "intern.backend", nil)
-	if st, id, _ := stepStatus(t, srv, "intern.backend", step); st != "waiting" || id != a.ID {
+	// GitLab ждёт, Jira и Grafana ещё не запрошены — стажёру есть что сделать: todo.
+	if st, id, _ := stepStatus(t, srv, "intern.backend", step); st != "todo" || id != a.ID {
 		t.Fatalf("after confirm: %s %s", st, id)
 	}
-	// Стажёр не закрывает ждущий шаг в обход руководителя.
+	if _, _, miss := accessStep(t, srv, "intern.backend", step); strings.Join(miss, ",") != "jira,grafana" {
+		t.Fatalf("missing after gitlab request: %v", miss)
+	}
+	// Стажёр не закрывает шаг доступа в обход руководителя.
 	if res, _ := call(t, "PATCH", srv.URL+"/api/v1/onboarding/steps/"+step, "intern.backend", nil); res.StatusCode != 409 {
-		t.Fatalf("manual close of waiting step: want 409, got %d", res.StatusCode)
+		t.Fatalf("manual close of access step: want 409, got %d", res.StatusCode)
 	}
 	post(t, srv, "/api/v1/actions/"+a.ID+"/reject", "lead.backend", nil)
 	if st, id, _ := stepStatus(t, srv, "intern.backend", step); st != "todo" || id != "" {
@@ -176,8 +210,35 @@ func TestAccessRequestDrivesChecklistStep(t *testing.T) {
 	b := newDraft(t, srv, "intern.backend", map[string]string{"type": "access", "resource": "gitlab"})
 	post(t, srv, "/api/v1/actions/"+b.ID+"/confirm", "intern.backend", nil)
 	post(t, srv, "/api/v1/actions/"+b.ID+"/approve", "lead.backend", nil)
+	// Жюри: одного GitLab мало — шаг не закрывается, прогресс 1 из 3.
+	if st, _, pct := stepStatus(t, srv, "intern.backend", step); st != "todo" || pct != 25 {
+		t.Fatalf("after gitlab approve: %s %d", st, pct)
+	}
+	if d, _, miss := accessStep(t, srv, "intern.backend", step); d != 1 || strings.Join(miss, ",") != "jira,grafana" {
+		t.Fatalf("sub after gitlab approve: %d %v", d, miss)
+	}
+	// Следующий шаг в чате называет недостающие системы.
+	_, raw := call(t, "POST", srv.URL+"/api/ask", "intern.backend", map[string]string{"question": "Что мне делать дальше?"})
+	if !strings.Contains(string(raw), "Осталось запросить доступ: Jira, Grafana") || strings.Contains(string(raw), "Запроси доступ в GitLab") {
+		t.Fatalf("next step must name missing systems and not suggest GitLab: %s", raw)
+	}
+	var ids []string
+	for _, res := range []string{"jira", "grafana"} {
+		d := newDraft(t, srv, "intern.backend", map[string]string{"type": "access", "resource": res})
+		post(t, srv, "/api/v1/actions/"+d.ID+"/confirm", "intern.backend", nil)
+		ids = append(ids, d.ID)
+	}
+	if st, _, _ := stepStatus(t, srv, "intern.backend", step); st != "waiting" {
+		t.Fatalf("all requested: want waiting, got %s", st)
+	}
+	for _, id := range ids {
+		post(t, srv, "/api/v1/actions/"+id+"/approve", "lead.backend", nil)
+	}
 	if st, _, pct := stepStatus(t, srv, "intern.backend", step); st != "done" || pct != 50 {
-		t.Fatalf("after approve: %s %d", st, pct)
+		t.Fatalf("after all approved: %s %d", st, pct)
+	}
+	if d, total, miss := accessStep(t, srv, "intern.backend", step); d != 3 || total != 3 || len(miss) != 0 {
+		t.Fatalf("sub after all approved: %d/%d %v", d, total, miss)
 	}
 	// Отгул чек-лист не трогает.
 	c := newDraft(t, srv, "intern.backend", absenceBody)

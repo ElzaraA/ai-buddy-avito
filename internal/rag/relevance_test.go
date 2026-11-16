@@ -118,6 +118,35 @@ func TestStemmingAndSynonyms(t *testing.T) {
 	}
 }
 
+// Жюри: «как оформить командировку?» находило фрагмент про доступ к Jira — «командировку» ~ «команда»
+// по пяти общим буквам. Общий префикс теперь засчитывается, только если хвост основы короткий.
+func TestOffTopicPrefixDoesNotMatch(t *testing.T) {
+	for _, p := range [][2]string{{"командировку", "команды"}, {"командировка", "команде"}, {"командировочные", "командой"}} {
+		if termMatch(p[0], p[1]) {
+			t.Fatalf("%s must not match %s", p[0], p[1])
+		}
+	}
+	for _, p := range [][2]string{{"доступы", "доступа"}, {"наставником", "наставник"}, {"оформить", "оформление"}} {
+		if !termMatch(p[0], p[1]) {
+			t.Fatalf("%s must match %s", p[0], p[1])
+		}
+	}
+	chunks, err := LoadDir("../../data/knowledge")
+	if err != nil {
+		t.Fatal(err)
+	}
+	idx := NewIndex(chunks)
+	for _, q := range []string{"как оформить командировку?", "Как подключить ДМС?", "Где парковка у офиса?",
+		"Как оформить отпуск по уходу за ребёнком?", "Компенсируют ли переезд?"} {
+		if hits := idx.Search(q, "backend", "intern", 4); len(hits) != 0 {
+			t.Fatalf("%q must not match, got %s", q, hits[0].Chunk.Title)
+		}
+	}
+	if hits := idx.Search("Как получить доступ к Jira?", "backend", "intern", 4); len(hits) == 0 {
+		t.Fatal("on-topic question must still match")
+	}
+}
+
 func TestTermsFilter(t *testing.T) {
 	got := terms("Хочу в пятницу 2026 отгул, ё-моё")
 	// «ё» — буква, а не разделитель, и приводится к «е»: «моё» → «мое».
