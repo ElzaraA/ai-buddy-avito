@@ -799,3 +799,116 @@ ul, ol { list-style: none; margin: 0; padding: 0; }
 @media (max-width: 520px) {
   .meeting-form { grid-template-columns: 1fr; }
 }
+
+/* ---------- Phase 2: задачи, рекомендации, база знаний, история, заявки, вход, карточка стажёра ---------- */
+.desk-card--peach { background: var(--peach); }
+.back-link { display: inline-block; margin-bottom: 12px; }
+.filters { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 14px; }
+a.filter { text-decoration: none; display: inline-block; }
+.block__subtitle { font-size: 14px; font-weight: 600; margin: 16px 0 8px; }
+.note--risk { border-left: 3px solid var(--stop); background: var(--stop-soft); }
+.signout { margin-top: 8px; }
+.actions-new { margin-bottom: 18px; }
+.actions-new a, .task__links a { text-decoration: none; }
+
+/* рекомендации: место, объяснение «почему», оценка модели */
+.rec-list { list-style: none; display: flex; flex-direction: column; gap: 10px; margin: 0 0 8px; padding: 0; }
+.rec {
+  display: grid; grid-template-columns: 34px 1fr auto; gap: 12px; align-items: start;
+  padding: 14px 16px; border-radius: var(--r-md); background: var(--peach); box-shadow: var(--shadow-sm);
+}
+.rec__rank {
+  display: inline-flex; align-items: center; justify-content: center; width: 30px; height: 30px;
+  border-radius: 50%; background: var(--sheet); font-weight: 700;
+}
+.rec__body { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.rec__title { font-weight: 650; color: var(--ink); }
+a.rec__title:hover { text-decoration: underline; }
+.rec__summary { font-size: 14px; color: var(--ink-2); }
+.rec__why { margin: 2px 0 0; padding-left: 18px; font-size: 13px; color: var(--ink-2); }
+.rec__score { font-size: 20px; font-weight: 700; letter-spacing: -0.02em; }
+
+/* список задач */
+.task-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+.task-row {
+  display: grid; grid-template-columns: 1fr auto; gap: 2px 12px; align-items: center;
+  padding: 12px 4px; border-bottom: 1px solid var(--rule-soft);
+}
+.task-row__title { font-weight: 600; color: var(--ink); }
+a.task-row__title:hover { text-decoration: underline; }
+.task-row__meta { grid-column: 1; font-size: 13px; color: var(--ink-3); }
+.task-row .badge { grid-column: 2; grid-row: 1 / span 2; }
+.badge--task-todo { background: var(--rule-soft); color: var(--ink-2); }
+.badge--task-in_progress { background: var(--marker); color: var(--ink); }
+.badge--task-done { background: var(--go-soft); color: #22634a; }
+.badge--task-skipped { background: var(--rule-soft); color: var(--ink-3); }
+.task__summary { font-size: 15px; color: var(--ink-2); margin: 4px 0 12px; }
+.task__steps { padding-left: 20px; display: flex; flex-direction: column; gap: 4px; }
+.task__links { display: flex; flex-wrap: wrap; gap: 10px; margin: 8px 0 14px; }
+.task .chips { list-style: none; padding: 0; margin: 0 0 6px; }
+
+/* база знаний */
+.kb-search { display: flex; flex-wrap: wrap; gap: 10px; align-items: end; margin-bottom: 18px; }
+.kb-search__field { flex: 1 1 260px; }
+.kb-docs, .kb-hits { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.kb-doc, .kb-hit { padding: 12px 14px; border: 1px solid var(--rule-soft); border-radius: var(--r-md); background: var(--sheet); }
+.kb-doc__title, .kb-hit__title { font-weight: 650; color: var(--ink); }
+.kb-doc__title:hover, .kb-hit__title:hover { text-decoration: underline; }
+.kb-doc__meta { display: block; font-size: 13px; color: var(--ink-3); margin-top: 2px; }
+.kb-hit__snippet { margin: 4px 0 0; font-size: 14px; color: var(--ink-2); }
+.article__section { margin: 0 0 20px; }
+.article__section h3 { font-size: 16px; margin: 0 0 6px; }
+.article__section .chip { margin-bottom: 8px; }
+.article__section p, .article__section ul, .article__section ol { margin: 0 0 8px; max-width: 72ch; }
+.article__section ul, .article__section ol { padding-left: 20px; }
+.source--link { color: inherit; text-decoration: underline; text-underline-offset: 2px; }
+
+/* история диалогов */
+.history__list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.history__item { border: 1px solid var(--rule-soft); border-radius: var(--r-md); background: var(--sheet); }
+.history__head {
+  display: flex; flex-direction: column; gap: 2px; width: 100%; padding: 12px 14px;
+  font: inherit; text-align: left; background: none; border: 0; cursor: pointer; color: var(--ink);
+}
+.history__head:hover { background: var(--hover); }
+.history__q { font-weight: 600; }
+.history__meta { font-size: 13px; color: var(--ink-3); }
+.transcript { display: flex; flex-direction: column; gap: 10px; padding: 4px 14px 14px; }
+
+/* новая заявка */
+.request-form { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; max-width: 640px; }
+.request-form__wide { grid-column: 1 / -1; }
+.request-form .field textarea {
+  font: inherit; font-size: 14px; color: var(--ink); background: #fff; resize: vertical;
+  padding: 9px 12px; border: 1px solid var(--rule-input); border-radius: var(--r-sm);
+}
+.request-form .field textarea:focus { outline: none; border-color: var(--ink); box-shadow: 0 0 0 2px var(--ink); }
+
+/* карточка стажёра */
+.intern__link { color: var(--ink); }
+.intern__link:hover { text-decoration: underline; }
+.intern-card .summary { margin-bottom: 12px; }
+
+/* вход */
+.login { min-height: 100vh; display: grid; place-items: center; padding: 24px; background: var(--bg-grad); }
+.login__card {
+  width: min(560px, 100%); background: var(--sheet); border-radius: var(--r-xl);
+  box-shadow: var(--shadow-shell); padding: 32px;
+}
+.login__title { font-size: 28px; letter-spacing: -0.02em; margin: 20px 0 6px; }
+.login__lead { color: var(--ink-2); margin: 0 0 18px; }
+.login__list { list-style: none; margin: 0 0 12px; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.login__user {
+  display: flex; flex-direction: column; gap: 2px; width: 100%; padding: 12px 16px; text-align: left;
+  font: inherit; color: var(--ink); background: var(--side); border: 1px solid var(--rule); border-radius: var(--r-md); cursor: pointer;
+}
+.login__user:hover { border-color: var(--ink-3); background: var(--hover); }
+.login__name { font-weight: 650; }
+.login__hint { font-size: 13px; color: var(--ink-2); }
+
+@media (max-width: 640px) {
+  .request-form { grid-template-columns: 1fr; }
+  .rec { grid-template-columns: 28px 1fr; }
+  .rec__score { grid-column: 2; font-size: 16px; }
+  .login__card { padding: 22px; }
+}

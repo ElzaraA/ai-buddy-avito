@@ -262,6 +262,111 @@ export const ReminderSchema = OccurrenceSchema.extend({ text: z.string() });
 export type Reminder = z.infer<typeof ReminderSchema>;
 export const RemindersSchema = z.array(ReminderSchema).nullable().transform((v) => v ?? []);
 
+/** Задача адаптации (GET /api/v1/tasks). status — у стажёра; у наставника всегда todo. */
+export const TaskSchema = z.object({
+  id: z.string(),
+  team: z.string().default(''),
+  title: z.string(),
+  summary: z.string().default(''),
+  steps: z.array(z.string()).nullable().transform((v) => v ?? []).default([]),
+  definition_of_done: z.string().default(''),
+  difficulty: z.number().default(1),
+  tags: z.array(z.string()).nullable().transform((v) => v ?? []).default([]),
+  popularity: z.number().default(0),
+  estimate_hours: z.number().default(0),
+  knowledge: z.string().optional(),
+  status: z.enum(['todo', 'in_progress', 'done', 'skipped']).catch('todo'),
+  started_at: z.string().optional(),
+  done_at: z.string().optional(),
+});
+export type Task = z.infer<typeof TaskSchema>;
+export const TasksSchema = z.array(TaskSchema).nullable().transform((v) => v ?? []);
+
+/** GET /api/v1/recommendations — следующие задачи от модели (или правила, если модели нет). */
+export const RecommendationSchema = TaskSchema.extend({
+  score: z.number().default(0),
+  reasons: z.array(z.string()).nullable().transform((v) => v ?? []).default([]),
+});
+export type Recommendation = z.infer<typeof RecommendationSchema>;
+export const RecommendationsSchema = z.object({
+  source: z.enum(['model', 'rule_based']).catch('rule_based'),
+  model: z.string().optional(),
+  items: z.array(RecommendationSchema).nullable().transform((v) => v ?? []),
+});
+export type Recommendations = z.infer<typeof RecommendationsSchema>;
+
+/** База знаний (GET /api/v1/knowledge…): только разделы, видимые роли и команде. */
+export const KnowledgeSectionSchema = z.object({ title: z.string().default(''), stage: z.string().optional(), text: z.string() });
+export const KnowledgeDocSchema = z.object({
+  id: z.string(),
+  title: z.string(),
+  stages: z.array(z.string()).nullable().transform((v) => v ?? []).default([]),
+  disclaimer: z.string().default(''),
+  sections: z.array(KnowledgeSectionSchema).nullable().transform((v) => v ?? []).default([]),
+});
+export type KnowledgeDoc = z.infer<typeof KnowledgeDocSchema>;
+export const KnowledgeListSchema = z.object({
+  documents: z.array(KnowledgeDocSchema).nullable().transform((v) => v ?? []),
+});
+export const KnowledgeHitSchema = z.object({
+  doc_id: z.string(),
+  title: z.string().default(''),
+  section: z.string().default(''),
+  snippet: z.string().default(''),
+});
+export type KnowledgeHit = z.infer<typeof KnowledgeHitSchema>;
+export const KnowledgeSearchSchema = z.object({
+  query: z.string().default(''),
+  hits: z.array(KnowledgeHitSchema).nullable().transform((v) => v ?? []),
+});
+
+/** История диалогов (GET /api/v1/chat/sessions) и сообщения диалога. */
+export const SessionSummarySchema = z.object({
+  id: z.string(),
+  created_at: z.string().optional(),
+  last_at: z.string().optional(),
+  first_question: z.string().default(''),
+  messages: z.number().default(0),
+});
+export type SessionSummary = z.infer<typeof SessionSummarySchema>;
+export const SessionsSchema = z.array(SessionSummarySchema).nullable().transform((v) => v ?? []);
+export const StoredMessageSchema = z.object({
+  id: z.string(),
+  role: z.string(),
+  content: z.string().default(''),
+  status: z.string().default('done'),
+  result: z.string().optional(),
+  created_at: z.string().optional(),
+});
+export type StoredMessage = z.infer<typeof StoredMessageSchema>;
+export const StoredMessagesSchema = z.array(StoredMessageSchema).nullable().transform((v) => v ?? []);
+
+/** GET /api/v1/team/interns/{id} — карточка стажёра для наставника и руководителя. */
+export const InternCardSchema = z.object({
+  user: UserSchema,
+  progress: z.object({
+    items: z.array(ChecklistItemSchema).nullable().transform((v) => v ?? []),
+    next_step: z.string().default(''),
+    percent_done: z.number().default(0),
+  }),
+  pulse: InternPulseSchema.omit({ user: true }),
+  actions: ActionListSchema,
+  signals: SignalsSchema,
+  tasks: z
+    .object({
+      summary: z.object({
+        total: z.number().default(0),
+        in_progress: z.number().default(0),
+        done: z.number().default(0),
+        skipped: z.number().default(0),
+      }),
+      active: TasksSchema,
+      recommendations: RecommendationsSchema,
+    })
+    .optional(),
+});
+export type InternCard = z.infer<typeof InternCardSchema>;
+
 export const ApiErrorSchema = z.object({
   error: z.object({ code: z.string(), message: z.string() }),
 });

@@ -10,7 +10,7 @@ import { Achievements } from '../pulse/Achievements';
 import { PulseStrip } from '../pulse/PulseStrip';
 
 interface CardProps {
-  tone: 'green' | 'blue' | 'pink';
+  tone: 'green' | 'blue' | 'pink' | 'peach';
   tag: string;
   title: string;
   text: string;
@@ -49,11 +49,13 @@ const plural = (n: number, one: string, few: string, many: string) => {
 interface Props {
   onOpenPlan: () => void;
   onOpenActions: () => void;
+  /** «Следующая задача» — раздел задач с рекомендациями */
+  onOpenTasks?: () => void;
   onReport: () => void;
 }
 
 /** Три карточки рабочего стола стажёра: что делать дальше, что с заявками, куда идти, если застрял. */
-export function Desk({ onOpenPlan, onOpenActions, onReport }: Props) {
+export function Desk({ onOpenPlan, onOpenActions, onOpenTasks, onReport }: Props) {
   const user = useChatStore((s) => s.user);
   const progress = useQuery({
     queryKey: ['progress', user],
@@ -65,6 +67,13 @@ export function Desk({ onOpenPlan, onOpenActions, onReport }: Props) {
     queryFn: api.listActions,
     refetchInterval: ACTIONS_REFRESH_MS,
   });
+
+  const recs = useQuery({
+    queryKey: ['recommendations', user, 1],
+    queryFn: () => api.recommendations(1),
+    enabled: Boolean(onOpenTasks),
+  });
+  const topTask = recs.data?.items[0];
 
   const p = progress.data;
   const pct = p ? Math.round(p.percent_done ?? percentDone(p.items)) : 0;
@@ -132,6 +141,18 @@ export function Desk({ onOpenPlan, onOpenActions, onReport }: Props) {
             label={`Мои заявки: ${actionsTitle}. Открыть заявки`}
             onClick={onOpenActions}
           />
+          {onOpenTasks && (recs.isLoading || recs.data) && (
+            <DeskCard
+              tone="peach"
+              tag="Следующая задача"
+              title={recs.isLoading ? 'Подбираю задачу…' : (topTask?.title ?? 'Все задачи взяты')}
+              text={topTask?.reasons[0] ?? 'Бадди подбирает задачи по вашим навыкам'}
+              pill="Все задачи"
+              meta={topTask ? `подходит на ${Math.round(topTask.score * 100)}%` : ''}
+              label={`Следующая задача: ${topTask?.title ?? 'нет'}. Открыть задачи`}
+              onClick={onOpenTasks}
+            />
+          )}
           <DeskCard
             tone="pink"
             tag="Нужна помощь?"

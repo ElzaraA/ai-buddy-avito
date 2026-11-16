@@ -8,6 +8,8 @@ export function formatDate(iso: string | undefined): string {
 export const STAGE_LABELS: Record<string, string> = {
   week1: 'Первая неделя',
   week2: 'Вторая неделя',
+  week3: 'Третья неделя',
+  week4: 'Четвёртая неделя',
   month1: 'Первый месяц',
 };
 
@@ -40,6 +42,11 @@ const FIELD_LABELS: Record<string, string> = {
   next_meeting: 'Ближайшая',
   place: 'Где',
   upcoming: 'Дальше',
+  // ответ на «какую задачу мне взять?»
+  why: 'Почему',
+  difficulty: 'Сложность',
+  estimate: 'Оценка',
+  alternatives: 'Ещё подойдут',
   // ответ на «добавь созвон завтра в 15:00»
   duration: 'Длительность',
   reminder: 'Напомню',

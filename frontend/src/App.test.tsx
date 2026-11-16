@@ -196,14 +196,25 @@ describe('App', () => {
     expect(fetch.mock.calls.some(([url]) => String(url).endsWith('/api/v1/me'))).toBe(true);
   });
 
-  it('показывает ошибку и retry, если API не подтверждает текущего пользователя', async () => {
+  it('сервер не узнал учётку (401) — экран входа с возвратом на открытый адрес', async () => {
     window.history.replaceState(null, '', '/profile');
     mockFetch([
       { match: '/api/v1/me', status: 401, body: { error: { code: 'unauthorized', message: 'unknown user' } } },
       { match: '/api/v1/reminders', body: [] },
     ]);
     renderWithQuery(<App />);
-    expect(await screen.findByText('Не удалось загрузить текущего пользователя.')).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: 'Войти в демо' })).toBeInTheDocument();
+    await waitFor(() => expect(window.location.pathname + window.location.search).toBe('/login?next=%2Fprofile'));
+  });
+
+  it('сбой сервера при загрузке профиля — ошибка и «Повторить»', async () => {
+    window.history.replaceState(null, '', '/profile');
+    mockFetch([
+      { match: '/api/v1/me', status: 500, body: {} },
+      { match: '/api/v1/reminders', body: [] },
+    ]);
+    renderWithQuery(<App />);
+    expect(await screen.findByText('Не удалось загрузить текущего пользователя.', {}, { timeout: 4000 })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Повторить' })).toBeInTheDocument();
   });
 
@@ -243,5 +254,84 @@ describe('App', () => {
     expect(await screen.findByRole('heading', { name: 'Получить доступы' })).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Отметить выполненным' })).not.toBeInTheDocument();
     expect(screen.getByText(/после решения по заявке/)).toBeInTheDocument();
+  });
+
+  it('без входа — экран входа, после выбора учётки открывается запрошенный адрес', async () => {
+    useChatStore.setState({ signedIn: false });
+    window.history.replaceState(null, '', '/knowledge');
+    mockFetch([
+      { match: '/api/v1/me', body: { id: 'mentor-1', name: 'Наставник Backend', role: 'buddy', team_id: 'backend' } },
+      { match: '/api/v1/reminders', body: [] },
+      { match: '/api/v1/knowledge', body: { documents: [{ id: 'mentors.md', title: 'Оценка стажёра', stages: ['week4'] }] } },
+    ]);
+    renderWithQuery(<App />);
+    expect(await screen.findByRole('heading', { name: 'Войти в демо' })).toBeInTheDocument();
+    expect(window.location.search).toBe('?next=%2Fknowledge');
+    await userEvent.click(screen.getByRole('button', { name: /Наставник Backend/ }));
+    expect(await screen.findByRole('link', { name: 'Оценка стажёра' })).toBeInTheDocument();
+    expect(window.location.pathname).toBe('/knowledge');
+    useChatStore.getState().setUser('intern.backend');
+  });
+
+  it('роли и детальные адреса: наставнику не открыть задачи стажёра, стажёру — карточку коллеги', async () => {
+    useChatStore.getState().setUser('mentor.backend');
+    window.history.replaceState(null, '', '/tasks/be-02');
+    mockFetch([
+      { match: '/api/v1/me', body: { id: 'mentor-1', name: 'Наставник Backend', role: 'buddy', team_id: 'backend' } },
+      { match: '/api/v1/reminders', body: [] },
+    ]);
+    const first = renderWithQuery(<App />);
+    expect(await screen.findByRole('heading', { name: 'Доступ запрещён' })).toBeInTheDocument();
+    first.unmount();
+
+    useChatStore.getState().setUser('intern.backend');
+    window.history.replaceState(null, '', '/team/interns/intern-3');
+    mockFetch([
+      { match: '/api/v1/me', body: { id: 'intern-1', name: 'Стажёр Backend', role: 'intern', team_id: 'backend' } },
+      { match: '/api/v1/reminders', body: [] },
+    ]);
+    renderWithQuery(<App />);
+    expect(await screen.findByRole('heading', { name: 'Доступ запрещён' })).toBeInTheDocument();
+  });
+
+  it('переходы по ссылкам и «Назад»: задачи → задача → обратно, чат не теряется', async () => {
+    window.history.replaceState(null, '', '/tasks');
+    const task = { id: 'be-02', team: 'backend', title: 'Покрыть тестами', status: 'todo', difficulty: 2, tags: ['go'], steps: ['a'] };
+    mockFetch([
+      { match: '/api/v1/me', body: { id: 'intern-1', name: 'Стажёр Backend', role: 'intern', team_id: 'backend' } },
+      { match: '/api/v1/reminders', body: [] },
+      { match: '/api/v1/tasks', body: [task] },
+      { match: '/api/v1/tasks/be-02', body: task },
+      { match: /\/api\/v1\/recommendations/, body: { source: 'model', items: [{ ...task, score: 0.7, reasons: ['По силам'] }] } },
+    ]);
+    renderWithQuery(<App />);
+    expect(await screen.findByRole('heading', { level: 1 })).toHaveTextContent('Задачи');
+    const nav = screen.getByRole('navigation', { name: 'Разделы' });
+    expect(within(nav).getByRole('button', { name: 'Задачи' })).toHaveAttribute('aria-current', 'page');
+    await userEvent.click((await screen.findAllByRole('link', { name: 'Покрыть тестами' }))[0]);
+    expect(await screen.findByRole('heading', { level: 1 })).toHaveTextContent('Задача');
+    expect(window.location.pathname).toBe('/tasks/be-02');
+    // раздел меню остаётся подсвеченным на детальном экране
+    expect(within(nav).getByRole('button', { name: 'Задачи' })).toHaveAttribute('aria-current', 'page');
+    // чат смонтирован всё время — переписка не теряется при переходах
+    expect(screen.getByLabelText('Чат с AI-buddy')).not.toBeVisible();
+
+    act(() => {
+      window.history.back();
+    });
+    await waitFor(() => expect(window.location.pathname).toBe('/tasks'));
+    expect(await screen.findByRole('heading', { level: 1 })).toHaveTextContent('Задачи');
+  });
+
+  it('«Выйти» в меню — экран входа', async () => {
+    window.history.replaceState(null, '', '/desk');
+    mockFetch([
+      { match: '/api/v1/me', body: { id: 'intern-1', name: 'Стажёр Backend', role: 'intern', team_id: 'backend' } },
+      { match: '/api/v1/reminders', body: [] },
+    ]);
+    renderWithQuery(<App />);
+    await userEvent.click(await screen.findByRole('button', { name: 'Выйти' }));
+    expect(await screen.findByRole('heading', { name: 'Войти в демо' })).toBeInTheDocument();
+    useChatStore.getState().setUser('intern.backend');
   });
 });

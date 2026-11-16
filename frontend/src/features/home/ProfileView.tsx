@@ -15,17 +15,24 @@ export function ProfileView({
   isLoading,
   isError,
   onRetry,
+  onSignOut,
 }: {
   user?: User;
   isLoading: boolean;
   isError: boolean;
   onRetry: () => void;
+  onSignOut?: () => void;
 }) {
   const login = useChatStore((state) => state.user);
   const isIntern = user?.role === 'intern';
   const progress = useQuery({
     queryKey: ['progress', login],
     queryFn: api.progress,
+    enabled: isIntern,
+  });
+  const tasks = useQuery({
+    queryKey: ['tasks', login],
+    queryFn: api.tasks,
     enabled: isIntern,
   });
   const pulse = useQuery({
@@ -77,6 +84,24 @@ export function ProfileView({
                 : 'Сегодня отметки нет'}</p>
             )}
           </section>
+          <section aria-label="Задачи адаптации">
+            <h3>Задачи</h3>
+            {tasks.isLoading ? <p className="muted">Загружаю задачи…</p> : tasks.isError ? (
+              <p className="error" role="alert">Не удалось загрузить задачи.</p>
+            ) : (
+              <p>
+                Сделано {(tasks.data ?? []).filter((t) => t.status === 'done').length} из {(tasks.data ?? []).length}, в работе{' '}
+                {(tasks.data ?? []).filter((t) => t.status === 'in_progress').length}
+              </p>
+            )}
+          </section>
+        </div>
+      )}
+      {onSignOut && (
+        <div className="form__actions">
+          <button type="button" className="btn btn--ghost" onClick={onSignOut}>
+            Выйти из демо-учётки
+          </button>
         </div>
       )}
     </section>

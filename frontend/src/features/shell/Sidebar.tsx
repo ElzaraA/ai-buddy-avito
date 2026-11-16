@@ -18,6 +18,8 @@ interface Props {
   onReport: () => void;
   /** после «Сбросить демо» — вернуться на стартовый раздел с пустым чатом */
   onDemoReset: () => void;
+  /** «Выйти» — забыть учётку и открыть экран входа */
+  onSignOut?: () => void;
 }
 
 function NavItem({
@@ -52,7 +54,7 @@ function NavItem({
   );
 }
 
-export function Sidebar({ views, view, staff, me, onNavigate, badges = {}, onWrite, onReport, onDemoReset }: Props) {
+export function Sidebar({ views, view, staff, me, onNavigate, badges = {}, onWrite, onReport, onDemoReset, onSignOut }: Props) {
   const user = useChatStore((s) => s.user);
   const setUser = useChatStore((s) => s.setUser);
   const main = views.filter((v) => v.group === 'main');
@@ -148,6 +150,11 @@ export function Sidebar({ views, view, staff, me, onNavigate, badges = {}, onWri
           </select>
         </label>
         <DemoControls onReset={onDemoReset} />
+        {onSignOut && (
+          <button type="button" className="btn btn--link signout" onClick={onSignOut}>
+            Выйти
+          </button>
+        )}
       </div>
     </aside>
   );

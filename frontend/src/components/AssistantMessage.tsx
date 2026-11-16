@@ -1,5 +1,6 @@
 import type { AgentResponse } from '../api/schemas';
 import { DraftCard } from './DraftCard';
+import { Link } from '../features/shell/Link';
 import { byFieldOrder, fieldLabel, fieldValue, hasFieldLabel } from './format';
 
 /** Упоминает ли текст отказа наставника (по фамилии — она одинакова во всех падежах кроме окончания). */
@@ -49,6 +50,12 @@ function Body({ response }: { response: AgentResponse }) {
               ))}
             </dl>
           )}
+          {/* рекомендация задачи — сразу ссылка на неё: взять в работу стажёр решает сам */}
+          {response.tool === 'tasks_recommend' && typeof data.task_id === 'string' && (
+            <Link to={`/tasks/${encodeURIComponent(data.task_id)}`} className="btn btn--ghost btn--small">
+              Открыть задачу
+            </Link>
+          )}
           <Sources response={response} />
         </div>
       );
@@ -84,7 +91,13 @@ function Sources({ response }: { response: AgentResponse }) {
       {unique.length > 1 ? 'Источники:' : 'Источник:'}{' '}
       {unique.map((s, i) => (
         <span key={s}>
-          <span className="source">{s}</span>
+          {/\.md$/.test(s) ? (
+            <Link to={`/knowledge/${encodeURIComponent(s)}`} className="source source--link">
+              {s}
+            </Link>
+          ) : (
+            <span className="source">{s}</span>
+          )}
           {i < unique.length - 1 ? ', ' : ''}
         </span>
       ))}

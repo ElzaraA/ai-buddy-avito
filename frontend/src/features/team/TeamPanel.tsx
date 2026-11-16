@@ -5,6 +5,7 @@ import type { ChecklistItem } from '../../api/schemas';
 import { useGuard } from '../../components/useGuard';
 import { useChatStore } from '../../store/chat';
 import { actionTitle } from '../progress/MyActions';
+import { Link } from '../shell/Link';
 import { TeamPulse } from './TeamPulse';
 
 /** Как часто перечитываем кабинет: новые заявки и вопросы стажёров появляются сами. */
@@ -297,7 +298,9 @@ export function TeamPanel({ role }: Props) {
             return (
               <li key={i.user.id} className="intern">
                 <div className="intern__head">
-                  <span className="intern__name">{i.user.name}</span>
+                  <Link to={`/team/interns/${encodeURIComponent(i.user.id)}`} className="intern__name intern__link">
+                    {i.user.name}
+                  </Link>
                   <span className="intern__pct">{Math.round(i.percent_done)}%</span>
                 </div>
                 {/* полоска из шагов маршрута: видно, сколько пройдено и что ждёт заявки */}

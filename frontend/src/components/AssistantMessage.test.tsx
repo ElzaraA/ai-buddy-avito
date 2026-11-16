@@ -122,3 +122,24 @@ describe('AssistantMessage', () => {
     expect(screen.queryByRole('note')).not.toBeInTheDocument();
   });
 });
+
+describe('рекомендация задачи в чате', () => {
+  it('поля с подписями и ссылка на задачу', () => {
+    renderWithQuery(
+      <AssistantMessage
+        response={{
+          type: 'action',
+          tool: 'tasks_recommend',
+          result: {
+            ok: true,
+            message: 'Советую взять: Покрыть тестами',
+            data: { task_id: 'be-02', why: 'Знакомые технологии: go', difficulty: '2 из 5', estimate: '≈ 5 ч', alternatives: 'Ревью MR', tasks: [] },
+          },
+        }}
+      />,
+    );
+    expect(screen.getByText('Почему')).toBeInTheDocument();
+    expect(screen.getByText('Ещё подойдут')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Открыть задачу' })).toHaveAttribute('href', '/tasks/be-02');
+  });
+});
